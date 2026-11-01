@@ -35,6 +35,20 @@ Instructions for AI coding agents working in this repository. Read
   log file that stops the service starting; fix with
   `chown -R caddy:caddy /var/log/caddy`.
 
+## The public snapshot
+
+`ShiunduZachariah/sokalens` is a public copy of `main`, one commit per
+refresh. This repository stays private, and its history must never be pushed
+there: it holds old server details, personal addresses and third-party data.
+
+- Publish with `scripts/public/refresh.sh` (dry run by default, `--push` to
+  publish). Never push a branch of this repository to the public one.
+- Bring a public pull request in with `scripts/public/import-pr.sh <number>`,
+  then read every line before pushing the branch: CI here runs on the
+  production host. Then open a normal PR into `qa`.
+- The public repo has Actions disabled. Never add secrets to it or enable
+  them; `ci.yml`'s deploy job would run there.
+
 ## In-play work: read the contract first
 
 In-play prediction spans the model, the worker, the API and both clients.

@@ -7,6 +7,8 @@ import { AdminTopbar } from "./AdminTopbar";
 
 type AdminShellProps = {
   children: ReactNode;
+  /** Hides the Ads entry while ADS_ENABLED is off. */
+  adsEnabled?: boolean;
 };
 
 const navigation = [
@@ -27,14 +29,15 @@ const navigation = [
   { label: "Settings", href: "/settings", short: "SE", section: "Operations" },
 ];
 
-export function AdminShell({ children }: AdminShellProps) {
+export function AdminShell({ children, adsEnabled = false }: AdminShellProps) {
   const pathname = usePathname();
+  const items = adsEnabled ? navigation : navigation.filter((item) => item.href !== "/ads");
   if (pathname === "/login") {
     return <main className="admin-auth-main">{children}</main>;
   }
   return (
     <div className="admin-shell">
-      <AdminSidebar navigation={navigation} />
+      <AdminSidebar navigation={items} />
       <div className="admin-shell__workspace">
         <AdminTopbar />
         <main className="admin-main">{children}</main>

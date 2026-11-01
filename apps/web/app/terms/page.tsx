@@ -15,7 +15,7 @@ export default function TermsPage() {
       <article className="legal-panel">
         <p className="page-kicker">Terms</p>
         <h1 className="page-title">SokaLens terms of use</h1>
-        <p>Last updated: 2026-08-24.</p>
+        <p>Last updated: 2026-11-01.</p>
         <p>
           These Terms of Use govern your access to and use of the SokaLens website
           ("SokaLens", "we", "our", or "us"). By accessing or using SokaLens, you
@@ -109,12 +109,11 @@ export default function TermsPage() {
           including any loss or damage arising from your use of the site.
         </p>
 
-        <h2>7. Advertising and analytics</h2>
+        <h2>7. Analytics</h2>
         <p>
-          The site may display third-party advertising and use privacy-conscious
-          first-party analytics, including aggregate account-registration and feature-use
-          measurements. Third-party advertisers may use cookies or similar technologies
-          as described in our Privacy Policy and Cookie Policy.
+          The site does not display advertising. It uses privacy-conscious first-party
+          analytics, including aggregate account-registration and feature-use
+          measurements, as described in our Privacy Policy and Cookie Policy.
         </p>
 
         <h2>8. Termination and changes</h2>

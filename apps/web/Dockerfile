@@ -5,8 +5,11 @@ RUN --mount=type=cache,target=/root/.npm npm ci
 COPY apps/web/ ./
 ARG NEXT_PUBLIC_SENTRY_DSN
 ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
+# Ads are hidden unless the image is built with this set to true.
+ARG NEXT_PUBLIC_ADS_ENABLED=false
 ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
 ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
+ENV NEXT_PUBLIC_ADS_ENABLED=$NEXT_PUBLIC_ADS_ENABLED
 # Persist npm's cache and Next's own build cache between builds. Without the
 # second one Next logs "No build cache found" and recompiles every route on
 # every deploy.

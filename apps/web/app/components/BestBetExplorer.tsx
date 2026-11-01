@@ -20,6 +20,7 @@ import {
   EMPTY_BEST_BET_FILTERS,
   type BestBetFilters,
 } from "../lib/bestBetFilters";
+import { ADS_ENABLED } from "../lib/adsEnabled";
 
 /**
  * Ad spec 3.1: the Best Bets in-feed unit goes after the 5th ranked row.
@@ -120,7 +121,9 @@ export function BestBetExplorer({ items }: { items: BestBetItem[] }) {
    * included -- the hero is rank 1. Later units follow the 8-row cadence of
    * section 6, so the next one lands after rank 13.
    */
-  const adPositions = feedAdPositions(rows.length + heroOffset, { firstAfterIndex: BEST_BETS_FIRST_AD_AFTER_ROW });
+  const adPositions = ADS_ENABLED
+    ? feedAdPositions(rows.length + heroOffset, { firstAfterIndex: BEST_BETS_FIRST_AD_AFTER_ROW })
+    : new Set<number>();
 
   return (
     <>

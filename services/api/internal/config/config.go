@@ -64,6 +64,7 @@ type Config struct {
 	UserSessionTTL                    time.Duration
 	AdminSessionTTL                   time.Duration
 	AdminMFAEnabled                   bool
+	AdsEnabled                        bool
 	AuthTokenTTL                      time.Duration
 	TurnstileSecretKey                string
 	TurnstileRequired                 bool
@@ -203,6 +204,7 @@ func Load(overrides map[string]string) (Config, error) {
 		UserSessionTTL:                    userSessionTTL,
 		AdminSessionTTL:                   adminSessionTTL,
 		AdminMFAEnabled:                   parseBool(value(env, "ADMIN_MFA_ENABLED", "true")),
+		AdsEnabled:                        parseBool(value(env, "ADS_ENABLED", "false")),
 		AuthTokenTTL:                      authTokenTTL,
 		TurnstileSecretKey:                env["TURNSTILE_SECRET_KEY"],
 		TurnstileRequired:                 parseBool(value(env, "TURNSTILE_REQUIRED", "false")),

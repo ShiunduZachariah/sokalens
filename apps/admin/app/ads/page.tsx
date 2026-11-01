@@ -1,8 +1,13 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 
 import { DataTable, type DataTableColumn } from "../components/DataTable";
 import { StatusBadge } from "../components/StatusBadge";
 import { adminApi } from "../data/adminApi";
+import { adsEnabled } from "../data/adsEnabled";
+
+// Read ADS_ENABLED per request, not once at build time.
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Ads | SokaLens Admin",
@@ -63,6 +68,8 @@ const providerColumns: DataTableColumn<AdProvider>[] = [
 ];
 
 export default async function Page() {
+  // Hidden while the site shows no ads; the API answers 404 here too.
+  if (!adsEnabled()) notFound();
   const response = await adminApi<{ campaigns: AdCampaign[]; providers: AdProvider[] }>("/v1/admin/ads?limit=100");
   const campaigns = response?.campaigns ?? [];
   const providers = response?.providers ?? [];

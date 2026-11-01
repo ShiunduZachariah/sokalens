@@ -168,6 +168,13 @@ three gates that run on their own:
 Operational runbooks are in [`docs/operations`](docs/operations), starting
 with [`environments.md`](docs/operations/environments.md).
 
+## Contributing
+
+Contributions are welcome. The public repository is a published snapshot of
+a private one, so pull requests are applied upstream rather than merged on
+GitHub; see
+[CONTRIBUTING.md](CONTRIBUTING.md) for how that works.
+
 ## Licence
 
 The source code is licensed under the GNU Affero General Public License

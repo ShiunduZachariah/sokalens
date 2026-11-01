@@ -93,6 +93,7 @@ services:
       USER_SESSION_TTL: ${USER_SESSION_TTL:-720h}
       ADMIN_SESSION_TTL: ${ADMIN_SESSION_TTL:-8h}
       ADMIN_MFA_ENABLED: ${ADMIN_MFA_ENABLED:-true}
+      ADS_ENABLED: ${ADS_ENABLED:-false}
       TYPESENSE_URL: ${TYPESENSE_URL:-http://typesense:8108}
       TYPESENSE_API_KEY: ${TYPESENSE_API_KEY:-local-typesense-key}
       AUTH_TOKEN_TTL: ${AUTH_TOKEN_TTL:-30m}
@@ -247,6 +248,7 @@ services:
     environment:
       ADMIN_API_BASE_URL: ${ADMIN_API_BASE_URL:-http://api:8080}
       ADMIN_API_BEARER_TOKEN: ${ADMIN_API_BEARER_TOKEN:-}
+      ADS_ENABLED: ${ADS_ENABLED:-false}
     ports:
       - "${ADMIN_BIND_ADDRESS:-127.0.0.1}:${ADMIN_PORT:-3001}:3001"
     profiles: ["frontend", "all"]

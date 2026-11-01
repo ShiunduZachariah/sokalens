@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { AdSlot } from "./AdSlot";
 import { stripLocalePrefix } from "../i18n/config";
+import { ADS_ENABLED } from "../lib/adsEnabled";
 
 /**
  * Routes that never carry the adhesion band.
@@ -35,7 +36,7 @@ const EXCLUDED_PREFIXES = ["/multi-match-builder", "/acca-generator"];
  * element, no border and no reserved height -- which is what the design's
  * "ads unfilled" boards show.
  */
-export function AdhesionSlot() {
+function EnabledAdhesionSlot() {
   const pathname = usePathname();
   const route = stripLocalePrefix(pathname);
   /*
@@ -57,4 +58,9 @@ export function AdhesionSlot() {
   }
 
   return <AdSlot format="adhesion" onDismiss={() => setDismissed(true)} placement="mobile-adhesion" />;
+}
+
+/** Renders nothing while ads are switched off; see `lib/adsEnabled`. */
+export function AdhesionSlot() {
+  return ADS_ENABLED ? <EnabledAdhesionSlot /> : null;
 }

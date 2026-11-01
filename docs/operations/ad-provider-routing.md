@@ -1,5 +1,14 @@
 # Ad provider routing
 
+> **Hidden since 2026-11-01.** The public site shows no ads, and everything
+> below is switched off by `ADS_ENABLED=false` (the default). With it off, the
+> API answers 404 on `/v1/ads/*` and `/v1/admin/ads`, `/v1/access/context`
+> reports `ads.allowed: false` with reason `ads_disabled`, and the admin hides
+> its Ads page. Restriction rules and feature flags are policy controls and
+> keep working. The web app hides its slots behind a separate build-time switch,
+> `NEXT_PUBLIC_ADS_ENABLED` (an `apps/web/Dockerfile` build argument, default
+> `false`), so restoring ads means setting both and rebuilding the web image.
+
 SokaLens assigns each eligible browser session a preferred advertising provider,
 then serves each placement through a sticky, ordered fallback chain. The initial
 assignment uses `traffic_weight`; failover uses `global_priority`. A provider

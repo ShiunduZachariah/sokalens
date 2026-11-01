@@ -53,6 +53,7 @@ type accountDependencies struct {
 	catalog              CatalogSource
 	ads                  AdsSource
 	adRouting            AdRoutingService
+	adsEnabled           bool
 	publicWebURL         string
 	secureCookies        bool
 	guestLimit           int

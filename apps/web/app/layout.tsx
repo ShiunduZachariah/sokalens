@@ -17,6 +17,7 @@ import { requestLocaleContext } from "./i18n/server";
 import { siteConfig } from "./site";
 import { buildOrganization, buildWebSiteSearch, structuredDataScript } from "./lib/structuredData";
 import "./globals.css";
+import { ADS_ENABLED } from "./lib/adsEnabled";
 
 /*
  * The refresh's two families, self-hosted by next/font at build time.
@@ -73,10 +74,15 @@ export async function generateMetadata(): Promise<Metadata> {
     robots: { follow: true, index: true },
     // AdSense site verification. Harmless alongside the loader script and
     // gives Google a second, script-independent way to confirm ownership.
-    other: {
-      "google-adsense-account": siteConfig.adsenseClientId,
-      monetag: siteConfig.monetagVerification,
-    },
+    // Omitted while ads are switched off.
+    ...(ADS_ENABLED
+      ? {
+          other: {
+            "google-adsense-account": siteConfig.adsenseClientId,
+            monetag: siteConfig.monetagVerification,
+          },
+        }
+      : {}),
   };
 }
 

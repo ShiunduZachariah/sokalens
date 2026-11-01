@@ -601,7 +601,7 @@ func New(opts ServerOptions) http.Handler {
 	if opts.OpenAPIPath == "" {
 		opts.OpenAPIPath = opts.Config.OpenAPIPath
 	}
-	accountDeps := accountDependencies{accounts: opts.Accounts, access: opts.Access, guest: opts.GuestAccess, recommendations: opts.Recommendations, billing: opts.Billing, notifications: opts.Notifications, analysis: opts.Analysis, predictions: opts.Predictions, matches: opts.Matches, catalog: opts.Catalog, ads: opts.Ads, adRouting: opts.AdRouting, publicWebURL: opts.Config.PublicWebURL, secureCookies: opts.Config.Environment == "production", guestLimit: opts.Config.GuestAnalysisViewLimit, authLimiter: newFixedWindowLimiter(10, time.Minute), verificationLimiter: newFixedWindowLimiter(2, 10*time.Minute), passwordResetLimiter: newFixedWindowLimiter(2, 10*time.Minute), shareLimiter: newFixedWindowLimiter(30, time.Minute), turnstileSecret: opts.Config.TurnstileSecretKey, turnstileRequired: opts.Config.TurnstileRequired, turnstileHostname: publicHostname(opts.Config.PublicWebURL)}
+	accountDeps := accountDependencies{accounts: opts.Accounts, access: opts.Access, guest: opts.GuestAccess, recommendations: opts.Recommendations, billing: opts.Billing, notifications: opts.Notifications, analysis: opts.Analysis, predictions: opts.Predictions, matches: opts.Matches, catalog: opts.Catalog, ads: opts.Ads, adRouting: opts.AdRouting, adsEnabled: opts.Config.AdsEnabled, publicWebURL: opts.Config.PublicWebURL, secureCookies: opts.Config.Environment == "production", guestLimit: opts.Config.GuestAnalysisViewLimit, authLimiter: newFixedWindowLimiter(10, time.Minute), verificationLimiter: newFixedWindowLimiter(2, 10*time.Minute), passwordResetLimiter: newFixedWindowLimiter(2, 10*time.Minute), shareLimiter: newFixedWindowLimiter(30, time.Minute), turnstileSecret: opts.Config.TurnstileSecretKey, turnstileRequired: opts.Config.TurnstileRequired, turnstileHostname: publicHostname(opts.Config.PublicWebURL)}
 	router := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/health", "/healthz":
@@ -727,8 +727,16 @@ func New(opts ServerOptions) http.Handler {
 		case "/v1/admin/provider-requests":
 			adminProviderRequestsHandler(opts.AdminAuth, opts.Ops)(w, r)
 		case "/v1/admin/ads":
+			if !opts.Config.AdsEnabled {
+				adsHidden(w)
+				return
+			}
 			adminAdsHandler(opts.AdminAuth, opts.Ads, opts.AdRouting)(w, r)
 		case "/v1/ads/outcomes":
+			if !opts.Config.AdsEnabled {
+				adsHidden(w)
+				return
+			}
 			accountDeps.adsOutcomeHandler()(w, r)
 		case "/v1/admin/policy/rules":
 			adminPolicyRulesHandler(opts.AdminAuth, opts.Ads)(w, r)
@@ -793,6 +801,10 @@ func New(opts ServerOptions) http.Handler {
 				return
 			}
 			if strings.HasPrefix(r.URL.Path, "/v1/ads/placements/") {
+				if !opts.Config.AdsEnabled {
+					adsHidden(w)
+					return
+				}
 				accountDeps.adsPlacementHandler()(w, r)
 				return
 			}

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AdSlot } from "./AdSlot";
 import { useAccount } from "./account/AccountContext";
+import { ADS_ENABLED } from "../lib/adsEnabled";
 
 /**
  * One in-feed advertising block: exactly one unit, the full width of the
@@ -47,7 +48,7 @@ import { useAccount } from "./account/AccountContext";
  * `700px` because the margin has to scale with the viewport -- 700px is more
  * than a viewport ahead on a phone and less than one on a desktop.
  */
-export function FeedAdBlock() {
+function EnabledFeedAdBlock() {
   const { access, status } = useAccount();
   const [nearViewport, setNearViewport] = useState(false);
   const sentinelRef = useRef<HTMLSpanElement | null>(null);
@@ -82,4 +83,9 @@ export function FeedAdBlock() {
       )}
     </div>
   );
+}
+
+/** Renders nothing while ads are switched off; see `lib/adsEnabled`. */
+export function FeedAdBlock() {
+  return ADS_ENABLED ? <EnabledFeedAdBlock /> : null;
 }

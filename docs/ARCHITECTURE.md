@@ -17,7 +17,7 @@ honest and recomputable.
 
 This paper describes the system as built in October 2026: the runtime
 components, data rules, provider ingestion, the prediction pipeline, in-play,
-the web front end, monetisation, infrastructure and delivery, observability,
+the web front end, accounts and tiers, infrastructure and delivery, observability,
 security and quality gates. It ends with risks and the roadmap. Where a design
 document and the code disagree, this paper follows the code.
 
@@ -28,13 +28,13 @@ terms, and mobile screen design.
 ## 2. Context, drivers and constraints
 
 SokaLens is a prediction media product, not a bookmaker: it publishes
-analytical picks and never takes bets. Ad networks and app stores review it on
-that basis, so the positioning shapes the architecture as much as any technical
+analytical picks and never takes bets. Search engines and app stores review it
+on that basis, so the positioning shapes the architecture as much as any technical
 requirement does.
 
 | Driver | What it means for the architecture |
 | --- | --- |
-| Ad-funded, with a paid Pro tier | Running cost must stay near one server. Every component is weighed against the budget. |
+| Self-funded, with a paid Pro tier | Running cost must stay near one server. Every component is weighed against the budget. |
 | One developer working with AI coding agents | Rules live in the repository ([`AGENTS.md`](../AGENTS.md), ADRs) and in CI checks, not in anyone's memory. Every change is a reviewed pull request. |
 | Priority markets: Kenya, Nigeria, Ghana, Uganda, South Africa, Tanzania | Mobile-first pages, server rendering, small client JavaScript, budgets set for slow 3G/4G. Most visits come from phones. |
 | Seven locales (en, es, fr, pt, ar, de, it) | Locale-prefixed routes, one i18n pipeline, strict hreflang (ADR 0006). |
@@ -43,8 +43,7 @@ requirement does.
 | Search is the main acquisition channel | URL design, sitemaps, canonicals and page lifecycle are architectural concerns, not marketing ones. |
 
 **Where it stands.** The site has been live since August 2026. In-play
-predictions are live and public. Ads serve through a multi-network router. A
-front-end redesign is in progress, and the Flutter app is a reserved folder
+predictions are live and public. A front-end redesign is in progress, and the Flutter app is a reserved folder
 with no code yet.
 
 ## 3. Architectural principles
@@ -81,9 +80,8 @@ cost data, trust or search ranking that cannot be bought back.
 9. **Full time closes every market.** A market that cannot be graded closes as
    `unsettled_data_unavailable` and is left out of accuracy figures. Nothing
    stays pending.
-10. **Policy is enforced on the server.** Tiers, restricted countries, legal
-    rules and ad behaviour are decided by the API; clients only render the
-    answer.
+10. **Policy is enforced on the server.** Tiers, restricted countries and
+    legal rules are decided by the API; clients only render the answer.
 11. **No data-provider names in customer-facing UI**, markup or image URLs.
 
 **Ways of working.** Safety comes from executable invariants, canaries,
@@ -142,8 +140,8 @@ supports releases.
 | Worker | `services/worker` | Go 1.27 | Provider ingestion and quota planning, leased job queues, engine runs, settlement, accumulator recommendations, notifications, email. | No |
 | Prediction engine | `services/prediction-engine` | Python 3, psycopg 3 | Inference for a given fixture scope and as-of time; writes versioned rows to `engine_predictions`. Started by the worker. | No |
 | Model lab | `services/model-lab` | Python | Offline training and backtesting on a historical match corpus. | No |
-| Public web | `apps/web` | Next.js 16.4, React 19.3, TypeScript 6.0 | Server-rendered public site in 7 locales, SEO metadata, structured data, ad slots. | Yes |
-| Admin | `apps/admin` | Next.js 16.4 | Content, predictions, providers, users, ad routing, read-only ops views. | Staff only |
+| Public web | `apps/web` | Next.js 16.4, React 19.3, TypeScript 6.0 | Server-rendered public site in 7 locales, SEO metadata, structured data. | Yes |
+| Admin | `apps/admin` | Next.js 16.4 | Content, predictions, providers, users, read-only ops views. | Staff only |
 | Ops controller | `services/ops-controller`, `packages/ai-contract` | Go 1.27 | Observe-only incident detection, signed alert intake, Telegram bot and digests, AI-advised diagnosis (§13). | No |
 | Sentinel | `infra/sentinel` | Cloudflare Worker | Out-of-band check of the public site and API health from outside the server. | No |
 | Release manifest | `tools/release-manifest` | Go | Builds an immutable release record: Git SHA, image digests, migration version, last-known-good release. Built and tested in CI; not yet wired into the deploy. | No |
@@ -163,11 +161,10 @@ reads only data available at that cutoff, and writes candidate rows. It never
 calls the provider. The ADR calls this a temporary exception, kept so that the
 runtime and the model never change at the same time.
 
-**Mobile plan.** The Flutter app will reuse the same REST payloads, design
-tokens and ad slot names as the web. Requirements: over-the-air updates, small
-install size, partial offline mode, low data use on 2G/3G, strong
-notifications, and a UI usable by people who read little. Ads will use AdMob
-with mediation, because the web ad networks do not serve Flutter apps.
+**Mobile plan.** The Flutter app will reuse the same REST payloads and design
+tokens as the web. Requirements: over-the-air updates, small install size,
+partial offline mode, low data use on 2G/3G, strong notifications, and a UI
+usable by people who read little.
 
 ## 6. Data architecture
 
@@ -176,7 +173,7 @@ and Typesense hold copies that can be thrown away and rebuilt.
 
 | Store | Role | Holds | If lost |
 | --- | --- | --- | --- |
-| PostgreSQL 18 | System of record (87 migrations, about 160 tables) | Fixtures, teams, leagues; odds, live and statistics snapshots; engine predictions and settlements; in-play series; users and entitlements; ad provider catalogue and outcomes; provider request ledger; ops incidents and budgets | Restore from the off-site backup |
+| PostgreSQL 18 | System of record (87 migrations, about 160 tables) | Fixtures, teams, leagues; odds, live and statistics snapshots; engine predictions and settlements; in-play series; users and entitlements; provider request ledger; ops incidents and budgets | Restore from the off-site backup |
 | Redis 8 | Cache, queue, locks | Hot read caches, job queues, distributed locks, rate-limit counters | Nothing beyond a cold cache |
 | Typesense 30.1 | Search index | Teams, leagues and fixtures | Rebuilt from PostgreSQL with `syncsearchindex`; search falls back to PostgreSQL meanwhile |
 
@@ -411,8 +408,8 @@ stale windows are short on purpose so a corrected prediction is never served
 for long. `max-age=0` keeps browsers revalidating. After each deploy, CI purges
 the cached HTML.
 
-**Components.** Shared components such as `PredictionRow`, `TeamCrest` and
-`AdSlot` render every list and slot. Team crests come only from an allowlist of
+**Components.** Shared components such as `PredictionRow` and `TeamCrest`
+render every list. Team crests come only from an allowlist of
 image hosts, served through the site's own image path, so no provider host
 appears in markup; a hashed-colour initials shield is the fallback.
 
@@ -443,54 +440,24 @@ sitemap that disagreed with the pages. The fixes are structural too:
   leagues, so indexability must be derived continuously, never maintained as a
   list.
 
-**Performance budget.** CLS under 0.1 with ads, mobile LCP within 2.5 s on
+**Performance budget.** CLS under 0.1, mobile LCP within 2.5 s on
 throttled 4G, no horizontal scroll at 320 px.
 
-## 11. Monetisation architecture
+## 11. Accounts, tiers and entitlements
 
-Revenue comes from ads and a paid tier. Both are built so the business can
-change ad network, weighting or price without a code change, and an ad that
-fails to load leaves nothing behind.
+Revenue comes from a paid tier, built so prices can change without a code
+change.
 
 **Tiers and entitlements.** Users are Anonymous, Basic (free account) or Pro,
-with prices set in admin. Best Bets requires Basic or above; Pro removes ads.
-The server decides access and sends locked content as
-`{ locked: true, preview }`; the client never filters content itself. In-play
+with prices set in admin. Best Bets requires Basic or above. The server
+decides access and sends locked content as `{ locked: true, preview }`; the client never filters content itself. In-play
 predictions are public by decision (ADR 0007), so they sit outside the tiers.
 Billing sits behind a provider interface. Webhooks are signed and idempotent,
 and a reconciliation job keeps checking that entitlements still match the
 provider (ADR 0005).
 
-**Multi-network ad routing.** Networks live in an `ad_providers` table that
-admin edits, so no network is hard-coded. Each new browser session is assigned
-a preferred network by traffic weight and remembered for 24 hours in Redis.
-Each placement then tries, in order: the active network, the original
-preference once its retry window passes, then every other healthy network by
-priority. If all of them fail, the slot renders nothing.
-
-**Safety rails.** New network rows ship disabled, so applying the migration
-cannot start a third-party script. Public configuration holds browser-safe ids
-only, never secrets, HTML or script URLs; adapters and their allowed origins
-are reviewed in code, and a network without a reviewed adapter fails closed.
-Every outcome is recorded with a signed, single-use, five-minute token
-(`NO_FILL`, `TIMEOUT`, `BLOCKED`, `INVALID_ZONE` and others). Transport
-failures open a per-network circuit breaker with a half-open probe.
-
-**Five placements, named by position, not page.** One network unit can render
-many times, so five units cover the site instead of 39:
-
-| Placement | Where | When unfilled |
-| --- | --- | --- |
-| `page-top` | Banner under every page masthead | Reserved space collapses (the only layout shift allowed) |
-| `feed-inline` | At intervals through every scrolling feed; tiles adapt to the column width | Stays zero height |
-| `page-rail` | Desktop side rail | Stays hidden |
-| `mobile-adhesion` | Fixed mobile band above the tab bar; never on the Builder | Not rendered |
-| `global-footer` | Every page, above the footer | Collapses |
-
-Ads never sit inside or over a score, a pick, a Builder ticket or the tab bar.
-
 **Compliance surfaces.** The 18+ and "not a bookmaker" treatment appears on
-every page type, and ad-network review depends on it. Sharing works without
+every page type, and app-store review depends on it. Sharing works without
 login (device share, WhatsApp, Telegram, X and others) through a bounded,
 rate-limited endpoint that records first-touch attribution.
 
@@ -682,11 +649,11 @@ ship a regression that only a careful human would have noticed.
 | --- | --- |
 | Latency | Read-heavy public API p95 under 300–500 ms; match and prediction API p95 under 500 ms; auth p95 under 700 ms; 3 s hard ceiling on any request. Checked with k6 load tests (`task load:api:slo`). |
 | Reliability | Normal-load error rate under 0.5%; client cancellations and deliberate load-shedding reported separately |
-| Front end | CLS under 0.1 with ads; mobile LCP within 2.5 s on throttled 4G; no horizontal scroll at 320 px |
+| Front end | CLS under 0.1; mobile LCP within 2.5 s on throttled 4G; no horizontal scroll at 320 px |
 | Accessibility | 4.5:1 text and 3:1 UI contrast in both themes; `aria-current`, `aria-pressed` and labelled charts |
 | Freshness (in-play) | Snapshot every 60 s of play; stale data suppressed, never extrapolated |
 | Integrity | Pre-match picks locked at kick-off; every market closed at full time; hit rate = won ÷ (won + lost) |
-| Honesty of copy | No guaranteed-outcome claims anywhere: web, mobile, API copy, notifications, ads or packaging |
+| Honesty of copy | No guaranteed-outcome claims anywhere: web, mobile, API copy, notifications or packaging |
 | Security | `security-invariants` battery; independent secret, npm and Go vulnerability scans |
 | Search | `seo-invariants` static gate on every PR, plus the deploy's own sitemap checks |
 | Delivery | Promotion gates that may widen timing but never validity; canary decisions read auth shifts, webhook failures, entitlement mismatches, 5xx and p95/p99 latency |
@@ -715,22 +682,20 @@ programmatic catalogue, and the credibility of the published record.
 | Scaled-content classification by Google | Thousands of programmatic fixture pages fit the pattern search policy targets | Fixture lifecycle archiving, one indexability function, permanent team pages, page-specific computed numbers, no shared filler prose |
 | One blended accuracy figure | It mixes markets with different base rates and undermines trust | Per-market edge analysis |
 | In-play stream load at peak | Connections, not requests, become the limit | 15 s polling fallback, bounded stream lifetime |
-| Gambling adjacency | Ad networks and app stores review this category closely | "Not a bookmaker" positioning and 18+ treatment on every page; analysis language only |
+| Gambling adjacency | App stores and payment providers review this category closely | "Not a bookmaker" positioning and 18+ treatment on every page; analysis language only |
 | Agent-assisted change at high speed | Many changes, little time per review | Mandatory reviewed PRs, invariant gates, QA-first staged deploys |
 
 **Roadmap, in dependency order**
 
 1. Ship the front-end redesign from QA to production.
-2. Balance ad networks by measured fill and revenue.
-3. Budget the in-play statistics poll, so corners, shots and fouls markets
+2. Budget the in-play statistics poll, so corners, shots and fouls markets
    publish.
-4. Per-market accuracy and the edge analysis.
-5. Truthful sitemap `lastmod` from a real content-change time; head-to-head
+3. Per-market accuracy and the edge analysis.
+4. Truthful sitemap `lastmod` from a real content-change time; head-to-head
    pages; richer team pages.
-6. Move the ops controller from `observe` to `assist`.
-7. The Flutter app (Android first) on the same APIs, tokens and slot names,
-   with AdMob.
-8. A separate database host, when stream connections or PostgreSQL memory
+5. Move the ops controller from `observe` to `assist`.
+6. The Flutter app (Android first) on the same APIs and design tokens.
+7. A separate database host, when stream connections or PostgreSQL memory
    require it.
 
 ## 17. Appendix: decision log and glossary
@@ -742,10 +707,8 @@ programmatic catalogue, and the credibility of the published record.
 | --- | --- | --- |
 | Oct 2026 | Every change into `main` or `qa` is a reviewed pull request; fork PRs never reach the self-hosted runner | Human approval on every merge; outside code never runs on the production host |
 | 16 Oct 2026 | Provider plan back to 7,500 requests a day; ceiling owned by the worker | Less than a fifth of the larger plan was used |
-| 15 Oct 2026 | In-feed ads span the full column and adapt by width | A live review found squeezed widgets with split words |
 | 6 Oct 2026 | In-play predictions are public, no login needed (ADR 0007) | Product decision; suppression, pacing and cache protections unchanged |
 | 3 Oct 2026 | Staged production promotion: backend first, then frontend | One failure should never leave two fronts to debug |
-| 3 Oct 2026 | Multi-network ad routing; unreviewed networks fail closed | No vendor lock-in; a script runs only after its adapter is reviewed |
 | 22 Sep 2026 | QA deploys automatically on every merge to `qa` | A green branch check does not prove the deployed service works |
 | 21 Sep 2026 | Daily backfill cap counted from queued jobs, failing closed | A restart left 4,076 jobs queued and the day spent about 74,000 requests |
 | Sep 2026 | Production moved to a larger, cheaper VPS | Four times the memory, so QA and observability fit on the same host |
@@ -759,7 +722,6 @@ programmatic catalogue, and the credibility of the published record.
 | 14 Aug 2026 | Four retention classes with separate deletion rules (ADR 0004) | Public, audit, model-evaluation and licensing needs differ |
 | 14 Aug 2026 | Releases proceed by default, guarded by executable safety checks (ADR 0005) | Deploy-time sign-off does not scale and is not the real safety mechanism |
 | Earlier | Off-site backups outside Cloudflare | Avoids sharing the edge's failure domain |
-| Earlier | AdMob with mediation for the Flutter app | Web ad networks do not serve Flutter apps |
 | Earlier | Prior-season statistics as the universal cold-start fallback | Predictions stay available at season start |
 
 **Glossary**

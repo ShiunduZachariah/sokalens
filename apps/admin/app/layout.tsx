@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { AdminShell } from "./components/AdminShell";
+import { adsEnabled } from "./data/adsEnabled";
 import "./globals.css";
 
 export const metadata = {
@@ -15,7 +16,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <AdminShell>{children}</AdminShell>
+        <AdminShell adsEnabled={adsEnabled()}>{children}</AdminShell>
       </body>
     </html>
   );

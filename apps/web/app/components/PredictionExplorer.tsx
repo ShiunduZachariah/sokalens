@@ -23,6 +23,7 @@ import { useLocale } from "./locale/LocaleProvider";
 import { emptyMarketTable, unpackMarkets, type MarketTable, type PackedMarkets } from "../lib/packedMarkets";
 
 import { LocalTime } from "./LocalTime";
+import { ADS_ENABLED } from "../lib/adsEnabled";
 
 /**
  * "Sun 12 Oct" rather than "2026-10-12".
@@ -413,7 +414,7 @@ export function PredictionExplorer({
     }
     const firstGroupRows = groups[0]?.total ?? 0;
     const firstAfterIndex = groups.length >= 2 && firstGroupRows > 0 ? firstGroupRows - 1 : undefined;
-    return { adPositions: feedAdPositions(cursor, { firstAfterIndex }), feedStarts: starts };
+    return { adPositions: ADS_ENABLED ? feedAdPositions(cursor, { firstAfterIndex }) : new Set<number>(), feedStarts: starts };
   }, [groups]);
 
   useEffect(() => setVisibleLimit(40), [bestOnly, country, date, league, market, groupBy]);

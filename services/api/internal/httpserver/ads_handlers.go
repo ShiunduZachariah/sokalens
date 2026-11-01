@@ -73,6 +73,12 @@ func (d accountDependencies) contextHandler() http.HandlerFunc {
 				"capabilities":  []string{access.CapabilityPublicRead},
 			}
 		}
+		// With ads switched off nothing may render one, whatever the tier or
+		// country. Restrictions are still reported: they are policy, not ads.
+		if !d.adsEnabled {
+			adsAllowed = false
+			adsReason = "ads_disabled"
+		}
 
 		if d.ads != nil {
 			restrictions, err := d.ads.ActiveRestrictions(r.Context(), country)
@@ -124,6 +130,13 @@ func featureFlagEnabled(flags []ads.FeatureFlag, key string) bool {
 		}
 	}
 	return false
+}
+
+// adsHidden answers an ad endpoint while ADS_ENABLED is off exactly as an
+// unknown path is answered, so the hidden surface is indistinguishable from
+// one that does not exist.
+func adsHidden(w http.ResponseWriter) {
+	writeJSON(w, http.StatusNotFound, apiError("not_found", "Endpoint not found."))
 }
 
 func (d accountDependencies) adsPlacementHandler() http.HandlerFunc {

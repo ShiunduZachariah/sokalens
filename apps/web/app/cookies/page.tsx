@@ -14,7 +14,7 @@ export default function CookiesPage() {
       <article className="legal-panel">
         <p className="page-kicker">Cookies</p>
         <h1 className="page-title">SokaLens cookie overview</h1>
-        <p>Last updated: 2026-08-24.</p>
+        <p>Last updated: 2026-11-01.</p>
         <p>
           Public SokaLens football content is available without an account. If you create an
           account, essential cookies keep you signed in and protect account actions. This page
@@ -35,16 +35,15 @@ export default function CookiesPage() {
           Local storage may remember interface choices such as theme, odds display, or builder
           selections. These browser-only choices are separate from your account favorites.
         </p>
-        <h2>Analytics and ads</h2>
+        <h2>Analytics</h2>
         <p>
           The site may use first-party analytics to understand aggregate usage and account-feature
-          adoption, and third-party advertising providers may set their own cookies or similar technologies.
-          Their use of these technologies is governed by their own privacy policies, as described
-          in our <a href="/privacy">Privacy Policy</a>.
+          adoption. SokaLens does not show advertising, so no advertising cookies are set. See our{" "}
+          <a href="/privacy">Privacy Policy</a> for details.
         </p>
         <h2>Changing preferences</h2>
         <p>
-          A dedicated non-essential consent centre will be added before analytics or advertising
+          A dedicated non-essential consent centre will be added before any non-essential analytics
           scripts are enabled. Public football content remains available without any non-essential
           consent.
         </p>

@@ -8,6 +8,7 @@ import { NativeFeedFrame } from "./ads/NativeFeedFrame";
 import { providerAdapter } from "./ads/providerRegistry";
 import { COLLAPSE_TRANSITION_MS, observeCreative, type AdCreativeKind } from "./ads/creativeWatch";
 import type { AdapterResult, AdFormat } from "./ads/types";
+import { ADS_ENABLED } from "../lib/adsEnabled";
 
 /**
  * Slot formats.
@@ -84,7 +85,7 @@ async function reportOutcome(attempt: AdProviderAttempt, result: AdapterResult, 
   }
 }
 
-export function AdSlot({ children, className, format, label = "Advertisement", onDismiss, placement = format }: AdSlotProps) {
+function EnabledAdSlot({ children, className, format, label = "Advertisement", onDismiss, placement = format }: AdSlotProps) {
   const { access, status } = useAccount();
   const [viewportEligible, setViewportEligible] = useState(format !== "rail" && format !== "adhesion");
   const [delivery, setDelivery] = useState<DeliveryState>("idle");
@@ -295,4 +296,9 @@ export function AdSlot({ children, className, format, label = "Advertisement", o
       ) : body}
     </aside>
   );
+}
+
+/** Renders nothing while ads are switched off; see `lib/adsEnabled`. */
+export function AdSlot(props: AdSlotProps) {
+  return ADS_ENABLED ? <EnabledAdSlot {...props} /> : null;
 }

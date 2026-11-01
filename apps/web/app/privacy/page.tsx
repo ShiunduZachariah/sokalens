@@ -38,10 +38,6 @@ export default function PrivacyPage() {
             source, and search terms.
           </li>
           <li>
-            <strong>Advertising-related identifiers</strong> — cookies and identifiers
-            set by third-party advertising providers (such as Google AdSense).
-          </li>
-          <li>
             <strong>Account information</strong> — your email address, display name,
             country code, password hash, verification status, preferences, consent
             choices, and account timestamps.
@@ -62,7 +58,6 @@ export default function PrivacyPage() {
         <ul>
           <li>improve our content and the relevance of what we show;</li>
           <li>measure traffic and understand how the site is used;</li>
-          <li>serve relevant advertising; and</li>
           <li>create, secure, verify, and administer accounts;</li>
           <li>store and display your favorites across devices;</li>
           <li>prevent automated abuse, fraud, and unauthorized access; and</li>
@@ -80,30 +75,15 @@ export default function PrivacyPage() {
 
         <h2>5. Advertising</h2>
         <p>
-          We may work with third-party advertising providers, such as Google AdSense,
-          to show ads. These providers may use cookies or similar technologies to
-          measure ad performance and serve relevant ads. Their use of these
-          technologies is governed by their own privacy policies, which we encourage
-          you to review. We do not provide your account email or favorites to
-          advertising providers for ad targeting.
-        </p>
-        <p>
-          For more about Google's advertising practices, see Google's{" "}
-          <a
-            href="https://policies.google.com/technologies/ads"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Advertising Privacy &amp; Terms
-          </a>{" "}
-          page.
+          SokaLens does not show advertising. We do not work with advertising
+          providers, and we do not share your information with anyone for ad
+          targeting.
         </p>
 
         <h2>6. Cookies</h2>
         <p>
-          We and our partners may set essential cookies, analytics cookies, and
-          advertising cookies. Essential cookies are needed for the site to work;
-          analytics and advertising cookies are optional. For a summary of the cookies
+          We may set essential cookies and analytics cookies. Essential cookies are
+          needed for the site to work; analytics cookies are optional. For a summary of the cookies
           we use, see our <Link href="/cookies">Cookie Policy</Link>.
         </p>
 
@@ -136,7 +116,7 @@ export default function PrivacyPage() {
           We may update this Privacy Policy from time to time. Changes will be posted
           on this page with an updated date.
         </p>
-        <p>Last updated: 2026-08-24.</p>
+        <p>Last updated: 2026-11-01.</p>
 
         <h2>11. Contact</h2>
         <p>
