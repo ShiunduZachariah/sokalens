@@ -1,0 +1,153 @@
+# Production VPS overlay for the Contabo 8 vCPU / 24 GB / 290 GB host.
+# Layer on top of the base Compose file:
+#
+#   docker compose \
+#     -f infra/docker/docker-compose.yml \
+#     -f infra/deploy/docker-compose.prod.yml \
+#     --env-file infra/deploy/.env.prod \
+#     --profile core --profile frontend --profile search \
+#     up -d
+#
+# Sized for 24 GB, sharing the host with the QA stack (see
+# docs/operations/environments.md). These were previously sized for a retired
+# 4 vCPU / 6 GB host and never revisited after the migration, which capped
+# Postgres at 1536M on a 24 GB box -- it sat at 968M of that ceiling and read
+# as "memory pressure" when the host in fact had ~20 GB free.
+#
+# Limits are ceilings, not reservations: the sum here exceeds installed RAM on
+# purpose, because measured usage is far below it (web peaked at 371M against
+# its old 768M cap). The ceilings exist to contain a runaway process, not to
+# partition the host.
+#
+# No secrets are hard-coded; values come from the environment file.
+
+services:
+  postgres:
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+        reservations:
+          memory: 1G
+    command:
+      - postgres
+      - -c
+      - shared_buffers=1536MB
+      - -c
+      - effective_cache_size=4GB
+      - -c
+      - work_mem=16MB
+      - -c
+      - maintenance_work_mem=512MB
+      - -c
+      - max_connections=100
+    # NOTE: Postgres TLS is intentionally NOT enabled here. Enabling it requires
+    # provisioning server.crt/server.key (plus client trust of the CA) and
+    # switching .env.prod DATABASE_URL from sslmode=disable to verify-full.
+    # The previous `-c ssl=on` args crashed the container because no certs were
+    # mounted; removed until certificates are provisioned.
+    volumes:
+      - postgres_data:/var/lib/postgresql
+
+  redis:
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
+    command: ["redis-server", "--appendonly", "no", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru", "--requirepass", "${REDIS_PASSWORD:-}"]
+
+  api:
+    # Replace inherited bindings: a stale API_BIND_ADDRESS=0.0.0.0 must not
+    # publish the backend outside this host. Web/admin use Docker DNS.
+    ports: !override
+      - "127.0.0.1:${API_PORT:-8080}:8080"
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
+
+  worker:
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+        reservations:
+          memory: 384M
+
+  web:
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        # Next holds a render cache that grows with the number of distinct
+        # routes served, and the route count is deliberately growing. Hitting
+        # the limit means the OOM killer takes the public site down, so
+        # headroom is worth more than the memory. Measured at 247M on
+        # 2026-09-16; the host has ~20G available.
+        limits:
+          memory: 1536M
+        reservations:
+          memory: 384M
+
+  admin:
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+        reservations:
+          memory: 192M
+
+  typesense:
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
+
+volumes:
+  postgres_data:

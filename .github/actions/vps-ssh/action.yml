@@ -1,0 +1,70 @@
+name: VPS SSH
+description: >-
+  Gives later steps an `ssh vps` / `scp ... vps:` alias. The host, port and
+  user come from secrets so no workflow file or log line carries them, the
+  host key is pinned rather than trusted on first use, and the key lives in
+  RUNNER_TEMP, which the runner deletes when the job ends -- a self-hosted
+  runner's home directory would otherwise keep it on disk between jobs.
+
+inputs:
+  private-key:
+    description: Deploy user's private key (secrets.VPS_SSH_PRIVATE_KEY)
+    required: true
+  known-hosts:
+    description: known_hosts line(s) for the VPS (secrets.VPS_KNOWN_HOSTS)
+    required: true
+  host:
+    description: VPS address (secrets.VPS_HOST)
+    required: true
+  port:
+    description: VPS SSH port (secrets.VPS_SSH_PORT)
+    required: true
+  user:
+    description: VPS deploy user (secrets.VPS_SSH_USER)
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Configure SSH alias
+      shell: bash
+      env:
+        SSH_KEY: ${{ inputs.private-key }}
+        SSH_KNOWN_HOSTS: ${{ inputs.known-hosts }}
+        SSH_HOST: ${{ inputs.host }}
+        SSH_PORT: ${{ inputs.port }}
+        SSH_USER: ${{ inputs.user }}
+      run: |
+        set -euo pipefail
+        for name in SSH_KEY SSH_KNOWN_HOSTS SSH_HOST SSH_PORT SSH_USER; do
+          if [ -z "${!name}" ]; then
+            echo "::error::$name is empty; set the matching VPS_* repository secret"
+            exit 1
+          fi
+        done
+        dir="$RUNNER_TEMP/vps-ssh"
+        install -d -m 700 "$dir" "$dir/bin"
+        (umask 077; printf '%s\n' "$SSH_KEY" > "$dir/id_deploy")
+        (umask 077; printf '%s\n' "$SSH_KNOWN_HOSTS" > "$dir/known_hosts")
+        # ServerAlive* is load-bearing: some remote steps write nothing for
+        # minutes and an idle connection would otherwise be dropped.
+        (umask 077; cat > "$dir/config" <<EOF
+        Host vps
+          HostName $SSH_HOST
+          Port $SSH_PORT
+          User $SSH_USER
+          IdentityFile $dir/id_deploy
+          IdentitiesOnly yes
+          UserKnownHostsFile $dir/known_hosts
+          StrictHostKeyChecking yes
+          LogLevel ERROR
+          ServerAliveInterval 30
+          ServerAliveCountMax 20
+        EOF
+        )
+        for tool in ssh scp; do
+          real="$(command -v "$tool")"
+          printf '#!/usr/bin/env bash\nexec %q -F %q "$@"\n' "$real" "$dir/config" > "$dir/bin/$tool"
+          chmod 0755 "$dir/bin/$tool"
+        done
+        echo "$dir/bin" >> "$GITHUB_PATH"

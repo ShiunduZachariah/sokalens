@@ -1,0 +1,51 @@
+{
+  "$comment": "Canonical URL parity between the web app and outbound email. apps/web/app/lib/seo.ts builds these URLs in TypeScript for on-site links; services/api/internal/emaillinks builds them in Go for email bodies. Two implementations of one URL shape drift silently -- the reader gets a redirect hop or a 404 and nobody sees it until Search Console reports duplicates six weeks later. Both sides assert this table, so drift fails a test instead.",
+  "slugs": [
+    { "input": "Premier League", "expected": "premier-league" },
+    { "input": "Ligue 1", "expected": "ligue-1" },
+    { "input": "Bayern München", "expected": "bayern-munchen" },
+    { "input": "Atlético Madrid", "expected": "atletico-madrid" },
+    { "input": "Beşiktaş", "expected": "besiktas" },
+    { "input": "Brøndby IF", "expected": "br-ndby-if" },
+    { "input": "Borussia M'gladbach", "expected": "borussia-m-gladbach" },
+    { "input": "  Serie A  ", "expected": "serie-a" },
+    { "input": "Primera División --- Apertura", "expected": "primera-division-apertura" },
+    { "input": "ЦСКА Москва", "expected": "football" },
+    { "input": "", "expected": "football" }
+  ],
+  "fixtures": [
+    {
+      "fixtureId": 1234567,
+      "leagueName": "Premier League",
+      "homeTeam": "Arsenal",
+      "awayTeam": "Chelsea",
+      "expected": "/predictions/premier-league/arsenal-vs-chelsea-1234567"
+    },
+    {
+      "fixtureId": 987654,
+      "leagueName": "Bundesliga",
+      "homeTeam": "Bayern München",
+      "awayTeam": "Borussia Dortmund",
+      "expected": "/predictions/bundesliga/bayern-munchen-vs-borussia-dortmund-987654"
+    },
+    {
+      "fixtureId": 42,
+      "leagueName": "",
+      "homeTeam": "Arsenal",
+      "awayTeam": "Chelsea",
+      "expected": "/predictions/today"
+    },
+    {
+      "fixtureId": 0,
+      "leagueName": "Premier League",
+      "homeTeam": "Arsenal",
+      "awayTeam": "Chelsea",
+      "expected": "/predictions/today"
+    }
+  ],
+  "leagues": [
+    { "leagueName": "Premier League", "expected": "/predictions/leagues/premier-league" },
+    { "leagueName": "Serie A", "expected": "/predictions/leagues/serie-a" }
+  ],
+  "retiredPrefixes": ["/matches/", "/leagues/", "/football/today", "/en/"]
+}

@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Prediction list · tablet</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}a:hover{color:var(--accent-ink)}
+button,select,input{font-family:inherit}
+button{cursor:pointer}
+select option{background:var(--surface);color:var(--text)}
+</style>
+</helmet>
+<div class="{{themeClass}}" style="{{rootVars}}; position: relative; width: 834px; height: {{pageH}}px; box-sizing: border-box; overflow-y: auto; background: var(--bg); color: var(--text); font-family: Archivo, 'Helvetica Neue', sans-serif; display: flex; flex-direction: column">
+
+<!-- NAV -->
+<header style="flex-shrink: 0; height: 64px; box-sizing: border-box; padding: 0 32px; display: flex; align-items: center; gap: 24px; border-bottom: 1px solid var(--line)">
+<a href="{{links.HomeTablet}}" style="display: flex; align-items: center; gap: 8px">
+<svg width="26" height="26" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="14" cy="14" r="11"></circle><circle cx="14" cy="14" r="4" style="fill: var(--accent-ink); stroke: var(--accent-ink)"></circle><path d="M14 1v5M14 22v5M1 14h5M22 14h5"></path></svg>
+<span style="font-size: 22px; font-weight: 800; font-stretch: 75%; text-transform: uppercase">SokaLens</span>
+</a>
+<nav aria-label="Main" style="flex-grow: 1; display: flex; gap: 20px; font-size: 14px; font-weight: 500">
+<a href="{{links.HomeTablet}}" style="color: var(--muted)">Home</a>
+<a href="{{links.TodayTablet}}" aria-current="page" style="color: var(--text); box-shadow: inset 0 -2px 0 var(--accent-ink); padding-bottom: 4px">Predictions</a>
+<a href="{{links.InPlayTablet}}" style="color: var(--muted)">In-play</a>
+<a href="{{links.AccaTablet}}" style="color: var(--muted)">ACCAs</a>
+<a href="{{links.BuilderTablet}}" style="color: var(--muted)">Builder</a>
+</nav>
+<button aria-label="{{themeLabel}}" onClick="{{toggleTheme}}" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid var(--line-strong); border-radius: 8px; color: var(--text)">
+<sc-if value="{{isDark}}" hint-placeholder-val="{{ true }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></sc-if>
+<sc-if value="{{isLight}}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"></path></svg></sc-if>
+</button>
+<button style="height: 44px; padding: 0 16px; background: var(--text); color: var(--bg); border: 0; border-radius: 8px; font-size: 14px; font-weight: 600">Sign in</button>
+</header>
+<sc-if value="{{ads.on}}" hint-placeholder-val="{{ true }}">
+<div data-ad-slot="top" data-ad-size="728x90" role="complementary" aria-label="Advertisement" style="flex-shrink: 0; padding: 12px 32px 0; display: flex; flex-direction: column; align-items: center; gap: 6px">
+<span style="font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint)">Advertisement</span>
+<div style="width: 728px; max-width: 100%; height: 90px; box-sizing: border-box; border: 1px dashed var(--line-stronger); border-radius: 6px; background: repeating-linear-gradient(135deg, transparent 0 9px, var(--hatch) 9px 10px); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted)">top · 728×90</div>
+</div>
+</sc-if>
+
+<main style="flex-grow: 1; display: flex; flex-direction: column">
+<nav aria-label="Prediction pages" style="padding: 16px 32px 0; display: flex; gap: 8px; overflow-x: auto">
+<sc-for list="{{subnav}}" as="n" hint-placeholder-count="8"><a href="{{n.link}}" aria-current="{{n.current}}" style="{{n.style}}; flex-shrink: 0; height: 38px; padding: 0 14px; display: flex; align-items: center; border-radius: 999px; font-size: 14px; font-weight: 600; white-space: nowrap">{{n.label}}</a></sc-for>
+</nav>
+<section style="padding: 28px 32px 28px; display: flex; flex-direction: column; gap: 14px; border-bottom: 1px solid var(--line)">
+<div style="display: flex; align-items: center; gap: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)"><span style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent)"></span>{{v.eyebrow}}</div>
+<h1 style="margin: 0; font-size: 72px; line-height: 0.88; font-weight: 900; font-stretch: 62%; text-transform: uppercase">{{v.lead}} <span style="color: var(--accent-ink)">{{v.accent}}</span></h1>
+<p style="margin: 0; max-width: 680px; font-size: 17px; line-height: 1.5; color: var(--text-3)">{{v.sub}}</p>
+<dl style="margin: 4px 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--surface); max-width: 720px">
+<sc-for list="{{totals}}" as="t" hint-placeholder-count="3"><div style="padding: 14px 20px; display: flex; flex-direction: column; gap: 2px; border-right: 1px solid var(--line)"><dt style="font-size: 12px; color: var(--muted)">{{t.l}}</dt><dd style="margin: 0; font-family: 'IBM Plex Mono', monospace; font-size: 30px; font-weight: 500">{{t.v}}</dd></div></sc-for>
+</dl>
+</section>
+<section style="padding: 20px 32px 0; display: flex; flex-direction: column; gap: 16px">
+<div style="padding: 16px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap"><label style="flex: 1 1 260px; min-width: 0; height: 46px; padding: 0 14px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--line-strong); border-radius: 10px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex-shrink: 0; color: var(--muted)" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg><input type="search" aria-label="Search teams or leagues" value="{{q}}" onChange="{{onQuery}}" placeholder="Search teams or leagues" style="flex-grow: 1; min-width: 0; height: 44px; background: transparent; border: 0; outline: none; color: var(--text); font-size: 15px"></label><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--muted)">{{countLine}}</span></div>
+<div role="group" aria-label="Filter by pick" style="display: flex; gap: 8px; flex-wrap: wrap">
+<sc-for list="{{pickChips}}" as="p" hint-placeholder-count="3"><button aria-pressed="{{p.pressed}}" onClick="{{p.pick}}" style="{{p.style}}; height: 40px; padding: 0 14px; border-radius: 999px; font-size: 14px; font-weight: 600">{{p.label}}</button></sc-for>
+</div>
+</div>
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="2">
+<section style="background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden">
+<div style="height: 52px; box-sizing: border-box; padding: 0 18px; display: flex; align-items: center; justify-content: space-between; background: var(--surface-sunk); border-bottom: 1px solid var(--line)"><h2 style="margin: 0; font-size: 20px; font-weight: 800; font-stretch: 70%; text-transform: uppercase">{{g.title}}</h2><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted)">{{g.count}}</span></div>
+<sc-for list="{{g.leagues}}" as="l" hint-placeholder-count="2">
+<div>
+<sc-if value="{{l.hasName}}" hint-placeholder-val="{{ true }}"><h3 style="margin: 0; padding: 10px 18px; font-size: 13px; font-weight: 700; color: var(--text-3); border-bottom: 1px solid var(--line-soft)">{{l.name}}</h3></sc-if>
+<ol style="margin: 0; padding: 0; list-style: none">
+<sc-for list="{{l.rows}}" as="r" hint-placeholder-count="3">
+<li style="border-bottom: 1px solid var(--line-soft)">
+<a href="{{r.link}}" style="min-height: 66px; box-sizing: border-box; padding: 10px 18px; display: grid; grid-template-columns: 50px minmax(0, 1fr) 96px 150px 56px; gap: 14px; align-items: center">
+<span style="display: flex; flex-direction: column; gap: 2px; font-family: 'IBM Plex Mono', monospace"><span style="font-size: 14px">{{r.time}}</span><span style="font-size: 10px; color: var(--muted)">UTC</span></span>
+<span style="min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.home}} <span style="font-weight: 400; color: var(--faint)">v</span> {{r.away}}</span><span style="font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.league}}<sc-if value="{{r.hasMore}}" hint-placeholder-val="{{ false }}"> · {{r.moreLabel}}</sc-if></span></span>
+<span style="display: flex; align-items: center"><sc-if value="{{r.hasOutcomes}}" hint-placeholder-val="{{ false }}"><span aria-label="Outcome picked" style="display: flex; gap: 4px"><sc-for list="{{r.outcomes}}" as="o" hint-placeholder-count="3"><span title="{{o.label}}" style="{{o.style}}; width: 28px; height: 28px; box-sizing: border-box; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">{{o.k}}</span></sc-for></span></sc-if><sc-if value="{{r.hasProb}}" hint-placeholder-val="{{ true }}"><span style="display: block; width: 100%; height: 6px; border-radius: 999px; background: var(--line); position: relative"><span style="position: absolute; left: 0; top: 0; bottom: 0; width: {{r.prob}}%; border-radius: 999px; background: var(--accent)"></span></span></sc-if></span>
+<span style="min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="{{r.pickStyle}}; font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.pick}}</span><span style="font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.market}}</span></span>
+<span style="text-align: right; display: flex; flex-direction: column; gap: 2px"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600">{{r.right}}</span><span style="font-size: 10px; color: var(--muted)">{{r.oddsLabel}}</span></span>
+
+</a>
+</li>
+</sc-for>
+</ol>
+</div>
+</sc-for>
+</section>
+<sc-if value="{{g.adAfter}}" hint-placeholder-val="{{ false }}">
+<sc-if value="{{ads.on}}" hint-placeholder-val="{{ true }}">
+<div data-ad-slot="in-feed" data-ad-size="728x90" role="complementary" aria-label="Advertisement" style="padding: 4px 0; display: flex; flex-direction: column; align-items: center; gap: 6px">
+<span style="font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint)">Advertisement</span>
+<div style="width: 728px; max-width: 100%; height: 90px; box-sizing: border-box; border: 1px dashed var(--line-stronger); border-radius: 6px; background: repeating-linear-gradient(135deg, transparent 0 9px, var(--hatch) 9px 10px); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted)">in-feed · 728×90</div>
+</div>
+</sc-if>
+</sc-if>
+</sc-for>
+<sc-if value="{{isEmpty}}" hint-placeholder-val="{{ false }}"><div style="padding: 40px 20px; text-align: center; border: 1px dashed var(--line-strong); border-radius: 16px; display: flex; flex-direction: column; align-items: center; gap: 12px"><p style="margin: 0; font-size: 16px; font-weight: 600">No predictions match these filters</p><button onClick="{{reset}}" style="height: 44px; padding: 0 18px; background: transparent; color: var(--text); border: 1px solid var(--line-stronger); border-radius: 10px; font-size: 14px; font-weight: 600">Clear filters</button></div></sc-if>
+<div style="padding: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0 0 4px; font-size: 20px; font-weight: 800; font-stretch: 70%; text-transform: uppercase">Keep exploring</h2>
+<a href="{{bestLink}}" style="min-height: 48px; padding: 0 14px; display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--line-strong); border-radius: 10px; font-size: 14px; font-weight: 600">Best Bets · top-ranked picks<span aria-hidden="true" style="color: var(--muted)">→</span></a><a href="{{builderLink}}" style="min-height: 48px; padding: 0 14px; display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--line-strong); border-radius: 10px; font-size: 14px; font-weight: 600">Build an ACCA from these<span aria-hidden="true" style="color: var(--muted)">→</span></a><a href="{{leaguesLink}}" style="min-height: 48px; padding: 0 14px; display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--line-strong); border-radius: 10px; font-size: 14px; font-weight: 600">Browse by league<span aria-hidden="true" style="color: var(--muted)">→</span></a><a href="{{perfLink}}" style="min-height: 48px; padding: 0 14px; display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--line-strong); border-radius: 10px; font-size: 14px; font-weight: 600">How we performed<span aria-hidden="true" style="color: var(--muted)">→</span></a>
+</div></section>
+<section style="margin: 40px 32px 0; padding: 16px 18px; border: 1px solid var(--line-strong); border-radius: 12px; display: flex; gap: 14px; align-items: center; font-size: 13px; line-height: 1.5; color: var(--text-3)">
+<span style="flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--text); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; color: var(--text)">18+</span>
+<span>Statistical estimates, never guaranteed outcomes. Predictions are informational and should not be treated as financial advice. <a href="#" style="font-weight: 600; text-decoration: underline">Responsible use</a></span>
+</section>
+</main>
+
+<footer style="flex-shrink: 0; margin-top: 64px; padding: 40px 32px 32px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 32px">
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 24px; font-weight: 800; font-stretch: 75%; text-transform: uppercase">SokaLens</span>
+<p style="margin: 0; font-size: 15px; line-height: 1.5; color: var(--text-3)">Football probabilities, explained clearly and tracked openly.</p>
+</div>
+<nav aria-label="Explore" style="display: flex; flex-direction: column; font-size: 14px">
+<span style="padding-bottom: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.1em; color: var(--faint)">EXPLORE</span>
+<a href="{{links.TodayTablet}}" style="padding: 8px 0; color: var(--text-3)">Today’s predictions</a><a href="{{links.BestBetsTablet}}" style="padding: 8px 0; color: var(--text-3)">Best Bets</a><a href="{{links.LeaguesTablet}}" style="padding: 8px 0; color: var(--text-3)">Leagues</a><a href="{{links.PerformanceTablet}}" style="padding: 8px 0; color: var(--text-3)">Performance status</a><a href="{{links.BuilderTablet}}" style="padding: 8px 0; color: var(--text-3)">Multi-match builder</a><a href="#" style="padding: 8px 0; color: var(--text-3)">Sign in</a><a href="#" style="padding: 8px 0; color: var(--accent-ink); font-weight: 600">Go Pro</a>
+</nav>
+<nav aria-label="About" style="display: flex; flex-direction: column; font-size: 14px">
+<span style="padding-bottom: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.1em; color: var(--faint)">ABOUT</span>
+<a href="#" style="padding: 8px 0; color: var(--text-3)">About us</a><a href="#" style="padding: 8px 0; color: var(--text-3)">Contact and suggestions</a><a href="{{links.AccaTablet}}" style="padding: 8px 0; color: var(--text-3)">Acca predictions</a><a href="#" style="padding: 8px 0; color: var(--text-3)">Responsible use</a><a href="#" style="padding: 8px 0; color: var(--text-3)">Terms</a><a href="#" style="padding: 8px 0; color: var(--text-3)">Privacy</a><a href="#" style="padding: 8px 0; color: var(--text-3)">Cookies</a>
+</nav>
+</div>
+<div style="padding-top: 20px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 14px; font-size: 13px; line-height: 1.5; color: var(--muted)">
+<span style="flex-shrink: 0; padding: 3px 7px; border: 1.5px solid var(--text); border-radius: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; color: var(--text)">18+</span>
+<span>© 2026 SokaLens. Predictions are statistical estimates, not guaranteed outcomes. SokaLens is not a bookmaker and accepts no stakes. Bet responsibly.</span>
+</div>
+</footer>
+
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"ads":{"editor":"enum","options":["filled","empty"],"default":"filled","section":"Ads"},"theme":{"editor":"enum","options":["dark","light"],"default":"dark","section":"Look"},"view":{"editor":"enum","options":["tomorrow","weekend","o25","btts","mr"],"default":"tomorrow","section":"Page"},"accent":{"editor":"color","default":"#C8F169","options":["#C8F169","#5EE6C1","#FFB547","#F2F2EC"],"section":"Look"},"$preview":{"width":834,"height":3220}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { themeOverride: null, q: '', pick: 'All' };
+  }
+  renderVals() {
+    // ===== THEME — one token set shared by every SokaLens artboard =====
+    const THEMES = {
+      dark:  { bg: '#0E1411', surface: '#131B16', 'surface-2': '#16201A', 'surface-3': '#1C2620', 'surface-sunk': '#0F1712', bar: '#0B100D', hatch: '#18221C',
+               line: '#243029', 'line-soft': '#1F2A23', 'line-strong': '#2E3B34', 'line-stronger': '#3B4741', 'line-heavy': '#4A5750', tick: '#5A675F', deco: '#1E2922',
+               text: '#EEF2EC', 'text-2': '#DCE4DD', 'text-3': '#C9D2CB', 'text-4': '#B8C3BB', muted: '#A7B3AB', faint: '#8A968E' },
+      light: { bg: '#F8F9F7', surface: '#FFFFFF', 'surface-2': '#F0F7E8', 'surface-3': '#F1F3F0', 'surface-sunk': '#F4F6F3', bar: '#FFFFFF', hatch: '#E6E9E4',
+               line: '#E1E5DF', 'line-soft': '#ECEFEA', 'line-strong': '#D1D7CF', 'line-stronger': '#BDC4BB', 'line-heavy': '#9AA39A', tick: '#7F8A80', deco: '#EBEEE9',
+               text: '#111812', 'text-2': '#1D271F', 'text-3': '#364238', 'text-4': '#445047', muted: '#56635A', faint: '#66736A' }
+    };
+    const themeName = (this.state && this.state.themeOverride) || this.props.theme || 'dark';
+    const isDark = themeName !== 'light';
+    const tokens = THEMES[isDark ? 'dark' : 'light'];
+    // Light theme gets its own deeper greens — bright lime is only 1.3:1 on white.
+    const LIGHT_GREENS = { '#C8F169': { fill: '#4C9F16', ink: '#2F6B0A' } };
+    const accentRaw = this.props.accent ?? '#C8F169';
+    const awayRaw = this.props.awayColor ?? '#8FB8FF';
+    const lg = LIGHT_GREENS[String(accentRaw).toUpperCase()];
+    const accentFill = isDark ? accentRaw : (lg ? lg.fill : accentRaw);
+    const accentInk = isDark ? accentRaw : (lg ? lg.ink : 'color-mix(in oklab, ' + accentRaw + ' 42%, #0E1411)');
+    const awayFill = isDark ? awayRaw : (String(awayRaw).toUpperCase() === '#8FB8FF' ? '#3D7BE0' : awayRaw);
+    const awayInk = isDark ? awayRaw : (String(awayRaw).toUpperCase() === '#8FB8FF' ? '#1F5BBF' : 'color-mix(in oklab, ' + awayRaw + ' 55%, #0E1411)');
+    const rootVars = Object.keys(tokens).map((k) => '--' + k + ': ' + tokens[k]).join('; ')
+      + '; --accent: ' + accentFill + '; --accent-ink: ' + accentInk
+      + '; --away: ' + awayFill + '; --away-ink: ' + awayInk
+      + '; --on-accent: #0E1411'
+      + '; color-scheme: ' + (isDark ? 'dark' : 'light');
+    const themeSuffix = isDark ? '' : 'Light';
+    const THEME_VALS = {
+      ads: { on: (this.props.ads || 'filled') !== 'empty' },
+      themeClass: isDark ? 'sl-dark' : 'sl-light', rootVars, isDark,
+      themeLabel: isDark ? 'Switch to light theme' : 'Switch to dark theme',
+      toggleTheme: () => this.setState({ themeOverride: isDark ? 'light' : 'dark' }),
+      links: { Acca: 'Acca' + themeSuffix + '.dc.html', AccaTablet: 'AccaTablet' + themeSuffix + '.dc.html', AccaMobile: 'AccaMobile' + themeSuffix + '.dc.html', AccaDetail: 'AccaDetail' + themeSuffix + '.dc.html', AccaDetailTablet: 'AccaDetailTablet' + themeSuffix + '.dc.html', AccaDetailMobile: 'AccaDetailMobile' + themeSuffix + '.dc.html', Home: 'Home' + themeSuffix + '.dc.html', HomeTablet: 'HomeTablet' + themeSuffix + '.dc.html', HomeMobile: 'HomeMobile' + themeSuffix + '.dc.html', Today: 'Today' + themeSuffix + '.dc.html', TodayTablet: 'TodayTablet' + themeSuffix + '.dc.html', TodayMobile: 'TodayMobile' + themeSuffix + '.dc.html', Builder: 'Builder' + themeSuffix + '.dc.html', BuilderTablet: 'BuilderTablet' + themeSuffix + '.dc.html', BuilderMobile: 'BuilderMobile' + themeSuffix + '.dc.html', InPlay: 'InPlay' + themeSuffix + '.dc.html', InPlayTablet: 'InPlayTablet' + themeSuffix + '.dc.html', InPlayMobile: 'InPlayMobile' + themeSuffix + '.dc.html', BestBets: 'BestBets' + themeSuffix + '.dc.html', BestBetsTablet: 'BestBetsTablet' + themeSuffix + '.dc.html', BestBetsMobile: 'BestBetsMobile' + themeSuffix + '.dc.html', Leagues: 'Leagues' + themeSuffix + '.dc.html', LeaguesTablet: 'LeaguesTablet' + themeSuffix + '.dc.html', LeaguesMobile: 'LeaguesMobile' + themeSuffix + '.dc.html', League: 'League' + themeSuffix + '.dc.html', LeagueTablet: 'LeagueTablet' + themeSuffix + '.dc.html', LeagueMobile: 'LeagueMobile' + themeSuffix + '.dc.html', LeagueEPL: 'LeagueEPL' + themeSuffix + '.dc.html', LeagueEPLTablet: 'LeagueEPLTablet' + themeSuffix + '.dc.html', LeagueEPLMobile: 'LeagueEPLMobile' + themeSuffix + '.dc.html', Team: 'Team' + themeSuffix + '.dc.html', TeamTablet: 'TeamTablet' + themeSuffix + '.dc.html', TeamMobile: 'TeamMobile' + themeSuffix + '.dc.html', Performance: 'Performance' + themeSuffix + '.dc.html', PerformanceTablet: 'PerformanceTablet' + themeSuffix + '.dc.html', PerformanceMobile: 'PerformanceMobile' + themeSuffix + '.dc.html', PList: 'PList' + themeSuffix + '.dc.html', PListTablet: 'PListTablet' + themeSuffix + '.dc.html', PListMobile: 'PListMobile' + themeSuffix + '.dc.html', Weekend: 'Weekend' + themeSuffix + '.dc.html', WeekendTablet: 'WeekendTablet' + themeSuffix + '.dc.html', WeekendMobile: 'WeekendMobile' + themeSuffix + '.dc.html', MarketO25: 'MarketO25' + themeSuffix + '.dc.html', MarketO25Tablet: 'MarketO25Tablet' + themeSuffix + '.dc.html', MarketO25Mobile: 'MarketO25Mobile' + themeSuffix + '.dc.html', MarketBTTS: 'MarketBTTS' + themeSuffix + '.dc.html', MarketBTTSTablet: 'MarketBTTSTablet' + themeSuffix + '.dc.html', MarketBTTSMobile: 'MarketBTTSMobile' + themeSuffix + '.dc.html', MarketMR: 'MarketMR' + themeSuffix + '.dc.html', MarketMRTablet: 'MarketMRTablet' + themeSuffix + '.dc.html', MarketMRMobile: 'MarketMRMobile' + themeSuffix + '.dc.html', AccaMR: 'AccaMR' + themeSuffix + '.dc.html', AccaMRTablet: 'AccaMRTablet' + themeSuffix + '.dc.html', AccaMRMobile: 'AccaMRMobile' + themeSuffix + '.dc.html', AccaO25: 'AccaO25' + themeSuffix + '.dc.html', AccaO25Tablet: 'AccaO25Tablet' + themeSuffix + '.dc.html', AccaO25Mobile: 'AccaO25Mobile' + themeSuffix + '.dc.html', AccaBTTS: 'AccaBTTS' + themeSuffix + '.dc.html', AccaBTTSTablet: 'AccaBTTSTablet' + themeSuffix + '.dc.html', AccaBTTSMobile: 'AccaBTTSMobile' + themeSuffix + '.dc.html', AccaCorners: 'AccaCorners' + themeSuffix + '.dc.html', AccaCornersTablet: 'AccaCornersTablet' + themeSuffix + '.dc.html', AccaCornersMobile: 'AccaCornersMobile' + themeSuffix + '.dc.html', AccaCards: 'AccaCards' + themeSuffix + '.dc.html', AccaCardsTablet: 'AccaCardsTablet' + themeSuffix + '.dc.html', AccaCardsMobile: 'AccaCardsMobile' + themeSuffix + '.dc.html', LiveMatch: 'LiveMatch' + themeSuffix + '.dc.html', LiveMatchTablet: 'LiveMatchTablet' + themeSuffix + '.dc.html', LiveMatchMobile: 'LiveMatchMobile' + themeSuffix + '.dc.html', Main: 'Main' + themeSuffix + '.dc.html', Mobile: 'Mobile' + themeSuffix + '.dc.html', BuilderGen: 'BuilderGenerate' + themeSuffix + '.dc.html', BuilderGenTablet: 'BuilderTabletGenerate' + themeSuffix + '.dc.html', BuilderGenMobile: 'BuilderMobileGenerate' + themeSuffix + '.dc.html', LiveMatchFinished: 'LiveMatchFinished' + themeSuffix + '.dc.html', LiveMatchFinishedTablet: 'LiveMatchTabletFinished' + themeSuffix + '.dc.html', LiveMatchFinishedMobile: 'LiveMatchMobileFinished' + themeSuffix + '.dc.html' }
+    };
+    // ===== end theme =====
+
+    const SIZE = 'Tablet';
+    const RAW = [
+      'Talleres Cordoba|Belgrano Cordoba|Liga Profesional Argentina|Argentina|2026-10-04 20:00|MR=Draw@3.40m;BTTS=No@1.38;BMR=Draw & No@3.78;BTG=No & Under 5.5@1.33;DC=Draw or Away@1.31;DNB=Away@1.65;HT=Draw@1.77;HSH=Equal@2.57;OE=Even@1.81;RTG=Draw & Under 2.5@2.56;SOT=Over 6.5@1.13;ATC=Over 3.5@1.45;HTC=Over 3.5@1.39;TCA=Over 2.5@1.19;TCO=Over 7.5@1.35;TFO=Under 24.5@1.34;TG=Under 2.5@1.22',
+      'Huracan|Aldosivi|Liga Profesional Argentina|Argentina|2026-10-04 00:30|MR=Home@1.78m;BTTS=No@1.55;BMR=Home & No@3.67;BTG=No & Under 5.5@1.49;DC=Home or Draw@1.37;DNB=Home@1.75;HT=Draw@1.95;HSH=Equal@2.90;OE=Even@1.86;RTG=Home & Under 2.5@4.14;SOT=Over 6.5@1.36;ATC=Under 5.5@1.42;HTC=Under 5.5@1.25;TSF=Home@2.27;TCA=Over 2.5@1.21;TCO=Under 10.5@1.29;TFO=Over 18.5@1.15;TG=Under 2.5@1.35',
+      'Novorizontino|Goias|Serie B|Brazil|2026-10-02 00:00|MR=Home@1.90m;BTTS=No@1.43;BMR=Home & No@3.27;BTG=No & Under 5.5@1.37;DC=Home or Draw@1.30;DNB=Home@1.61;HT=Draw@1.83;HSH=Equal@2.68;OE=Even@1.83;RTG=Home & Under 2.5@3.64;SOT=Over 6.5@1.15;ATC=Over 3.5@1.29;TSF=Home@2.25;TCA=Under 5.5@1.23;TFO=Over 18.5@1.10;TG=Under 2.5@1.26',
+      'Atletico-MG|RB Bragantino|Serie A|Brazil|2026-10-03 21:30|MR=Home@1.80m;BTTS=No@1.53;BMR=Home & No@2.91;BTG=No & Under 5.5@1.47;DC=Home or Draw@1.25;DNB=Home@1.44;HT=Draw@2.00;HSH=Equal@2.95;OE=Even@1.87;RTG=Home & Under 2.5@3.42;SOT=Over 6.5@1.18;HTC=Under 5.5@1.42;TSF=Home@1.95;TCA=Under 5.5@1.27;TCO=Over 7.5@1.12;TFO=Over 18.5@1.15;TG=Under 2.5@1.37',
+      'Independiente|Instituto Cordoba|Liga Profesional Argentina|Argentina|2026-10-02 22:15|MR=Draw@3.13m;BTTS=No@1.41;BMR=Draw & No@3.95;BTG=No & Under 5.5@1.36;DC=Draw or Away@1.34;DNB=Away@1.73;HT=Draw@1.80;HSH=Equal@2.62;OE=Even@1.82;RTG=Draw & Under 2.5@2.61;SOT=Over 6.5@1.39;ATC=Over 3.5@1.27;HTC=Over 3.5@1.24;TCA=Over 2.5@1.18;TCO=Over 7.5@1.17;TFO=Over 18.5@1.30;TG=Under 2.5@1.24',
+      'Boca Juniors|Union Santa Fe|Liga Profesional Argentina|Argentina|2026-10-04 22:15|MR=Home@1.71m;BTTS=Yes@1.84;BMR=Home & Yes@2.94;BTG=Yes & Over 0.5@1.94;DC=Home or Draw@1.10;DNB=Home@1.12;HT=Home@1.70;HSH=First Half@2.59;OE=Even@1.95;RTG=Home & Over 2.5@1.81;SOT=Over 6.5@1.15;ATC=Under 5.5@1.20;HTC=Over 3.5@1.24;TSF=Home@1.37;TCA=Under 5.5@1.23;TCO=Over 7.5@1.41;TFO=Over 18.5@1.31;TG=Over 2.5@1.49',
+      'Sarmiento Junin|River Plate|Liga Profesional Argentina|Argentina|2026-10-04 17:45|MR=Home@2.11m;BTTS=No@1.91;BMR=Home & No@3.69;BTG=No & Under 5.5@1.82;DC=Home or Draw@1.36;DNB=Home@1.61;HT=Draw@2.28;HSH=First Half@2.82;OE=Even@1.90;RTG=Home & Under 2.5@4.59;SOT=Over 6.5@1.31;ATC=Over 3.5@1.45;HTC=Under 5.5@1.27;TSF=Home@1.98;TCA=Over 2.5@1.29;TCO=Under 10.5@1.35;TFO=Over 18.5@1.08;TG=Under 2.5@1.68',
+      'Internacional de Bogota|Once Caldas|Primera A|Colombia|2026-10-02 01:00|MR=Home@2.21m;BTTS=No@1.42;BMR=Home & No@3.12;BTG=No & Under 5.5@1.37;DC=Home or Draw@1.28;DNB=Home@1.54;HT=Draw@1.84;HSH=Equal@2.68;OE=Even@1.83;RTG=Home & Under 2.5@3.49;SOT=Over 6.5@1.13;ATC=Over 3.5@1.45;HTC=Over 3.5@1.29;TSF=Home@2.18;TCA=Over 2.5@1.11;TCO=Over 7.5@1.28;TFO=Under 24.5@1.31;TG=Under 2.5@1.26',
+      'New York Red Bulls|St. Louis City|Major League Soccer|United States|2026-09-30 23:30|MR=Away@1.59m;BTTS=No@1.85;BMR=Away & No@3.12;BTG=No & Under 5.5@1.76;DC=Draw or Away@1.27;DNB=Away@1.43;HT=Draw@2.31;HSH=First Half@2.82;OE=Even@1.90;RTG=Away & Under 2.5@4.03;SOT=Over 6.5@1.25;ATC=Under 5.5@1.46;HTC=Over 3.5@1.34;TSF=Away@1.81;TCA=Over 2.5@1.25;TCO=Over 7.5@1.33;TFO=Over 18.5@1.06;TG=Under 2.5@1.68',
+      'Atletico Nacional|Junior|Primera A|Colombia|2026-10-01 01:00|MR=Home@1.51m;BTTS=Yes@1.86;BMR=Home & Yes@3.15;BTG=Yes & Over 0.5@1.81;DC=Home or Draw@1.16;DNB=Home@1.21;HT=Home@1.94;HSH=First Half@2.62;OE=Even@1.94;RTG=Home & Over 2.5@2.14;SOT=Over 6.5@1.09;ATC=Under 5.5@1.30;HTC=Over 3.5@1.10;TSF=Home@1.50;TCA=Over 2.5@1.09;TCO=Over 7.5@1.17;TG=Over 2.5@1.69',
+      'Independiente Medellin|Millonarios|Primera A|Colombia|2026-09-30 01:05|MR=Away@3.02m;BTTS=Yes@1.30;BMR=Away & Yes@2.47;BTG=Yes & Over 0.5@1.32;DC=Home or Away@1.24;DNB=Away@1.41;HT=Away@2.10;HSH=First Half@2.50;OE=Even@1.96;RTG=Away & Over 2.5@2.01;SOT=Over 6.5@1.09;ATC=Under 5.5@1.46;HTC=Under 5.5@1.30;TSF=Away@1.67;TCA=Over 2.5@1.10;TCO=Under 10.5@1.35;TFO=Over 18.5@1.07;TG=Over 2.5@1.29',
+      'Sao Paulo|Santos|Serie A|Brazil|2026-10-02 23:00|MR=Draw@3.42m;BTTS=No@1.53;BMR=Draw & No@4.83;BTG=No & Under 5.5@1.47;DC=Draw or Away@1.44;DNB=Away@1.94;HT=Draw@1.92;HSH=Equal@2.86;OE=Even@1.85;RTG=Draw & Under 2.5@2.88;SOT=Over 6.5@1.47;ATC=Over 3.5@1.15;HTC=Over 3.5@1.18;TCA=Over 2.5@1.27;TCO=Over 7.5@1.08;TFO=Over 18.5@1.09;TG=Under 2.5@1.33',
+      'Independ. Rivadavia|Gimnasia L.P.|Liga Profesional Argentina|Argentina|2026-10-03 00:30|MR=Home@1.66m;BTTS=No@1.92;BMR=Home & No@3.49;BTG=No & Under 5.5@1.83;DC=Home or Draw@1.32;DNB=Home@1.54;HT=Draw@2.32;HSH=First Half@2.81;OE=Even@1.90;RTG=Home & Under 2.5@4.44;SOT=Over 6.5@1.33;ATC=Under 5.5@1.13;HTC=Under 5.5@1.42;TSF=Home@1.90;TCA=Over 2.5@1.18;TCO=Under 10.5@1.20;TFO=Over 18.5@1.16;TG=Under 2.5@1.71',
+      'Platense|Estudiantes L.P.|Copa Argentina|Argentina|2026-10-02 00:15|MR=Draw@3.34m;BTTS=No@1.48;BMR=Draw & No@4.38;BTG=No & Under 5.5@1.42;DC=Draw or Away@1.44;DNB=Away@1.99;HT=Draw@1.86;HSH=Equal@2.75;OE=Even@1.84;RTG=Draw & Under 2.5@2.74;SOT=Over 6.5@1.18;ATC=Under 5.5@1.30;HTC=Under 5.5@1.24;TCA=Over 2.5@1.11;TCO=Under 10.5@1.22;TFO=Over 18.5@1.09;TG=Under 2.5@1.28',
+      'Seattle Sounders|Sporting Kansas City|Major League Soccer|United States|2026-10-02 01:30|MR=Home@1.81m;BTTS=Yes@1.52;BMR=Home & Yes@2.96;BTG=Yes & Over 0.5@1.46;DC=Home or Away@1.28;DNB=Home@1.44;HT=Home@2.25;HSH=First Half@2.56;OE=Even@1.95;RTG=Home & Over 2.5@2.34;SOT=Over 6.5@1.39;ATC=Under 5.5@1.27;HTC=Under 5.5@1.30;TSF=Home@1.71;TCA=Under 5.5@1.20;TCO=Under 10.5@1.24;TFO=Over 18.5@1.29;TG=Over 2.5@1.47;TSH=Over 18.5@1.15',
+      'Blooming|Independiente Petrolero|Copa de la División Profesional|Bolivia|2026-10-02 00:30|MR=Home@2.04m;BTTS=No@1.99;BMR=Home & No@3.19;BTG=No & Under 5.5@1.89;DC=Home or Draw@1.26;DNB=Home@1.41;HT=Draw@2.44;HSH=First Half@2.76;OE=Even@1.91;RTG=Home & Under 2.5@4.31;SOT=Over 6.5@1.16;ATC=Under 5.5@1.24;HTC=Over 3.5@1.36;TSF=Home@1.76;TCA=Over 2.5@1.07;TCO=Under 10.5@1.38;TFO=Over 18.5@1.16;TG=Under 2.5@1.84',
+      'Aurora|San Antonio Bulo Bulo|Copa de la División Profesional|Bolivia|2026-09-30 00:00|MR=Home@1.81m;BTTS=No@1.76;BMR=Home & No@2.91;BTG=No & Under 5.5@1.83;DC=Home or Draw@1.22;DNB=Home@1.33;HT=Home@2.40;HSH=First Half@2.77;OE=Even@1.91;RTG=Home & Under 2.5@4.01;SOT=Over 6.5@1.14;ATC=Under 5.5@1.17;HTC=Over 3.5@1.28;TSF=Home@1.68;TCO=Under 10.5@1.38;TFO=Over 18.5@1.09;TG=Under 2.5@1.82',
+      'Oriente Petrolero|The Strongest|Copa de la División Profesional|Bolivia|2026-10-01 00:30|MR=Home@1.83m;BTTS=Yes@1.50;BMR=Home & Yes@2.46;BTG=Yes & Over 0.5@1.44;DC=Home or Draw@1.21;DNB=Home@1.28;HT=Home@1.93;HSH=First Half@2.52;OE=Even@1.96;RTG=Home & Over 2.5@1.88;ATC=Over 3.5@1.18;HTC=Over 3.5@1.27;TSF=Home@1.56;TCO=Over 7.5@1.14;TG=Over 2.5@1.36',
+      'Argentina|Burkina Faso|Friendlies|International|2026-10-04 00:00|MR=Home@1.36m;BTTS=No@1.62;BMR=Home & No@1.87;BTG=No & Under 5.5@1.64;DC=Home or Draw@1.06;DNB=Home@1.07;HT=Home@1.65;HSH=First Half@2.66;OE=Even@1.95;RTG=Home & Over 2.5@2.01;SOT=Over 6.5@1.31;ATC=Over 3.5@1.20;HTC=Under 5.5@1.21;TSF=Home@1.30;TCA=Under 5.5@1.18;TCO=Over 7.5@1.35;TFO=Over 18.5@1.08;TG=Over 2.5@1.77;TSH=Over 18.5@1.15',
+      'San Antonio|SV Darmstadt 98|Friendlies Clubs|International|2026-09-30 00:30|MR=Home@1.97m;BTTS=No@1.19;BMR=Home & No@2.45;BTG=No & Under 5.5@1.15;DC=Home or Draw@1.13;DNB=Home@1.25;HT=Draw@1.60;HSH=Equal@2.19;OE=Even@1.74;RTG=Home & Under 2.5@2.67;TSF=Home@2.09;TG=Under 2.5@1.13',
+      'South Korea|Uruguay|Friendlies|International|2026-09-28 11:00|MR=Home@1.32m;BTTS=No@1.36;BMR=Home & No@1.47;BTG=No & Under 5.5@1.36;HT=Home@1.52;HSH=First Half@2.68;OE=Even@1.96;RTG=Home & Over 2.5@1.97;TSF=Home@1.20;TG=Over 2.5@1.95',
+      'Dominican Republic|Haiti|CONCACAF Nations League|International|2026-10-02 00:00|MR=Away@1.86m;BTTS=No@1.57;BMR=Away & No@1.63;BTG=No & Over 0.5@1.59;HT=Away@1.42;HSH=First Half@2.58;OE=Even@1.97;RTG=Away & Over 2.5@1.58;TSF=Away@1.19;TG=Over 2.5@1.54',
+      'Belize|St. Vincent / Grenadines|CONCACAF Nations League|International|2026-09-30 02:00|MR=Away@1.71m;BTTS=No@1.83;BMR=Away & No@1.79;BTG=No & Over 0.5@1.79;HT=Away@1.17;HSH=First Half@2.42;OE=Even@1.98;RTG=Away & Over 2.5@1.12;TSF=Away@1.13;TG=Over 2.5@1.13',
+      'The New Saints|Cambrian & Clydach|Premier League|Wales|2026-10-03 13:30|MR=Home@1.33m;BTTS=Yes@1.60;BMR=Home & Yes@2.06;BTG=Yes & Over 0.5@1.56;DC=Home or Draw@1.08;DNB=Home@1.09;HT=Home@1.49;HSH=First Half@2.48;OE=Even@1.97;RTG=Home & Over 2.5@1.40;TSF=Home@1.33;TG=Over 2.5@1.22'
+    ];
+    const HORIZON = { selections: 849, matches: 63 };
+    // ===== end builder data =====
+
+    const MK = { MR: 'Match Result', BTTS: 'Both Teams to Score', BMR: 'BTTS & Match Result', BTG: 'BTTS & Total Goals', DC: 'Double Chance', DNB: 'Draw No Bet',
+      HT: 'Half-Time Result', HSH: 'Highest Scoring Half', OE: 'Odd/Even Goals', RTG: 'Result & Total Goals', SOT: 'Shots on Target', ATC: 'Away Team Corners',
+      HTC: 'Home Team Corners', TSF: 'Team to Score First', TCA: 'Total Cards', TCO: 'Total Corners', TFO: 'Total Fouls', TG: 'Total Goals', TSH: 'Total Shots' };
+
+    // ===== shared helpers for prediction-list pages =====
+    const L = THEME_VALS.links;
+    const MATCH_LINK = L[SIZE === 'Mobile' ? 'Mobile' : 'Main'];
+    const lk = (key) => L[key + SIZE] || '#';
+    const WD = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const SUBNAV = [['Today', 'Today'], ['Tomorrow', 'PList'], ['Weekend', 'Weekend'], ['Best Bets', 'BestBets'], ['Over 2.5', 'MarketO25'], ['BTTS', 'MarketBTTS'], ['Match result', 'MarketMR'], ['Leagues', 'Leagues']];
+    const subnav = (current) => SUBNAV.map(([label, key]) => ({ label, link: lk(key), current: key === current ? 'page' : 'false',
+      style: key === current ? 'background: var(--text); color: var(--bg); border: 1px solid var(--text)' : 'background: transparent; color: var(--text-3); border: 1px solid var(--line-strong)' }));
+    const box = (on) => on
+      ? 'background: var(--accent); color: var(--on-accent); border: 1px solid var(--accent)'
+      : 'background: transparent; color: var(--faint); border: 1px solid var(--line-strong)';
+    const outcomesFor = (side) => [{ k: '1', label: 'Home', style: box(side === 'home') }, { k: 'X', label: 'Draw', style: box(side === 'draw') }, { k: '2', label: 'Away', style: box(side === 'away') }];
+    // one prediction row — the same shape the Today page uses
+    const row = (o) => {
+      const side = /^home/i.test(o.pick) ? 'home' : /^away/i.test(o.pick) ? 'away' : /^draw$/i.test(o.pick) ? 'draw' : null;
+      const pickLabel = o.market === 'Match Result' ? (side === 'home' ? 'Home win' : side === 'away' ? 'Away win' : 'Draw') : o.pick;
+      return { ...o, pick: o.pending ? 'Pick publishes closer to kick-off' : pickLabel, pickStyle: o.pending ? 'color: var(--muted); font-weight: 500' : 'color: var(--text)', hasMore: !!o.more, moreLabel: o.more ? '+' + o.more + ' markets' : '', link: o.link || MATCH_LINK, hasOutcomes: !o.pending && !!side && o.market === 'Match Result', outcomes: outcomesFor(side),
+        hasProb: o.prob != null, probLabel: o.prob != null ? o.prob + '%' : '', oddsLabel: o.odds ? (o.isMarket ? 'Market ' : 'Fair ') + o.odds.toFixed(2) : '',
+        right: o.prob != null ? o.prob + '%' : o.odds ? o.odds.toFixed(2) : '' };
+    };
+    const groupBy = (rows, key, sub) => { const out = []; rows.forEach((r) => { let g = out.find((x) => x.title === r[key]); if (!g) { g = { title: r[key], leagues: [] }; out.push(g); }
+      let l = g.leagues.find((x) => x.name === r[sub]); if (!l) { l = { name: r[sub], hasName: !!sub, rows: [] }; g.leagues.push(l); } l.rows.push(r); });
+      return out.map((g) => { const n = g.leagues.reduce((s, l) => s + l.rows.length, 0); return { ...g, count: n + (n === 1 ? ' prediction' : ' predictions') }; }); };
+    // ---- weekly catalogue (same data the Builder uses): one line per match
+    const CAT = RAW.map((line, i) => {
+      const [home, away, league, country, when, sels] = line.split('|');
+      const dt = new Date(when.replace(' ', 'T') + ':00Z');
+      const s = {}; sels.split(';').forEach((x) => { const [code, rest] = x.split('='); const [pick, o] = rest.split('@'); s[code] = { pick, odds: parseFloat(o), isMarket: /m$/.test(o) }; });
+      return { id: i, home, away, league, country, dt, day: WD[dt.getUTCDay()] + ' ' + dt.getUTCDate() + ' ' + MO[dt.getUTCMonth()], time: when.slice(11), sel: s, nSel: Object.keys(s).length };
+    }).sort((a, b) => a.dt - b.dt);
+    const selRow = (m, code) => { const s = m.sel[code]; if (!s) return null;
+      return row({ day: m.day, time: m.time, home: m.home, away: m.away, league: m.league, country: m.country, market: MK[code], pick: s.pick, odds: s.odds, isMarket: s.isMarket, prob: s.isMarket ? null : Math.round(100 / s.odds), more: m.nSel - 1 }); };
+    // artboard height estimate for list pages (content scrolls inside if it runs longer)
+    const LAYOUT = { '': { fixed: 1560, row: 67, lg: 40, grp: 68 }, Tablet: { fixed: 1900, row: 67, lg: 40, grp: 68 }, Mobile: { fixed: 2450, row: 84, lg: 40, grp: 68 } }[SIZE];
+    const listH = (groups, extra) => { const rows = groups.reduce((s, g) => s + g.leagues.reduce((t, l) => t + l.rows.length, 0), 0);
+      const lgs = groups.reduce((s, g) => s + g.leagues.filter((l) => l.hasName).length, 0);
+      return Math.round((LAYOUT.fixed + (extra || 0) + rows * LAYOUT.row + lgs * LAYOUT.lg + groups.length * LAYOUT.grp) / 20) * 20; };
+    const COMMON_LINKS = { todayLink: lk('Today'), bestLink: lk('BestBets'), builderLink: lk('Builder'), leaguesLink: lk('Leagues'), perfLink: lk('Performance'), accaLink: lk('Acca') };
+
+    // ===== PREDICTION LISTS: tomorrow | weekend | o25 | btts | mr =====
+    const TOMORROW = [ // from sokalens.com/predictions/tomorrow (Fri 2 Oct 2026, UTC)
+      ['UEFA Champions League', '19:45', 'AEK Athens FC', 'Lask Linz', 'Away'], ['AFC Challenge League', '15:15', 'KAS Kasukavs', 'KD Karketu Dili', 'Draw'],
+      ['AFC Challenge League', '12:30', 'YU Yangon United', 'EZ Rezra', 'Away'], ['UEFA Youth League', '12:00', 'AEK Athens U19', 'Lask U19', 'Draw'],
+      ['UEFA Youth League', '15:00', 'Club Brugge U19', 'Aston Villa U19', 'Away'], ['UEFA Youth League', '14:00', 'Porto U19', 'Manchester City U19', 'Draw'],
+      ['Eredivisie', '19:45', 'NEC Nijmegen', 'Excelsior', 'Away'], ['Serie A', '02:00', 'Vitoria', 'Gremio', 'Away'],
+      ['Challenge Cup', '21:45', 'Airdrie United', 'St. Mirren U21', 'Away'], ['Challenge Cup', '21:45', "Banks O' Dee", 'Forfar Athletic', 'Home'],
+      ['Challenge Cup', '21:45', 'Berwick Rangers', 'Hibernian U21', 'Away'], ['Challenge Cup', '21:45', 'Clyde', 'East Fife', 'Home'],
+      ['Challenge Cup', '21:45', 'Clydebank', 'Alloa Athletic', 'Home'], ['Challenge Cup', '21:45', 'Cove Rangers', 'Dumbarton', 'Home'],
+      ['Challenge Cup', '21:45', 'Cowdenbeath', 'Kilmarnock II', 'Away']
+    ];
+    const VIEWS = {
+      tomorrow: { key: 'PList', eyebrow: 'Fri 2 Oct 2026 · UTC', lead: 'Tomorrow’s football', accent: 'predictions', sub: 'Every signal. The prediction behind it.', totals: [['Fixtures', 270], ['Predicted', 163], ['Markets', 20]] },
+      weekend: { key: 'Weekend', eyebrow: 'Sat 3 – Sun 4 Oct 2026 · UTC', lead: 'Weekend football', accent: 'predictions', sub: 'Every weekend match with a published pick, grouped by day and competition.' },
+      o25: { key: 'MarketO25', code: 'TG', only: /^Over 2\.5/, eyebrow: 'Market · Total goals', lead: 'Over 2.5 goals', accent: 'predictions', sub: 'Data-led Over 2.5 goals predictions, settled results, and current market accuracy from SokaLens.' },
+      btts: { key: 'MarketBTTS', code: 'BTTS', eyebrow: 'Market · Both teams to score', lead: 'Both teams to score', accent: 'predictions', sub: 'Data-led BTTS predictions — Yes and No — with the model probability behind each pick.' },
+      mr: { key: 'MarketMR', code: 'MR', eyebrow: 'Market · 1X2', lead: 'Match result', accent: 'predictions', sub: 'Home, draw or away for every covered match, with the price we compare against.' }
+    };
+    const viewKey = VIEWS[this.props.view] ? this.props.view : 'tomorrow';
+    const V = VIEWS[viewKey];
+    let rows;
+    if (viewKey === 'tomorrow') rows = TOMORROW.map(([league, time, home, away, pick]) => row({ day: 'Fri 2 Oct', time, home, away, league, country: '', market: 'Match Result', pick }));
+    else if (viewKey === 'weekend') rows = CAT.filter((m) => m.dt.getUTCDay() === 6 || m.dt.getUTCDay() === 0).map((m) => selRow(m, 'MR'));
+    else rows = CAT.map((m) => selRow(m, V.code)).filter((r) => r && (!V.only || V.only.test(r.pick)));
+    const st = this.state;
+    const dayOrder = [...new Set(rows.map((r) => r.day))];
+    const pickOptions = ['All'].concat([...new Set(rows.map((r) => r.pick))]);
+    const q = (st.q || '').trim().toLowerCase();
+    const shown = rows.filter((r) => (st.pick === 'All' || r.pick === st.pick) && (!q || (r.home + ' ' + r.away + ' ' + r.league).toLowerCase().includes(q)))
+      .sort((a, b) => (dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day)) || a.time.localeCompare(b.time));
+    const groups = groupBy(shown, 'day', 'league');
+    groups.forEach((g, i) => { g.adAfter = i === 0 && groups.length > 1; });
+    const probs = shown.filter((r) => r.hasProb).map((r) => r.prob);
+    const PAGE_VALS = {
+      v: V, subnav: subnav(V.key), groups, pageH: listH(groupBy(rows.slice().sort((a, b) => (dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day)) || a.time.localeCompare(b.time)), 'day', 'league')), isEmpty: shown.length === 0,
+      totals: V.totals || [['Matches', rows.length], ['Competitions', new Set(rows.map((r) => r.league)).size], ['Avg. probability', probs.length ? Math.round(probs.reduce((a, b) => a + b, 0) / probs.length) + '%' : '—']],
+      countLine: 'Showing ' + shown.length + ' of ' + rows.length + ' predictions',
+      pickChips: pickOptions.map((p) => ({ label: p, pressed: st.pick === p ? 'true' : 'false',
+        style: st.pick === p ? 'background: var(--accent); color: var(--on-accent); border: 1px solid var(--accent)' : 'background: transparent; color: var(--text-3); border: 1px solid var(--line-strong)',
+        pick: () => this.setState({ pick: p }) })),
+      q: st.q, onQuery: (e) => this.setState({ q: e.target.value }), reset: () => this.setState({ q: '', pick: 'All' }),
+      bestLink: lk('BestBets'), builderLink: lk('Builder'), leaguesLink: lk('Leagues'), perfLink: lk('Performance')
+    };
+    PAGE_VALS.totals = PAGE_VALS.totals.map(([l, v]) => ({ l, v: String(v) }));
+    return {
+      ...THEME_VALS, isLight: !isDark,
+      ...COMMON_LINKS, ...PAGE_VALS, pageH: PAGE_VALS.pageH || 3220
+    };
+  }
+}
+</script>
+</body>
+</html>

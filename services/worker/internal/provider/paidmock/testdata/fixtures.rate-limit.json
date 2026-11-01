@@ -1,0 +1,17 @@
+{
+  "recorded_at": "2026-08-14T09:00:00Z",
+  "capability": {
+    "provider": "paid-provider-mock", "endpoint": "fixtures", "entity_type": "match",
+    "observed_at": "2026-08-14T08:55:00Z", "valid_until": "2026-08-15T08:55:00Z",
+    "quota_cost": 2, "plan": "professional-test", "plan_support": "supported",
+    "licensing": { "may_persist_raw": true, "may_use_for_training": true, "may_serve_publicly": false, "may_serve_to_paid_users": true },
+    "contract_source": "recorded-contract:test-fixture-2026-08-14"
+  },
+  "request": { "endpoint": "fixtures", "query": { "season": ["2026"] } },
+  "response": {
+    "status_code": 429, "latency_ms": 42,
+    "headers": { "X-RateLimit-Requests-Limit": "7500", "X-RateLimit-Requests-Remaining": "0", "X-RateLimit-Minute-Limit": "300", "X-RateLimit-Minute-Remaining": "0", "Retry-After": "60" },
+    "body": { "error": { "code": "rate_limit", "retry_after_seconds": 60 } }
+  },
+  "expected_schema": "paid-provider.fixtures.v1", "observed_schema": "paid-provider.fixtures.v1"
+}

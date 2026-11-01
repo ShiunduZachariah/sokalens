@@ -1,0 +1,61 @@
+DROP TABLE IF EXISTS security_events;
+DROP TABLE IF EXISTS abuse_signals;
+DROP TABLE IF EXISTS account_suspensions;
+DROP TABLE IF EXISTS notification_delivery_attempts;
+DROP TABLE IF EXISTS notification_outbox;
+DROP TABLE IF EXISTS notifications;
+DROP TABLE IF EXISTS notification_channel_preferences;
+DROP TABLE IF EXISTS user_entitlement_snapshots;
+DROP TABLE IF EXISTS user_entitlement_grants;
+DROP TABLE IF EXISTS payment_disputes;
+DROP TABLE IF EXISTS payment_transactions;
+DROP TABLE IF EXISTS subscription_events;
+DROP TABLE IF EXISTS billing_webhook_events;
+DROP TABLE IF EXISTS subscriptions;
+DROP TABLE IF EXISTS billing_customers;
+DROP TABLE IF EXISTS plan_entitlements;
+DROP TABLE IF EXISTS plan_prices;
+DROP TABLE IF EXISTS subscription_plans;
+DROP TABLE IF EXISTS recommendation_dismissals;
+DROP TABLE IF EXISTS recommendation_candidates;
+DROP TABLE IF EXISTS recommendation_events;
+DROP TABLE IF EXISTS recommendation_weights;
+DROP TABLE IF EXISTS user_interest_items;
+ALTER TABLE entity_favorites DROP COLUMN IF EXISTS updated_at;
+ALTER TABLE entity_favorites DROP COLUMN IF EXISTS notifications_enabled;
+DROP TABLE IF EXISTS guest_analysis_views;
+DROP TABLE IF EXISTS guest_sessions;
+DROP TABLE IF EXISTS consent_events;
+DROP TABLE IF EXISTS terms_documents;
+DROP TABLE IF EXISTS mfa_recovery_codes;
+DROP TABLE IF EXISTS user_mfa_methods;
+DROP TABLE IF EXISTS auth_tokens;
+DROP INDEX IF EXISTS idx_user_sessions_expiry_cleanup;
+DROP INDEX IF EXISTS idx_user_sessions_user_active_expiry;
+DROP INDEX IF EXISTS idx_user_sessions_public_id;
+ALTER TABLE user_sessions
+  DROP COLUMN IF EXISTS revocation_reason,
+  DROP COLUMN IF EXISTS absolute_expires_at,
+  DROP COLUMN IF EXISTS last_seen_at,
+  DROP COLUMN IF EXISTS ip_prefix_hash,
+  DROP COLUMN IF EXISTS user_agent,
+  DROP COLUMN IF EXISTS device_name,
+  DROP COLUMN IF EXISTS session_type,
+  DROP COLUMN IF EXISTS public_id;
+DROP TABLE IF EXISTS user_roles;
+DROP TABLE IF EXISTS role_permissions;
+DROP TABLE IF EXISTS permissions;
+DROP TABLE IF EXISTS roles;
+DROP TABLE IF EXISTS user_profiles;
+DROP INDEX IF EXISTS idx_users_account_status;
+DROP INDEX IF EXISTS idx_users_email_normalized_unique;
+ALTER TABLE users
+  DROP COLUMN IF EXISTS updated_at,
+  DROP COLUMN IF EXISTS last_login_at,
+  DROP COLUMN IF EXISTS marketing_consent,
+  DROP COLUMN IF EXISTS personalization_enabled,
+  DROP COLUMN IF EXISTS language,
+  DROP COLUMN IF EXISTS timezone,
+  DROP COLUMN IF EXISTS account_status,
+  DROP COLUMN IF EXISTS email_verified_at,
+  DROP COLUMN IF EXISTS email_normalized;

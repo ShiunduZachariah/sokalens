@@ -1,0 +1,22 @@
+{
+  "get": "status",
+  "parameters": [],
+  "errors": [],
+  "results": 1,
+  "response": {
+    "account": {
+      "firstname": "Ada",
+      "lastname": "Lovelace",
+      "email": "ada@example.com"
+    },
+    "subscription": {
+      "plan": "Pro",
+      "end": "2026-12-31",
+      "active": true
+    },
+    "requests": {
+      "current": 42,
+      "limit_day": 7500
+    }
+  }
+}

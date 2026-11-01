@@ -1,0 +1,768 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - qa
+  schedule:
+    # A dependency advisory can land against code nobody touched, so the
+    # per-path audits below would never re-run and the property would drift
+    # into a vulnerable state silently. This sweep runs the full audit set
+    # against main every night regardless of what changed.
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+# Serialize CI runs per branch so a deploy never overlaps a still-running run.
+concurrency:
+  group: ci-${{ github.ref }}
+  # Cancel superseded pull-request runs: pushing three times in a row used to
+  # bill three complete matrices when only the last one could ever merge.
+  # Never cancel on main -- a cancelled run there is a half-finished deploy.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  detect:
+    # Pull requests from forks never reach the self-hosted runner: it lives on
+    # the production host, and a fork's code would run there. They get a
+    # GitHub-hosted runner instead. Every other job inherits this choice
+    # through outputs.runner.
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    outputs:
+      runner: ${{ steps.runner.outputs.name }}
+      api: ${{ steps.filter.outputs.api }}
+      security: ${{ steps.filter.outputs.security }}
+      worker: ${{ steps.filter.outputs.worker }}
+      ops: ${{ steps.filter.outputs.ops }}
+      tooling: ${{ steps.filter.outputs.tooling }}
+      web: ${{ steps.filter.outputs.web }}
+      seo: ${{ steps.filter.outputs.seo }}
+      admin: ${{ steps.filter.outputs.admin }}
+      mobile: ${{ steps.filter.outputs.mobile }}
+      contracts: ${{ steps.filter.outputs.contracts }}
+      infra: ${{ steps.filter.outputs.infra }}
+      proxy: ${{ steps.filter.outputs.proxy }}
+      docs: ${{ steps.filter.outputs.docs }}
+    steps:
+      - id: runner
+        env:
+          RUNNER: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.CI_RUNNER || 'ubuntu-latest' }}
+        run: echo "name=$RUNNER" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          predicate-quantifier: some-with-excludes
+          filters: |
+            api:
+              - 'services/api/**'
+              - 'go.work'
+              - 'Taskfile.yml'
+            worker:
+              - 'services/worker/**'
+              - 'services/prediction-engine/**'
+              - 'tests/prediction-engine/**'
+              - 'go.work'
+              - 'Taskfile.yml'
+            security:
+              - 'services/api/internal/access/**'
+              - 'services/api/internal/accounts/**'
+              - 'services/api/internal/admin/**'
+              # The in-play entitlement filter and the public pre-match reads
+              # it fences off. A gate that does not run on the code it guards
+              # is not a gate: an edit to the filter alone, or to the analysis
+              # query that keeps in-play predictions off the guest surface,
+              # has to re-run the leak battery.
+              - 'services/api/internal/analysis/**'
+              - 'services/api/internal/billing/**'
+              - 'services/api/internal/config/**'
+              - 'services/api/internal/httpserver/**'
+              - 'services/api/internal/predictions/**'
+              - 'services/api/internal/securityinvariants/**'
+              - 'services/worker/internal/billingevents/**'
+              - 'infra/db/migrations/**'
+              - 'go.work'
+              - 'Taskfile.yml'
+            ops:
+              - 'services/ops-controller/**'
+              - 'packages/ai-contract/**'
+              - 'go.work'
+              - 'Taskfile.yml'
+            tooling:
+              - 'tools/release-manifest/**'
+              - 'scripts/architecture/**'
+              - 'tests/architecture/**'
+              - 'go.work'
+              - 'Taskfile.yml'
+            web:
+              - 'apps/web/**'
+              - 'Taskfile.yml'
+            seo:
+              - 'apps/web/app/**'
+              - 'apps/web/proxy.ts'
+              - 'apps/web/scripts/seo-invariants.mjs'
+              - 'apps/web/scripts/search-index-audit.mjs'
+              - 'apps/web/scripts/indexnow-submit.mjs'
+              - 'apps/web/scripts/seo-invariants.test.mjs'
+              - 'infra/deploy/Caddyfile'
+              # The SEO gate also reads the Go email surfaces and the shared
+              # URL contract: outbound email publishes canonical URLs off-site,
+              # so a change there is an SEO change.
+              - 'packages/contracts/seo/**'
+              - 'services/api/internal/emaillinks/**'
+              - 'services/api/internal/httpserver/**'
+              - 'services/api/internal/usernotifications/**'
+              - 'services/worker/internal/notifications/**'
+              - 'Taskfile.yml'
+            admin:
+              - 'apps/admin/**'
+              - 'Taskfile.yml'
+            mobile:
+              - 'apps/mobile/**'
+              - 'Taskfile.yml'
+            contracts:
+              - 'packages/contracts/**'
+              - 'Taskfile.yml'
+            infra:
+              - 'infra/**'
+              - '!infra/deploy/Caddyfile'
+              - '!infra/deploy/ci-deploy.sh'
+              - 'Taskfile.yml'
+            proxy:
+              - 'infra/deploy/Caddyfile'
+              - 'infra/deploy/ci-deploy.sh'
+              - '.github/workflows/**'
+            docs:
+              - 'docs/**'
+              - '*.md'
+
+  api:
+    runs-on: ${{ needs.detect.outputs.runner }}
+    timeout-minutes: 20
+    needs: detect
+    if: needs.detect.outputs.api == 'true'
+    # CI gets a port nothing else on the runner host uses, and DATABASE_URL
+    # points at it explicitly rather than relying on the Taskfile default.
+    #
+    # 5433 is production's PostgreSQL and 15433 is QA's -- both on the machine
+    # this now runs on. A hosted runner never noticed; a self-hosted one either
+    # fails to bind or -- far worse -- lets `task db:migrate` and `task db:seed`
+    # find a database that is not the throwaway service container. 15433 was
+    # chosen here before QA existed on the same host; 25433 belongs to nothing.
+    # See docs/operations/environments.md for the two environments' port maps.
+    env:
+      DATABASE_URL: postgres://sports:sports@127.0.0.1:25433/sports_prediction?sslmode=disable
+      # A skipped database test is not a passing one. This makes an
+      # unreachable database fail the job instead of quietly shrinking it.
+      FIXTUREPOLICY_REQUIRE_DB_TESTS: '1'
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: sports_prediction
+          POSTGRES_USER: sports
+          POSTGRES_PASSWORD: sports
+        ports:
+          - 25433:5432
+        options: >-
+          --health-cmd "pg_isready -U sports -d sports_prediction"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+      - uses: arduino/setup-task@v2
+        with:
+          # Pin a published release; the floating tag may have no assets yet.
+          version: '3.53.1'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - run: task api:test
+      - run: task api:lint
+      - run: task api:build
+      - run: task db:migrate
+      - run: task db:seed
+      - run: task db:verify
+      - run: docker build -f services/api/Dockerfile -t sports-prediction-api:ci .
+
+  security-invariants:
+    runs-on: ${{ needs.detect.outputs.runner }}
+    timeout-minutes: 15
+    needs: detect
+    if: needs.detect.outputs.security == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+      - uses: arduino/setup-task@v2
+        with:
+          # Pin a published release; the floating tag may have no assets yet.
+          version: '3.53.1'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - run: task security-invariants:test
+
+  # Mirrors security-invariants: a path-filtered, required gate whose whole
+  # job is to stop a silent regression. Every search-recovery fix -- the
+  # retired /en/ tree, the retired /matches/{id} route, the canonical on every
+  # indexable page, the sitemap rules -- is one careless edit from coming back,
+  # and Search Console reports it six weeks later as a coverage number.
+  seo-invariants:
+    runs-on: ${{ needs.detect.outputs.runner }}
+    timeout-minutes: 10
+    needs: detect
+    if: needs.detect.outputs.seo == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: arduino/setup-task@v2
+        with:
+          # Pin a published release; the floating tag may have no assets yet.
+          version: '3.53.1'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - run: task seo-invariants:test
+
+  worker:
+    runs-on: ${{ needs.detect.outputs.runner }}
+    timeout-minutes: 30
+    needs: detect
+    if: needs.detect.outputs.worker == 'true'
+    # This job's change filter already covers services/prediction-engine and
+    # tests/prediction-engine, but until now it ran only the Go worker tests,
+    # so the Python engine's suite never ran on GitHub at all. A candidate
+    # query that silently dropped two thirds of the fixture list shipped
+    # through a green pipeline because of it.
+    #
+    # The engine's candidate SQL uses interval arithmetic and correlated
+    # subqueries, so proving its behaviour needs PostgreSQL rather than a
+    # stand-in. 25434 comes from CI's own port range, next to the api job's
+    # 25433 -- see docs/operations/environments.md. It needs a container of its
+    # own because the two jobs are independent and CI now runs on the host that
+    # also holds production and QA.
+    #
+    # The Go worker's own PostgreSQL-gated tests share that container rather
+    # than taking a third port. The reason 25434 exists separately from the api
+    # job's 25433 is that those two jobs are independent and can be in flight
+    # on this host together; these two suites are steps of one job and run one
+    # after the other, and each creates its own schema or temporary tables. A
+    # third container would buy nothing and cost a pull, a start and 100-odd MB
+    # of RAM on the runner every worker build.
+    #
+    # DATABASE_URL points there too, because `task db:migrate` is what gives
+    # the ingestion tests the real schema they query -- fixture_statistics_snapshots
+    # and the three tables behind the live-fixture lookup. Without it those two
+    # would trade a DSN skip for a missing-relation failure.
+    env:
+      PREDICTION_ENGINE_TEST_DATABASE_URL: postgres://sports:sports@127.0.0.1:25434/sports_prediction?sslmode=disable
+      # A skipped database test is not a passing one. This makes an
+      # unreachable database fail the job instead of quietly shrinking it.
+      PREDICTION_ENGINE_REQUIRE_DB_TESTS: '1'
+      DATABASE_URL: postgres://sports:sports@127.0.0.1:25434/sports_prediction?sslmode=disable
+      # One DSN per package, because each gated test reads its own variable.
+      # SCHEDULER_ and WORKER_ are set ahead of the tests that read them (PR
+      # #326): an unused variable costs nothing, and the alternative is a test
+      # that merges and skips silently, which is the defect this whole block
+      # fixes.
+      INGESTION_TEST_DATABASE_URL: postgres://sports:sports@127.0.0.1:25434/sports_prediction?sslmode=disable
+      MATCHSTATE_TEST_DATABASE_URL: postgres://sports:sports@127.0.0.1:25434/sports_prediction?sslmode=disable
+      SNAPSHOTS_TEST_DATABASE_URL: postgres://sports:sports@127.0.0.1:25434/sports_prediction?sslmode=disable
+      SCHEDULER_TEST_DATABASE_URL: postgres://sports:sports@127.0.0.1:25434/sports_prediction?sslmode=disable
+      WORKER_TEST_DATABASE_URL: postgres://sports:sports@127.0.0.1:25434/sports_prediction?sslmode=disable
+      # The same principle as PREDICTION_ENGINE_REQUIRE_DB_TESTS above, for the
+      # Go side. Every one of those five tests skipped on every CI run from the
+      # day it was written, because this job set none of the variables above.
+      # See services/worker/internal/dbtest.
+      WORKER_REQUIRE_DB_TESTS: '1'
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: sports_prediction
+          POSTGRES_USER: sports
+          POSTGRES_PASSWORD: sports
+        ports:
+          - 25434:5432
+        options: >-
+          --health-cmd "pg_isready -U sports -d sports_prediction"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: arduino/setup-task@v2
+        with:
+          # Pin a published release; the floating tag may have no assets yet.
+          version: '3.53.1'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - run: pip install -r services/prediction-engine/requirements.txt
+      # Before worker:test, not after: the ingestion tests query the migrated
+      # schema rather than building their own.
+      - run: task db:migrate
+      - run: task worker:test
+      - run: task prediction-engine:test
+      - run: task worker:lint
+      - run: task worker:build
+      - run: docker build -f services/worker/Dockerfile -t sports-prediction-worker:ci .
+
+  ops-tooling:
+    runs-on: ${{ needs.detect.outputs.runner }}
+    timeout-minutes: 20
+    needs: detect
+    if: needs.detect.outputs.ops == 'true' || needs.detect.outputs.tooling == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: arduino/setup-task@v2
+        with:
+          # Pin a published release; the floating tag may have no assets yet.
+          version: '3.53.1'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - run: task ops-controller:test
+      - run: task ops-controller:lint
+      - run: task ops-controller:build
+      - run: task ai-contract:test
+      - run: task release-manifest:test
+      - run: task release-manifest:build
+      - run: task architecture:test
+      - run: task architecture:migrations:verify
+      - run: docker build -f services/ops-controller/Dockerfile -t sports-prediction-ops-controller:ci .
+
+  web:
+    runs-on: ${{ needs.detect.outputs.runner }}
+    timeout-minutes: 25
+    needs: detect
+    if: needs.detect.outputs.web == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: arduino/setup-task@v2
+        with:
+          # Pin a published release; the floating tag may have no assets yet.
+          version: '3.53.1'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - run: npm ci
+        working-directory: apps/web
+      - run: task web:test
+      - run: task web:lint
+      - run: task web:build
+
+  # Not a deploy gate: apps/admin is not on the active release path, so a red or
+  # slow admin build must not hold back a web or API deploy. Re-add it to the
+  # deploy `needs` list when admin ships again.
+  admin:
+    runs-on: ${{ needs.detect.outputs.runner }}
+    timeout-minutes: 20
+    needs: detect
+    if: needs.detect.outputs.admin == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: arduino/setup-task@v2
+        with:
+          # Pin a published release; the floating tag may have no assets yet.
+          version: '3.53.1'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - run: npm ci
+        working-directory: apps/admin
+      - run: task admin:test
+      - run: task admin:lint
+      - run: task admin:build
+
+  mobile:
+    runs-on: ${{ needs.detect.outputs.runner }}
+    timeout-minutes: 10
+    needs: detect
+    if: needs.detect.outputs.mobile == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: arduino/setup-task@v2
+        with:
+          # Pin a published release; the floating tag may have no assets yet.
+          version: '3.53.1'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - run: task mobile:test
+
+  contracts:
+    runs-on: ${{ needs.detect.outputs.runner }}
+    timeout-minutes: 10
+    needs: detect
+    if: needs.detect.outputs.contracts == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: arduino/setup-task@v2
+        with:
+          # Pin a published release; the floating tag may have no assets yet.
+          version: '3.53.1'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - run: npm ci
+        working-directory: packages/contracts
+      - run: task contracts:test
+
+  infra-docs:
+    runs-on: ${{ needs.detect.outputs.runner }}
+    timeout-minutes: 15
+    needs: detect
+    if: needs.detect.outputs.infra == 'true' || needs.detect.outputs.proxy == 'true' || needs.detect.outputs.docs == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: arduino/setup-task@v2
+        with:
+          # Pin a published release; the floating tag may have no assets yet.
+          version: '3.53.1'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - run: npm ci
+        working-directory: packages/contracts
+      - run: docker compose -f infra/docker/docker-compose.yml --profile all config
+      - name: Verify staged deployment gates
+        run: |
+          bash -n infra/deploy/ci-deploy.sh
+          bash -n infra/deploy/ci-docker-gc.sh
+          bash -n infra/deploy/acca-readiness.sh
+          bash -n infra/deploy/capacity-report.sh
+          bash -n infra/deploy/backup.sh
+          # infra/**, not infra/deploy/**: the mock provider payload has a guard
+          # too, and a guard CI never runs is not a guard.
+          node --test infra/deploy/*.test.mjs infra/mock-api-football/*.test.mjs
+      - run: task contracts:test
+
+  ci-volume-cleanup:
+    runs-on: ${{ needs.detect.outputs.runner }}
+    timeout-minutes: 10
+    needs: [detect, api, worker]
+    if: always() && github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reclaim unused CI Postgres volumes
+        run: bash infra/deploy/ci-docker-gc.sh
+
+  security-audit:
+    runs-on: ${{ needs.detect.outputs.runner }}
+    timeout-minutes: 20
+    needs: detect
+    if: >-
+      github.event_name != 'pull_request' ||
+      needs.detect.outputs.web == 'true' ||
+      needs.detect.outputs.admin == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            apps/web/package-lock.json
+            apps/admin/package-lock.json
+            packages/contracts/package-lock.json
+      # Retries ONLY transport failures (503 / timeout) and still fails closed
+      # when the advisory service never answers. A real finding fails on the
+      # first attempt and is never retried. See scripts/ci/npm-audit-with-retry.sh
+      - name: Audit production JavaScript dependencies
+        run: |
+          for workspace in apps/web apps/admin packages/contracts; do
+            bash scripts/ci/npm-audit-with-retry.sh "$workspace" high
+          done
+
+  # Split out of security-audit deliberately. These two scans have no
+  # relationship to each other, and when they shared a job an npm advisory
+  # outage aborted the job before govulncheck ever ran -- so a Go vulnerability
+  # would have been invisible for as long as npm was degraded. Separate jobs
+  # mean each reports its own verdict.
+  security-audit-go:
+    runs-on: ${{ needs.detect.outputs.runner }}
+    timeout-minutes: 20
+    needs: detect
+    if: >-
+      github.event_name != 'pull_request' ||
+      needs.detect.outputs.api == 'true' ||
+      needs.detect.outputs.worker == 'true' ||
+      needs.detect.outputs.ops == 'true' ||
+      needs.detect.outputs.tooling == 'true' ||
+      needs.detect.outputs.security == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+          cache-dependency-path: '**/go.sum'
+      - name: Scan reachable Go vulnerabilities
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
+          for module in packages/ai-contract services/api services/ops-controller services/worker tools/release-manifest; do
+            (cd "$module" && govulncheck ./...)
+          done
+
+  secret-scan:
+    runs-on: ${{ needs.detect.outputs.runner }}
+    timeout-minutes: 15
+    needs: detect
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: '8.30.1'
+        run: |
+          set -euo pipefail
+          # Installed into the runner's own temp directory rather than
+          # /usr/local/bin. A hosted runner grants passwordless sudo; a
+          # self-hosted one has no reason to, and should not be given it just
+          # so a job can drop a binary into a system path. RUNNER_TEMP is
+          # per-job and always writable, so this behaves the same on both.
+          install -d "$RUNNER_TEMP/bin"
+          # --fail matters more than the retries.
+          #
+          # Without it curl exits 0 on a 404, a 403 or a rate-limit page and
+          # writes that body to the .tar.gz, so the first thing to complain is
+          # tar -- "gzip: stdin: not in gzip format", exit 2 -- and the job
+          # reads as a failed SECURITY SCAN when the scanner never ran. That is
+          # the worst shape a gate can fail in, because the honest answer
+          # ("I do not know") is indistinguishable from a finding. It happened
+          # twice on 2026-10-03.
+          #
+          # --fail turns a bad response into a non-zero curl under `set -e`,
+          # which stops here and says so. The retries cover the transient half.
+          archive="$RUNNER_TEMP/gitleaks.tar.gz"
+          curl -sS --fail --location --retry 3 --retry-delay 2 --retry-all-errors \
+            -o "$archive" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          # Belt: a 200 carrying the wrong body would still reach tar.
+          if ! gzip -t "$archive" 2>/dev/null; then
+            echo "::error::gitleaks download is not a gzip archive -- the scanner was not installed, so this job proves nothing about secrets" >&2
+            head -c 200 "$archive" >&2 || true
+            exit 1
+          fi
+          tar -xzf "$archive" -C "$RUNNER_TEMP/bin" gitleaks
+          chmod 0755 "$RUNNER_TEMP/bin/gitleaks"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Scan full git history for committed secrets
+        run: gitleaks detect --source . --redact --no-banner
+
+  # The one required status check for pull requests into main and qa. The
+  # jobs above are path-filtered, so most are skipped on any given change;
+  # requiring each by name would leave a PR waiting forever on a check that
+  # never runs. This job always runs and fails if any gate failed or was
+  # cancelled. The list matches the deploy job's: admin is deliberately not a
+  # gate (see the admin job).
+  ci-gates:
+    name: CI gates
+    runs-on: ${{ needs.detect.outputs.runner || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    needs: [detect, api, security-invariants, seo-invariants, security-audit, security-audit-go, secret-scan, worker, ops-tooling, web, mobile, contracts, infra-docs]
+    if: always()
+    steps:
+      - name: Require every gate to be green or skipped
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          for r in $RESULTS; do
+            if [ "$r" != "success" ] && [ "$r" != "skipped" ]; then
+              echo "::error::a CI gate did not pass: $r"
+              exit 1
+            fi
+          done
+          echo "All gates green: $RESULTS"
+
+  # Production deployment: runs ONLY on green main pushes that touch deployable
+  # surfaces. All deployments go through this CI job (never direct SSH deploys).
+  # The VPS_SSH_PRIVATE_KEY secret holds the `deploy` user's SSH key; the job
+  # ships the source tarball + ci-deploy.sh and runs them on the VPS.
+  deploy:
+    runs-on: ${{ vars.DEPLOY_RUNNER || 'ubuntu-latest' }}
+    # Longest observed deploy is ~18 minutes; this only stops a hung one.
+    timeout-minutes: 60
+    environment: production
+    needs: [detect, api, security-invariants, seo-invariants, security-audit, security-audit-go, secret-scan, worker, ops-tooling, web, mobile, contracts, infra-docs]
+    # always() so GitHub does not auto-skip this job when path-filtered gates
+    # are skipped; the gate-check step enforces "deploy only when everything
+    # green" explicitly.
+    if: >-
+      always() &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # HEAD^ is the previous main revision for a merge/squash push.
+          fetch-depth: 2
+
+      - name: Verify all gates green and a deployable surface changed
+        id: gates
+        env:
+          DETECT: ${{ needs.detect.result }}
+          API: ${{ needs.api.result }}
+          SECURITY: ${{ needs.security-invariants.result }}
+          SEO: ${{ needs.seo-invariants.result }}
+          SECURITY_AUDIT: ${{ needs.security-audit.result }}
+          SECURITY_AUDIT_GO: ${{ needs.security-audit-go.result }}
+          SECRET_SCAN: ${{ needs.secret-scan.result }}
+          WORKER: ${{ needs.worker.result }}
+          OPS: ${{ needs.ops-tooling.result }}
+          WEB: ${{ needs.web.result }}
+          MOBILE: ${{ needs.mobile.result }}
+          CONTRACTS: ${{ needs.contracts.result }}
+          INFRA_DOCS: ${{ needs.infra-docs.result }}
+          SURFACE_API: ${{ needs.detect.outputs.api }}
+          SURFACE_WORKER: ${{ needs.detect.outputs.worker }}
+          SURFACE_WEB: ${{ needs.detect.outputs.web }}
+          SURFACE_ADMIN: ${{ needs.detect.outputs.admin }}
+          SURFACE_INFRA: ${{ needs.detect.outputs.infra }}
+          SURFACE_PROXY: ${{ needs.detect.outputs.proxy }}
+          SURFACE_CONTRACTS: ${{ needs.detect.outputs.contracts }}
+          SURFACE_SECURITY: ${{ needs.detect.outputs.security }}
+          SURFACE_OPS: ${{ needs.detect.outputs.ops }}
+        run: |
+          green() { [ "$1" = "success" ] || [ "$1" = "skipped" ]; }
+          for r in "$DETECT" "$API" "$SECURITY" "$SEO" "$SECURITY_AUDIT" "$SECURITY_AUDIT_GO" "$SECRET_SCAN" "$WORKER" "$OPS" "$WEB" "$MOBILE" "$CONTRACTS" "$INFRA_DOCS"; do
+            if ! green "$r"; then
+              echo "::error::deploy gate is not green: $r"
+              exit 1
+            fi
+          done
+          SURFACE="false"
+          for s in "$SURFACE_API" "$SURFACE_WORKER" "$SURFACE_WEB" "$SURFACE_ADMIN" "$SURFACE_INFRA" "$SURFACE_PROXY" "$SURFACE_CONTRACTS" "$SURFACE_SECURITY" "$SURFACE_OPS"; do
+            [ "$s" = "true" ] && SURFACE="true"
+          done
+          if [ "$SURFACE" != "true" ]; then
+            echo "No deployable surface changed; skipping deploy."
+            echo "services=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          SERVICES=""
+          [ "$SURFACE_API" = "true" ] && SERVICES="$SERVICES api"
+          [ "$SURFACE_WORKER" = "true" ] && SERVICES="$SERVICES worker"
+          [ "$SURFACE_WEB" = "true" ] && SERVICES="$SERVICES web"
+          [ "$SURFACE_ADMIN" = "true" ] && SERVICES="$SERVICES admin"
+          # A Go toolchain release must still run every affected test gate, but
+          # it does not need to restart web, admin, or observability. Keep this
+          # narrow only when *every* changed path belongs to that release.
+          GO_TOOLCHAIN_ONLY=true
+          GO_TOOLCHAIN_CHANGED=false
+          while IFS= read -r path; do
+            case "$path" in
+              .github/workflows/ci.yml) ;;
+              go.work|packages/ai-contract/go.mod|services/api/go.mod|services/api/Dockerfile|services/worker/go.mod|services/worker/Dockerfile|services/ops-controller/go.mod|services/ops-controller/Dockerfile|tools/release-manifest/go.mod) GO_TOOLCHAIN_CHANGED=true ;;
+              *) GO_TOOLCHAIN_ONLY=false ;;
+            esac
+          done < <(git diff --name-only HEAD^ HEAD)
+          if [ "$GO_TOOLCHAIN_ONLY" = "true" ] && [ "$GO_TOOLCHAIN_CHANGED" = "true" ]; then
+            SERVICES="api worker ops-controller"
+          elif [ "$SURFACE_INFRA" = "true" ]; then
+            SERVICES="api worker web admin ops-controller prometheus node-exporter cadvisor grafana loki promtail"
+          elif [ "$SURFACE_CONTRACTS" = "true" ] || [ "$SURFACE_SECURITY" = "true" ] || [ "$SURFACE_OPS" = "true" ]; then
+            SERVICES="api worker web admin ops-controller"
+          fi
+          [ -z "$SERVICES" ] && [ "$SURFACE_PROXY" = "true" ] && SERVICES="proxy-only"
+          [ -z "$SERVICES" ] && SERVICES="all"
+          echo "Deploying services: $SERVICES"
+          echo "services=$SERVICES" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Configure SSH to the VPS
+        uses: ./.github/actions/vps-ssh
+        with:
+          private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          known-hosts: ${{ secrets.VPS_KNOWN_HOSTS }}
+          host: ${{ secrets.VPS_HOST }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          user: ${{ secrets.VPS_SSH_USER }}
+
+      - name: Ship source and run CI deploy
+        if: steps.gates.outputs.services != ''
+        env:
+          SERVICES: ${{ steps.gates.outputs.services }}
+          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+        run: |
+          test -n "$TURNSTILE_SECRET_KEY"
+          test -n "$NEXT_PUBLIC_TURNSTILE_SITE_KEY"
+          # The deploy runner is self-hosted ON the deploy target, so a fixed
+          # /tmp path gets written by the runner's user and then scp'd back to
+          # the same path as `deploy`. /tmp is sticky, so that second write is
+          # denied. Stage locally under RUNNER_TEMP, land on a run-scoped path.
+          SRC_LOCAL="${RUNNER_TEMP:-/tmp}/sokalens-src.tar.gz"
+          SRC_REMOTE="/tmp/sokalens-src-${GITHUB_RUN_ID}.tar.gz"
+          DEPLOY_REMOTE="/tmp/ci-deploy-${GITHUB_RUN_ID}.sh"
+          tar --exclude=.git --exclude=.next --exclude=node_modules -czf "$SRC_LOCAL" .
+          scp "$SRC_LOCAL" "vps:$SRC_REMOTE"
+          scp infra/deploy/ci-deploy.sh "vps:$DEPLOY_REMOTE"
+          printf 'TURNSTILE_SECRET_KEY=%s\nNEXT_PUBLIC_TURNSTILE_SITE_KEY=%s\n' \
+            "$TURNSTILE_SECRET_KEY" "$NEXT_PUBLIC_TURNSTILE_SITE_KEY" |
+            ssh vps \
+              "set -e; secret_file=/tmp/sokalens-account-launch.env.${GITHUB_RUN_ID}; trap \"rm -f '\$secret_file' '$SRC_REMOTE' '$DEPLOY_REMOTE'\" EXIT; (umask 077; cat > \"\$secret_file\"); bash '$DEPLOY_REMOTE' '$SERVICES' '$SRC_REMOTE' \"\$secret_file\" '${{ github.sha }}'"
+
+      # Runs before the verification below on purpose: that step fetches pages
+      # through Cloudflare, and an edge still holding the previous build's HTML
+      # would have it checking the release we just replaced.
+      #
+      # Only reached when the deploy step succeeded. A release that failed its
+      # health check has already been rolled back, and the cached HTML matches
+      # the build that is live again -- purging there would throw away a warm
+      # cache for a version that never shipped.
+      - name: Purge cached HTML at the edge
+        if: steps.gates.outputs.services != ''
+        run: |
+          scp infra/deploy/cloudflare-purge-html.sh "vps:/tmp/cf-purge-${GITHUB_RUN_ID}.sh"
+          ssh vps "set -e; trap 'rm -f /tmp/cf-purge-${GITHUB_RUN_ID}.sh' EXIT; bash /tmp/cf-purge-${GITHUB_RUN_ID}.sh"
+
+      - name: Verify public deployment
+        if: steps.gates.outputs.services != ''
+        run: |
+          ssh vps \
+            'set -e; for path in / /login /register /api/account/v1/access /robots.txt /sitemap.xml /sitemaps/static.xml /sitemaps/date-hubs.xml /sitemaps/markets.xml /sitemaps/leagues.xml /sitemaps/teams.xml /sitemaps/fixtures.xml; do curl --fail --show-error --silent --retry 12 --retry-delay 5 --retry-all-errors "https://sokalens.com$path" > /dev/null; done; curl --fail --show-error --silent --retry 12 --retry-delay 5 --retry-all-errors "https://sokalens.com/1f8079f4367e6201b2de07b39b1e8b3ae54a60866153a6dc2d46367459689a5a.txt" | grep --fixed-strings --line-regexp "1f8079f4367e6201b2de07b39b1e8b3ae54a60866153a6dc2d46367459689a5a"'
+
+      - name: Notify IndexNow of published URLs
+        if: steps.gates.outputs.services != ''
+        continue-on-error: true
+        run: |
+          ssh vps \
+            'docker run --rm --network host -v /home/deploy/sokalens/apps/web/scripts:/audit:ro sports-prediction-platform-web node /audit/indexnow-submit.mjs'
+
+      # ServerAlive* above is load-bearing here, not decoration: this command
+      # renders SSR pages one at a time and writes nothing while it works. It
+      # previously ran past a five-minute idle timeout and SSH closed the
+      # connection underneath it -- exit 255, broken pipe, and no audit result
+      # at all. The script now also reports progress every 30s and audits a
+      # bounded sample rather than every URL.
+      - name: Verify sitemap indexability
+        if: steps.gates.outputs.services != ''
+        run: |
+          ssh vps \
+            'docker run --rm --network host -v /home/deploy/sokalens/apps/web/scripts:/audit:ro sports-prediction-platform-web node /audit/search-index-audit.mjs'

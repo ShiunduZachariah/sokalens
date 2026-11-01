@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
+  <title>SokaLens</title>
+  <rect x="2" y="2" width="92" height="92" rx="22" fill="#FAFCFE" stroke="#D9E2EC" stroke-width="4"/>
+  <circle cx="43" cy="42" r="27" fill="#E6F6EF" stroke="#11845B" stroke-width="6"/>
+  <path d="M63 62l18 18" fill="none" stroke="#101820" stroke-linecap="round" stroke-width="8"/>
+  <path d="M31 54V43M43 54V30M55 54V38" fill="none" stroke="#2563EB" stroke-linecap="round" stroke-width="6"/>
+</svg>

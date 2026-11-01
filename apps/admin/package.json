@@ -1,0 +1,27 @@
+{
+  "name": "@sports-prediction-platform/admin",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "test": "node --test app/data/*.test.mjs",
+    "lint": "tsc --noEmit",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@sentry/nextjs": "^10.70.0",
+    "next": "^16.4.2",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "@types/react": "^19.3.0",
+    "typescript": "6.0.3"
+  },
+  "overrides": {
+    "postcss": "8.5.23",
+    "source-map-js": "1.2.2",
+    "sharp": "0.35.5"
+  }
+}

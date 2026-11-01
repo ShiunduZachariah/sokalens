@@ -1,0 +1,9 @@
+# A generated file compared byte for byte. The Go test regenerates it and
+# compares the bytes, so a checkout that rewrites the line endings makes the
+# gate fail on Windows and pass in CI -- which is the worst failure mode a gate
+# has, because it teaches people that red here means nothing. `-text` disables
+# the normalisation so the working copy matches what the generator writes.
+packages/contracts/seo-indexability.golden.json -text
+
+# Git runs hooks with /bin/sh; a CRLF shebang line does not execute.
+.githooks/* text eol=lf

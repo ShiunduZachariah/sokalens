@@ -1,0 +1,598 @@
+{
+  "get": "fixtures",
+  "parameters": {
+    "live": "all"
+  },
+  "errors": [],
+  "results": 2,
+  "paging": {
+    "current": 1,
+    "total": 1
+  },
+  "response": [
+    {
+      "fixture": {
+        "id": 1553112,
+        "referee": null,
+        "timezone": "UTC",
+        "date": "2026-09-15T18:30:00+00:00",
+        "timestamp": 1789497000,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "venue": {
+          "id": 22306,
+          "name": "Exbud Arena",
+          "city": "Kielce"
+        },
+        "status": {
+          "long": "Second Half",
+          "short": "2H",
+          "elapsed": 90,
+          "extra": 3
+        }
+      },
+      "league": {
+        "id": 106,
+        "name": "Ekstraklasa",
+        "country": "Poland",
+        "logo": "https://media.api-sports.io/football/leagues/106.png",
+        "flag": "https://media.api-sports.io/flags/pl.svg",
+        "season": 2026,
+        "round": "Regular Season - 2",
+        "standings": true
+      },
+      "teams": {
+        "home": {
+          "id": 346,
+          "name": "Korona Kielce",
+          "logo": "https://media.api-sports.io/football/teams/346.png",
+          "winner": false
+        },
+        "away": {
+          "id": 340,
+          "name": "Gornik Zabrze",
+          "logo": "https://media.api-sports.io/football/teams/340.png",
+          "winner": true
+        }
+      },
+      "goals": {
+        "home": 0,
+        "away": 1
+      },
+      "score": {
+        "halftime": {
+          "home": 0,
+          "away": 1
+        },
+        "fulltime": {
+          "home": null,
+          "away": null
+        },
+        "extratime": {
+          "home": null,
+          "away": null
+        },
+        "penalty": {
+          "home": null,
+          "away": null
+        }
+      },
+      "events": [
+        {
+          "time": {
+            "elapsed": 41,
+            "extra": null
+          },
+          "team": {
+            "id": 340,
+            "name": "Gornik Zabrze",
+            "logo": "https://media.api-sports.io/football/teams/340.png"
+          },
+          "player": {
+            "id": 270516,
+            "name": "Peter Federico Gonz\u00e1lez Carmona"
+          },
+          "assist": {
+            "id": 40447,
+            "name": "Jaros\u0142aw Kubicki"
+          },
+          "type": "Goal",
+          "detail": "Normal Goal",
+          "comments": null
+        },
+        {
+          "time": {
+            "elapsed": 53,
+            "extra": null
+          },
+          "team": {
+            "id": 340,
+            "name": "Gornik Zabrze",
+            "logo": "https://media.api-sports.io/football/teams/340.png"
+          },
+          "player": {
+            "id": 105726,
+            "name": "Erik Prekop"
+          },
+          "assist": {
+            "id": null,
+            "name": null
+          },
+          "type": "Card",
+          "detail": "Yellow Card",
+          "comments": "Foul"
+        },
+        {
+          "time": {
+            "elapsed": 62,
+            "extra": null
+          },
+          "team": {
+            "id": 346,
+            "name": "Korona Kielce",
+            "logo": "https://media.api-sports.io/football/teams/346.png"
+          },
+          "player": {
+            "id": 91466,
+            "name": "Martin Remacle"
+          },
+          "assist": {
+            "id": 59831,
+            "name": "Camilo Mena"
+          },
+          "type": "subst",
+          "detail": "Substitution 1",
+          "comments": null
+        },
+        {
+          "time": {
+            "elapsed": 64,
+            "extra": null
+          },
+          "team": {
+            "id": 340,
+            "name": "Gornik Zabrze",
+            "logo": "https://media.api-sports.io/football/teams/340.png"
+          },
+          "player": {
+            "id": 14299,
+            "name": "Erik Jan\u017ea"
+          },
+          "assist": {
+            "id": 66287,
+            "name": "Ondrej Zmrzly"
+          },
+          "type": "subst",
+          "detail": "Substitution 1",
+          "comments": null
+        },
+        {
+          "time": {
+            "elapsed": 70,
+            "extra": null
+          },
+          "team": {
+            "id": 346,
+            "name": "Korona Kielce",
+            "logo": "https://media.api-sports.io/football/teams/346.png"
+          },
+          "player": {
+            "id": 148379,
+            "name": "Michael Ameyaw"
+          },
+          "assist": {
+            "id": 261703,
+            "name": "Morgan Fa\u00dfbender"
+          },
+          "type": "subst",
+          "detail": "Substitution 2",
+          "comments": null
+        },
+        {
+          "time": {
+            "elapsed": 70,
+            "extra": null
+          },
+          "team": {
+            "id": 346,
+            "name": "Korona Kielce",
+            "logo": "https://media.api-sports.io/football/teams/346.png"
+          },
+          "player": {
+            "id": 66208,
+            "name": "Ondrej Lingr"
+          },
+          "assist": {
+            "id": 37180,
+            "name": "Simon Gustafsson"
+          },
+          "type": "subst",
+          "detail": "Substitution 3",
+          "comments": null
+        },
+        {
+          "time": {
+            "elapsed": 71,
+            "extra": null
+          },
+          "team": {
+            "id": 340,
+            "name": "Gornik Zabrze",
+            "logo": "https://media.api-sports.io/football/teams/340.png"
+          },
+          "player": {
+            "id": 161938,
+            "name": "Paulo Bernardo"
+          },
+          "assist": {
+            "id": 15723,
+            "name": "Malthe Hojholt"
+          },
+          "type": "subst",
+          "detail": "Substitution 2",
+          "comments": null
+        },
+        {
+          "time": {
+            "elapsed": 71,
+            "extra": null
+          },
+          "team": {
+            "id": 340,
+            "name": "Gornik Zabrze",
+            "logo": "https://media.api-sports.io/football/teams/340.png"
+          },
+          "player": {
+            "id": 105726,
+            "name": "Erik Prekop"
+          },
+          "assist": {
+            "id": 39199,
+            "name": "Sondre Liseth"
+          },
+          "type": "subst",
+          "detail": "Substitution 3",
+          "comments": null
+        },
+        {
+          "time": {
+            "elapsed": 84,
+            "extra": null
+          },
+          "team": {
+            "id": 340,
+            "name": "Gornik Zabrze",
+            "logo": "https://media.api-sports.io/football/teams/340.png"
+          },
+          "player": {
+            "id": 40447,
+            "name": "Jaros\u0142aw Kubicki"
+          },
+          "assist": {
+            "id": 66102,
+            "name": "Luk\u00e1\u0161 Sad\u00edlek"
+          },
+          "type": "subst",
+          "detail": "Substitution 4",
+          "comments": null
+        },
+        {
+          "time": {
+            "elapsed": 84,
+            "extra": null
+          },
+          "team": {
+            "id": 340,
+            "name": "Gornik Zabrze",
+            "logo": "https://media.api-sports.io/football/teams/340.png"
+          },
+          "player": {
+            "id": 264699,
+            "name": "Maksym Khlan"
+          },
+          "assist": {
+            "id": 193870,
+            "name": "Janis Antiste"
+          },
+          "type": "subst",
+          "detail": "Substitution 5",
+          "comments": null
+        }
+      ]
+    },
+    {
+      "fixture": {
+        "id": 1556641,
+        "referee": null,
+        "timezone": "UTC",
+        "date": "2026-09-15T18:45:00+00:00",
+        "timestamp": 1789497900,
+        "periods": {
+          "first": null,
+          "second": null
+        },
+        "venue": {
+          "id": null,
+          "name": "Falkirk Stadium",
+          "city": "Falkirk"
+        },
+        "status": {
+          "long": "Second Half",
+          "short": "2H",
+          "elapsed": 76,
+          "extra": null
+        }
+      },
+      "league": {
+        "id": 179,
+        "name": "Premiership",
+        "country": "Scotland",
+        "logo": "https://media.api-sports.io/football/leagues/179.png",
+        "flag": "https://media.api-sports.io/flags/gb-sct.svg",
+        "season": 2026,
+        "round": "Regular Season - 3",
+        "standings": true
+      },
+      "teams": {
+        "home": {
+          "id": 1389,
+          "name": "Falkirk",
+          "logo": "https://media.api-sports.io/football/teams/1389.png",
+          "winner": true
+        },
+        "away": {
+          "id": 254,
+          "name": "Heart Of Midlothian",
+          "logo": "https://media.api-sports.io/football/teams/254.png",
+          "winner": false
+        }
+      },
+      "goals": {
+        "home": 2,
+        "away": 1
+      },
+      "score": {
+        "halftime": {
+          "home": 1,
+          "away": 1
+        },
+        "fulltime": {
+          "home": null,
+          "away": null
+        },
+        "extratime": {
+          "home": null,
+          "away": null
+        },
+        "penalty": {
+          "home": null,
+          "away": null
+        }
+      },
+      "events": [
+        {
+          "time": {
+            "elapsed": 3,
+            "extra": null
+          },
+          "team": {
+            "id": 1389,
+            "name": "Falkirk",
+            "logo": "https://media.api-sports.io/football/teams/1389.png"
+          },
+          "player": {
+            "id": 441035,
+            "name": "Finley Frank Barbrook"
+          },
+          "assist": {
+            "id": null,
+            "name": null
+          },
+          "type": "Card",
+          "detail": "Yellow Card",
+          "comments": "Foul"
+        },
+        {
+          "time": {
+            "elapsed": 8,
+            "extra": null
+          },
+          "team": {
+            "id": 1389,
+            "name": "Falkirk",
+            "logo": "https://media.api-sports.io/football/teams/1389.png"
+          },
+          "player": {
+            "id": 341326,
+            "name": "Ben krauhaus"
+          },
+          "assist": {
+            "id": 6885,
+            "name": "Ryan Strain"
+          },
+          "type": "Goal",
+          "detail": "Normal Goal",
+          "comments": null
+        },
+        {
+          "time": {
+            "elapsed": 22,
+            "extra": null
+          },
+          "team": {
+            "id": 254,
+            "name": "Heart Of Midlothian",
+            "logo": "https://media.api-sports.io/football/teams/254.png"
+          },
+          "player": {
+            "id": 418942,
+            "name": "James wilson"
+          },
+          "assist": {
+            "id": 125694,
+            "name": "Josh Mcpake"
+          },
+          "type": "Goal",
+          "detail": "Normal Goal",
+          "comments": null
+        },
+        {
+          "time": {
+            "elapsed": 28,
+            "extra": null
+          },
+          "team": {
+            "id": 254,
+            "name": "Heart Of Midlothian",
+            "logo": "https://media.api-sports.io/football/teams/254.png"
+          },
+          "player": {
+            "id": 141994,
+            "name": "Claudio Rafael Soares Braga"
+          },
+          "assist": {
+            "id": null,
+            "name": null
+          },
+          "type": "Card",
+          "detail": "Yellow Card",
+          "comments": "Foul"
+        },
+        {
+          "time": {
+            "elapsed": 35,
+            "extra": null
+          },
+          "team": {
+            "id": 254,
+            "name": "Heart Of Midlothian",
+            "logo": "https://media.api-sports.io/football/teams/254.png"
+          },
+          "player": {
+            "id": 19336,
+            "name": "Yan Dhanda"
+          },
+          "assist": {
+            "id": null,
+            "name": null
+          },
+          "type": "Card",
+          "detail": "Yellow Card",
+          "comments": "Foul"
+        },
+        {
+          "time": {
+            "elapsed": 45,
+            "extra": null
+          },
+          "team": {
+            "id": 254,
+            "name": "Heart Of Midlothian",
+            "logo": "https://media.api-sports.io/football/teams/254.png"
+          },
+          "player": {
+            "id": 418942,
+            "name": "James wilson"
+          },
+          "assist": {
+            "id": 50843,
+            "name": "Jerome Williams"
+          },
+          "type": "subst",
+          "detail": "Substitution 1",
+          "comments": null
+        },
+        {
+          "time": {
+            "elapsed": 55,
+            "extra": null
+          },
+          "team": {
+            "id": 1389,
+            "name": "Falkirk",
+            "logo": "https://media.api-sports.io/football/teams/1389.png"
+          },
+          "player": {
+            "id": 6885,
+            "name": "Ryan Strain"
+          },
+          "assist": {
+            "id": null,
+            "name": null
+          },
+          "type": "Card",
+          "detail": "Yellow Card",
+          "comments": "Foul"
+        },
+        {
+          "time": {
+            "elapsed": 57,
+            "extra": null
+          },
+          "team": {
+            "id": 1389,
+            "name": "Falkirk",
+            "logo": "https://media.api-sports.io/football/teams/1389.png"
+          },
+          "player": {
+            "id": 341326,
+            "name": "Ben krauhaus"
+          },
+          "assist": {
+            "id": 313360,
+            "name": "Calvin Fodrey"
+          },
+          "type": "subst",
+          "detail": "Substitution 1",
+          "comments": null
+        },
+        {
+          "time": {
+            "elapsed": 67,
+            "extra": null
+          },
+          "team": {
+            "id": 1389,
+            "name": "Falkirk",
+            "logo": "https://media.api-sports.io/football/teams/1389.png"
+          },
+          "player": {
+            "id": 401398,
+            "name": "Owen Eames"
+          },
+          "assist": {
+            "id": null,
+            "name": null
+          },
+          "type": "Card",
+          "detail": "Yellow Card",
+          "comments": "Foul"
+        },
+        {
+          "time": {
+            "elapsed": 68,
+            "extra": null
+          },
+          "team": {
+            "id": 1389,
+            "name": "Falkirk",
+            "logo": "https://media.api-sports.io/football/teams/1389.png"
+          },
+          "player": {
+            "id": 401398,
+            "name": "Owen Eames"
+          },
+          "assist": {
+            "id": null,
+            "name": null
+          },
+          "type": "Goal",
+          "detail": "Normal Goal",
+          "comments": null
+        }
+      ]
+    }
+  ]
+}

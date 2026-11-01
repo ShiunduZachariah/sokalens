@@ -1,0 +1,22 @@
+{
+  "get": "countries",
+  "parameters": [],
+  "errors": [],
+  "results": 2,
+  "paging": {
+    "current": 1,
+    "total": 1
+  },
+  "response": [
+    {
+      "name": "Kenya",
+      "code": "KE",
+      "flag": "https://media.api-sports.io/flags/ke.svg"
+    },
+    {
+      "name": "England",
+      "code": "GB-ENG",
+      "flag": "https://media.api-sports.io/flags/gb.svg"
+    }
+  ]
+}

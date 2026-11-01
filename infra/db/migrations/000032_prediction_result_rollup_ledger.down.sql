@@ -1,0 +1,2 @@
+DROP INDEX IF EXISTS idx_prediction_result_rollup_ledger_aggregated_at;
+DROP TABLE IF EXISTS prediction_result_rollup_ledger;

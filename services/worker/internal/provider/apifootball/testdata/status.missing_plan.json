@@ -1,0 +1,15 @@
+{
+  "get": "status",
+  "parameters": [],
+  "errors": [],
+  "results": 1,
+  "response": {
+    "subscription": {
+      "active": true
+    },
+    "requests": {
+      "current": 42,
+      "limit_day": 7500
+    }
+  }
+}

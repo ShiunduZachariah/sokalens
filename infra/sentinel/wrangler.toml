@@ -1,0 +1,24 @@
+# SokaLens out-of-band sentinel.
+#
+# Deploy separately from the main stack. This Worker exists precisely so that
+# it keeps working when the VPS does not, so it must never share a failure
+# domain, a token, or a deploy step with ops-controller.
+name = "sokalens-sentinel"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+
+# Every 5 minutes. With a threshold of 3 consecutive failures, a real outage
+# pages in about 15 minutes and a single blip never does.
+[triggers]
+crons = ["*/5 * * * *"]
+
+# Consecutive-failure counter. Create with:
+#   wrangler kv namespace create SENTINEL_KV
+# then paste the id below.
+[[kv_namespaces]]
+binding = "SENTINEL_KV"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# Non-secret defaults. Secrets are set with `wrangler secret put`, never here.
+[vars]
+ALERT_EMAIL_FROM = "alerts@sokalens.com"

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" role="img" aria-labelledby="title desc">
+  <title id="title">SokaLens icon</title>
+  <desc id="desc">A magnifying lens containing three data bars for light backgrounds.</desc>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="34" cy="34" r="23" fill="#E6F6EF" stroke="#11845B" stroke-width="5"/>
+    <path d="M51 51l16 16" stroke="#101820" stroke-width="7"/>
+    <path d="M24 44V35M34 44V24M44 44V30" stroke="#2563EB" stroke-width="5"/>
+  </g>
+</svg>

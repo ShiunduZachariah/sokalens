@@ -1,0 +1,320 @@
+# SokaLens production reverse proxy (Caddy).
+#
+# DNS records (Cloudflare zone sokalens.com), all -> this VPS:
+#   1. A/AAAA: sokalens.com + www          proxied
+#   2. A/AAAA: hq.sokalens.com             proxied   (admin console)
+#   3. A/AAAA: qa.sokalens.com             proxied   (QA web)
+#   4. A/AAAA: qa-admin.sokalens.com       proxied   (QA admin -- see below)
+#   5. (future mobile) A: api.sokalens.com proxied
+# Cloudflare SSL/TLS mode: Full (strict).
+#
+# dev.sokalens.com and dev-admin.sokalens.com were the QA stack's previous
+# names. Both the Caddy blocks and the DNS records were removed on 2026-09-16;
+# there are exactly two environments, and docs/operations/environments.md is
+# the authoritative map.
+#
+# Why the QA admin host is qa-admin and not admin.qa: every hostname here
+# must satisfy two constraints at once, and only single-label names do.
+#
+#   1. Cloudflare Universal SSL covers the apex and ONE label of subdomain
+#      (*.sokalens.com). A two-label host like admin.qa.sokalens.com is not on
+#      that certificate, so proxying it serves a cert error at the edge.
+#   2. The host firewall allows :443 only from Cloudflare's published
+#      ranges. A grey-clouded host is
+#      therefore unreachable over HTTPS from an ordinary client -- the packet is
+#      dropped before Caddy ever sees it.
+#
+# Taken together those rule out grey-clouding as the escape hatch for a
+# two-label name: it fixes the certificate and breaks the firewall instead.
+# Flattening the name to a single label satisfies both, keeps the origin IP
+# hidden, and costs nothing. Paid Advanced Certificate Manager is the only way
+# to keep admin.qa.* proxied, and it buys nothing this naming does not.
+#
+# What protects these hosts is the basic_auth gate below, not the Cloudflare
+# proxy -- so it must never be weakened on the assumption the edge is in front.
+#
+# The admin console was moved off admin.sokalens.com because that name is on
+# every credential-stuffing scanner's wordlist. The old host is deliberately
+# NOT redirected: a redirect would hand the new name to exactly the scanners the
+# rename is meant to shed. Delete the old DNS record so it stops resolving.
+#
+# Caddy auto-provisions Let's Encrypt certificates once DNS resolves, so no
+# manual cert step is required. Keep the origin ports bound to localhost only
+# (WEB_BIND_ADDRESS/ADMIN_BIND_ADDRESS/API_BIND_ADDRESS) — Caddy is the only
+# public listener on 80/443.
+
+{
+	servers {
+		timeouts {
+			read_header 5s
+			read_body 10s
+		}
+	}
+}
+
+# Browser APIs carry small JSON messages, not uploads. Bound incoming bodies
+# before either Next application buffers them (including admin login).
+(limit_browser_api_body) {
+	request_body /api/* {
+		max_size 64KiB
+	}
+}
+
+# Reject environment-file probes before they can reach either application.
+# Caddy matches decoded paths, including nested and encoded-dot variants.
+(deny_environment_files) {
+	@environmentFile path_regexp (?i)(^|/)\.env[^/]*(/|$)
+	respond @environmentFile 404
+}
+
+# Shared gate for the dev environment hosts.
+#
+# The dev stack is seeded from production, so it holds real user rows behind a
+# public hostname. Basic auth is what keeps it private; the noindex header is
+# the second layer, so that nothing which does slip past the gate -- an excluded
+# path added later, or the 401 body itself -- can end up in a search index and
+# outlive the mistake.
+#
+# Search engines are the specific worry rather than a generic one: duplicate
+# staging content ranking against sokalens.com would compete with the real site
+# for its own keywords, which is a slow problem to notice and a slow one to
+# undo.
+(qa_gate) {
+	import deny_environment_files
+	encode zstd gzip
+
+	# The QA gate's credential. THIS FILE IS THE SOURCE OF TRUTH: every deploy
+	# runs `sync_caddy_config`, which `install`s this file over
+	# /etc/caddy/Caddyfile, so a hash edited on the host survives only until the
+	# next release. One was, on 2026-10-03, and the next deploy silently locked
+	# QA out again 35 minutes later.
+	#
+	# To rotate: `caddy hash-password --plaintext '<new>'` on the host, replace
+	# the hash here, ship it. The plaintext is deliberately not in the repo.
+	basic_auth {
+		sokalens $2a$14$z09EtlynWCL.ZZoaXBev5O7iqCjrxu.4IxwEuOLThWE7fZDHm1ql6
+	}
+
+	header {
+		X-Robots-Tag "noindex, nofollow, noarchive, nosnippet"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		X-Frame-Options "DENY"
+	}
+}
+
+sokalens.com {
+	import deny_environment_files
+	import limit_browser_api_body
+	encode zstd gzip
+
+	# Access logging.
+	#
+	# There was none, at any layer: Next logs nothing per request and Caddy was
+	# silent, so the origin held no record of who asked for what. Combined with
+	# no client beacon, a quiet day and a broken funnel looked identical from
+	# the outside.
+	#
+	# This matters more now that the edge caches HTML, not less. Cloudflare
+	# absorbs most requests, so origin volume no longer tracks real traffic --
+	# the two numbers have to be read together rather than one standing in for
+	# the other.
+	#
+	# JSON so promtail can ship it into the Loki stack already running here --
+	# which is where anything worth keeping beyond a week should live, not in
+	# these files.
+	#
+	# Bounded three ways on purpose, because a log that fills the disk serving
+	# the site is worse than no log at all: 50 MiB per file, at most 3 rolls
+	# (so ~150 MiB ceiling), and nothing older than 7 days regardless of size.
+	# The post-deploy GC in ci-deploy.sh sweeps stragglers as a backstop.
+	log {
+		output file /var/log/caddy/sokalens-access.log {
+			roll_size 50MiB
+			roll_keep 3
+			roll_keep_for 168h
+		}
+		format json
+	}
+
+	# Immutable assets are already answered by the edge and would drown the
+	# signal without adding any. What is wanted is which *pages* were asked for.
+	@notWorthLogging path /_next/static/* /favicon.ico /og.png /robots.txt
+	log_skip @notWorthLogging
+
+	# /en/* served the identical English tree as the unprefixed root, and both
+	# self-canonicalised, so Search Console picked a different canonical for 105
+	# URLs. English now lives only at the root. Redirect at the edge so the
+	# duplicate never reaches Next.js and costs nothing to render. The origin
+	# repeats the rule (apps/web/proxy.ts) for local dev and any non-Caddy
+	# deployment.
+	#
+	# The two matchers are deliberately disjoint -- /en/ matches @englishRoot but
+	# not ^/en/.+ -- so neither depends on Caddy's directive ordering to win.
+	@englishRoot path /en /en/
+	redir @englishRoot / permanent
+
+	@englishSubpath path_regexp ^/en/.+
+	route @englishSubpath {
+		# route executes in written order, so the prefix is gone before {uri} is
+		# read. {uri} carries the query string through unchanged.
+		uri strip_prefix /en
+		redir {uri} permanent
+	}
+
+	reverse_proxy 127.0.0.1:3000 {
+		# Safe reads should wait through the brief container replacement window
+		# instead of returning an origin 502 to visitors and crawlers.
+		lb_try_duration 15s
+		lb_try_interval 250ms
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	# Let the edge cache anonymous HTML.
+	#
+	# Next marks every dynamically rendered response `private, no-cache,
+	# no-store`, so Cloudflare reports cf-cache-status: DYNAMIC and every
+	# visitor pays a full round trip to this box -- measured at 600-1000ms TTFB
+	# from the Lagos edge, which is the floor LCP cannot go below. Static assets
+	# are already HIT; only the document is not.
+	#
+	# This is set here rather than in the application because Next overrides its
+	# own cache headers for dynamic renders, and losing that fight silently is
+	# worse than not trying.
+	#
+	# Safe because nothing personalises the server render: no route reads a
+	# session cookie. Auth is entirely client-side (AccountProvider fetches
+	# /api/account/v1/access after hydration), so anonymous and signed-in
+	# visitors receive byte-identical HTML and diverge only after hydration.
+	# Verify that still holds before widening the path list: `grep -rn
+	# 'cookies()' apps/web/app` should return only the timezone and ACCA-seed
+	# reads.
+	#
+	# Excluded deliberately:
+	#   - /predictions/today|tomorrow|weekend, /predictions/markets/*,
+	#     /matches/today, /results, /acca-predictions -- these read a cookie and
+	#     genuinely differ per viewer.
+	#   - Requests carrying the RSC header. Next serves a different body for the
+	#     same URL to client-side navigations and signals it with Vary, but
+	#     Cloudflare only varies on Accept-Encoding. Caching one and serving it
+	#     as the other breaks navigation.
+	#   - Anything that sets a cookie: Cloudflare bypasses its cache on
+	#     Set-Cookie, which is a second safety net rather than the primary one.
+	@cacheableHtml {
+		method GET HEAD
+		not header RSC *
+		not header Next-Router-Prefetch *
+		path_regexp ^/(?:(?:es|fr|pt|ar|de|it)/)?(?:$|about$|best-bets$|cookies$|football$|leagues$|leagues/|privacy$|responsible-gambling$|terms$|teams/|acca-generator$|multi-match-builder$|predictions/leagues/|predictions/[^/]+/[^/]+-[0-9]+$)
+		# Keep this header disjoint from @liveBearing. Caddy defers both header
+		# writes; when both match, the generic value wins on the response.
+		not path_regexp ^/(?:(?:es|fr|pt|ar|de|it)/)?(?:$|leagues(?:/|$)|predictions/[^/]+/[^/]+-[0-9]+$)
+	}
+	# s-maxage governs the edge only; max-age=0 keeps browsers revalidating, so
+	# a corrected prediction is never pinned in someone's local cache.
+	# The `>` prefix means set-and-replace. Without it Caddy *appends*, and the
+	# response goes out carrying two contradictory Cache-Control headers -- the
+	# one below plus Next's `private, no-cache, no-store`. Caches resolve that
+	# conflict by honouring no-store, so the directive looks applied and does
+	# nothing. Confirmed on production before this fix: both headers present,
+	# cf-cache-status still DYNAMIC.
+	#
+	# stale-while-revalidate is deliberately short. A cached document names the
+	# exact JS chunk hashes of the build that produced it, and a deploy replaces
+	# those files -- the container serves the new build's chunks and the old
+	# hashes stop resolving. So any window in which the edge may serve stale
+	# HTML after a release is a window in which visitors get markup pointing at
+	# JavaScript that 404s: the page still renders from SSR, but nothing
+	# hydrates and every interaction is dead.
+	#
+	# The post-deploy edge purge is best-effort and exits successfully when
+	# Cloudflare rejects it. The 300s TTL and 60s stale window therefore remain
+	# the fallback bound for HTML pointing at chunks from a replaced build.
+	header @cacheableHtml >Cache-Control "public, max-age=0, s-maxage=300, stale-while-revalidate=60"
+
+	# Pages that can show a live score get a much shorter edge TTL.
+	#
+	# A fixture page renders the score and the match status server-side, with no
+	# client-side poller, and the data layer refreshes it every 15 seconds. A
+	# 300s edge cache in front of that serves a five-minute-old scoreline during
+	# a match, which is worse than not caching it at all. The homepage and
+	# league pages list in-play fixtures for the same reason.
+	#
+	# 15s matches the origin's own freshness contract rather than being a number
+	# picked here, so the edge is never staler than the application considers
+	# acceptable. Most of the offload survives regardless: Cloudflare collapses
+	# concurrent requests for the same URL, which is what absorbs a crawl burst
+	# or a kickoff spike.
+	#
+	# Restrict this to full document reads, just like @cacheableHtml. RSC and
+	# prefetch responses have different bodies for the same URL.
+	@liveBearing {
+		method GET HEAD
+		not header RSC *
+		not header Next-Router-Prefetch *
+		path_regexp ^/(?:(?:es|fr|pt|ar|de|it)/)?(?:$|leagues(?:/|$)|predictions/[^/]+/[^/]+-[0-9]+$)
+	}
+	header @liveBearing >Cache-Control "public, max-age=0, s-maxage=15, stale-while-revalidate=30"
+}
+
+www.sokalens.com {
+	import deny_environment_files
+	redir https://sokalens.com{uri} permanent
+}
+
+hq.sokalens.com {
+	import deny_environment_files
+	import limit_browser_api_body
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:3001 {
+		lb_try_duration 15s
+		lb_try_interval 250ms
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		X-Frame-Options "DENY"
+		X-Robots-Tag "noindex, nofollow"
+	}
+}
+
+# --- QA environment -------------------------------------------------------
+# The only non-production environment. Rootless Docker stack owned by a
+# non-root user, bound to loopback ports >=10000 so it can never collide with
+# the production stack's ports even if both are up at once.
+# docs/operations/environments.md is the authoritative map; there must not be
+# a third environment.
+#
+# dev.sokalens.com and dev-admin.sokalens.com were this same stack's previous
+# names and were dropped on 2026-09-16 after qa.* was confirmed serving. Their
+# DNS records may still exist; they are not a second environment.
+
+qa.sokalens.com {
+	import qa_gate
+	reverse_proxy 127.0.0.1:13000 {
+		lb_try_duration 15s
+		lb_try_interval 250ms
+	}
+}
+
+qa-admin.sokalens.com {
+	import qa_gate
+	reverse_proxy 127.0.0.1:13001 {
+		lb_try_duration 15s
+		lb_try_interval 250ms
+	}
+}
+
+# Public API is optional for the web/admin MVP (they proxy server-side to the
+# API over the Docker network). Enable this block only when the mobile app or
+# an external consumer needs direct API access.
+# api.sokalens.com {
+# 	encode zstd gzip
+# 	reverse_proxy 127.0.0.1:8080
+# }

@@ -1,0 +1,3 @@
+# Every pull request into main or qa needs an approving review from a code
+# owner before it can merge. The branch rulesets enforce it.
+* @ShiunduZachariah

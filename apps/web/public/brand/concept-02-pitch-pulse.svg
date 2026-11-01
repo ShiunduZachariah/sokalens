@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 80" role="img" aria-labelledby="title desc">
+  <title id="title">SokaLens pitch pulse logo concept</title>
+  <desc id="desc">A simplified football pitch crossed by an upward analytics pulse beside the SokaLens wordmark.</desc>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="7" y="11" width="64" height="56" rx="12" fill="#11845B" stroke="#0B6848" stroke-width="3"/>
+    <path d="M39 13v52M29 39a10 10 0 0 0 20 0 10 10 0 0 0-20 0Z" stroke="#DDF7EB" stroke-width="2" opacity=".9"/>
+    <path d="M14 49l13-10 11 7 15-21 11 5" stroke="#FAFCFE" stroke-width="4"/>
+    <circle cx="53" cy="25" r="4" fill="#F5A524" stroke="#FAFCFE" stroke-width="2"/>
+  </g>
+  <text x="88" y="50" fill="#101820" font-family="Inter, Geist, Arial, sans-serif" font-size="38" font-weight="760">SokaLens</text>
+  <text x="90" y="67" fill="#667085" font-family="Inter, Geist, Arial, sans-serif" font-size="10" font-weight="650" letter-spacing="1.2">MATCH INTELLIGENCE</text>
+</svg>

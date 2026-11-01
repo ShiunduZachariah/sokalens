@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ACCA builder · mobile</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}a:hover{color:var(--accent-ink)}
+button,select,input{font-family:inherit}
+button{cursor:pointer}
+select option{background:var(--surface);color:var(--text)}
+</style>
+</helmet>
+<div class="{{themeClass}}" style="{{rootVars}}; position: relative; width: 390px; height: 3960px; box-sizing: border-box; overflow-y: auto; background: var(--bg); color: var(--text); font-family: Archivo, 'Helvetica Neue', sans-serif; display: flex; flex-direction: column">
+
+<!-- NAV -->
+<header style="flex-shrink: 0; height: 60px; box-sizing: border-box; padding: 0 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--line)">
+<a href="{{links.HomeMobile}}" style="display: flex; align-items: center; gap: 8px; flex-grow: 1">
+<svg width="24" height="24" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="14" cy="14" r="11"></circle><circle cx="14" cy="14" r="4" style="fill: var(--accent-ink); stroke: var(--accent-ink)"></circle><path d="M14 1v5M14 22v5M1 14h5M22 14h5"></path></svg>
+<span style="font-size: 21px; font-weight: 800; font-stretch: 75%; text-transform: uppercase">SokaLens</span>
+</a>
+<button aria-label="{{themeLabel}}" onClick="{{toggleTheme}}" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid var(--line-strong); border-radius: 8px; color: var(--text)">
+<sc-if value="{{isDark}}" hint-placeholder-val="{{ true }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></sc-if>
+<sc-if value="{{isLight}}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"></path></svg></sc-if>
+</button>
+<button aria-label="Language: English" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid var(--line-strong); border-radius: 8px; color: var(--text)">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"></path></svg></button>
+</header>
+<sc-if value="{{ads.on}}" hint-placeholder-val="{{ true }}">
+<div data-ad-slot="top" data-ad-size="320x50" role="complementary" aria-label="Advertisement" style="flex-shrink: 0; padding: 12px 16px 0; display: flex; flex-direction: column; align-items: center; gap: 6px">
+<span style="font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint)">Advertisement</span>
+<div style="width: 320px; max-width: 100%; height: 50px; box-sizing: border-box; border: 1px dashed var(--line-stronger); border-radius: 6px; background: repeating-linear-gradient(135deg, transparent 0 9px, var(--hatch) 9px 10px); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted)">top · 320×50</div>
+</div>
+</sc-if>
+
+
+<main style="flex-grow: 1; display: flex; flex-direction: column">
+
+<!-- HEADER -->
+<section style="padding: 24px 16px 18px; display: flex; flex-direction: column; gap: 12px">
+<h1 style="margin: 0; font-size: 56px; line-height: 0.88; font-weight: 900; font-stretch: 62%; text-transform: uppercase">Build your <span style="color: var(--accent-ink)">ticket</span></h1>
+<p style="margin: 0; font-size: 15px; line-height: 1.5; color: var(--text-3)">One ticket across every published market. Pick each leg yourself, or set legs and an odds range and let SokaLens compose it.</p>
+<a href="{{links.AccaMobile}}" style="align-self: flex-start; font-size: 14px; font-weight: 600; color: var(--accent-ink)">Browse published ACCAs →</a>
+</section>
+
+<!-- MODE SWITCH -->
+<div role="tablist" aria-label="How do you want to build?" style="margin: 0 16px; padding: 5px; background: var(--surface-3); border: 1px solid var(--line); border-radius: 14px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px">
+<sc-for list="{{modes}}" as="m" hint-placeholder-count="2">
+<button role="tab" aria-selected="{{m.pressed}}" onClick="{{m.pick}}" style="{{m.style}}; min-height: 64px; padding: 10px 12px; border-radius: 10px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 3px; text-align: left">
+<span style="font-size: 16px; font-weight: 800">{{m.label}}</span>
+<span style="font-size: 12px; font-weight: 500; color: var(--muted)">{{m.sub}}</span>
+</button>
+</sc-for>
+</div>
+
+<!-- ============ PICK MODE ============ -->
+<sc-if value="{{isBuild}}" hint-placeholder-val="{{ true }}">
+<section style="padding: 16px 16px 0; display: flex; flex-direction: column; gap: 14px">
+<div style="padding: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<label style="grid-column: span 2; display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted)">Search
+<span style="height: 44px; padding: 0 12px; display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1px solid var(--line-strong); border-radius: 10px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="color: var(--muted)"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+<input type="search" value="{{q}}" onChange="{{onQuery}}" placeholder="Team or competition" style="flex-grow: 1; min-width: 0; height: 42px; background: transparent; border: 0; outline: none; color: var(--text); font-size: 15px">
+</span></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted)">Country
+<select value="{{country}}" onChange="{{onCountry}}" style="height: 44px; padding: 0 8px; background: var(--bg); color: var(--text); border: 1px solid var(--line-strong); border-radius: 10px; font-size: 14px">
+<sc-for list="{{countryOptions}}" as="o" hint-placeholder-count="4"><option value="{{o.value}}">{{o.label}}</option></sc-for>
+</select></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted)">Market
+<select value="{{market}}" onChange="{{onMarket}}" style="height: 44px; padding: 0 8px; background: var(--bg); color: var(--text); border: 1px solid var(--line-strong); border-radius: 10px; font-size: 14px">
+<sc-for list="{{marketOptions}}" as="o" hint-placeholder-count="4"><option value="{{o}}">{{o}}</option></sc-for>
+</select></label>
+</div>
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; line-height: 1.5; color: var(--muted)">Tap a price to add it · one pick per match</div>
+
+<sc-if value="{{noMatches}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 28px 16px; border: 1px dashed var(--line-stronger); border-radius: 14px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center">
+<div style="font-size: 17px; font-weight: 700">No matches fit these filters</div>
+<button onClick="{{resetFilters}}" style="height: 44px; padding: 0 18px; background: transparent; color: var(--text); border: 1px solid var(--line-stronger); border-radius: 10px; font-size: 14px; font-weight: 600">Clear filters</button>
+</div>
+</sc-if>
+
+<sc-for list="{{matchCards}}" as="c" hint-placeholder-count="4">
+<article style="background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden">
+<div style="padding: 14px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid var(--line-soft)">
+<span style="font-size: 16px; font-weight: 700; line-height: 1.3">{{c.home}} <span style="font-weight: 400; color: var(--faint)">v</span> {{c.away}}</span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted)">{{c.league}} · {{c.when}} UTC</span>
+<sc-if value="{{c.hasPick}}" hint-placeholder-val="{{ false }}">
+<span style="align-self: flex-start; max-width: 100%; box-sizing: border-box; height: 28px; padding: 0 10px; display: flex; align-items: center; gap: 6px; background: var(--surface-2); border: 1px solid var(--accent-ink); border-radius: 999px; font-size: 12px; font-weight: 600; color: var(--accent-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>{{c.pickNote}}</span>
+</sc-if>
+</div>
+<div style="padding: 12px 14px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{c.chips}}" as="s" hint-placeholder-count="6">
+<button aria-pressed="{{s.on}}" aria-label="{{s.aria}}" onClick="{{s.toggle}}" style="{{s.style}}; min-height: 58px; padding: 8px 10px; border-radius: 10px; display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 6px; row-gap: 2px; align-items: center; text-align: left">
+<span style="font-size: 11px; font-weight: 500; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{s.market}}</span>
+<span style="grid-row: span 2; font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600">{{s.oddsLabel}}</span>
+<span style="font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{s.pick}}</span>
+</button>
+</sc-for>
+</div>
+<sc-if value="{{c.canExpand}}" hint-placeholder-val="{{ true }}">
+<button onClick="{{c.toggleMore}}" style="width: 100%; height: 44px; background: transparent; color: var(--accent-ink); border: 0; border-top: 1px dashed var(--line-strong); font-size: 14px; font-weight: 600">{{c.moreLabel}}</button>
+</sc-if>
+</article>
+</sc-for>
+
+<sc-if value="{{ads.on}}" hint-placeholder-val="{{ true }}">
+<div data-ad-slot="in-feed" data-ad-size="300x250" role="complementary" aria-label="Advertisement" style="padding: 4px 0; display: flex; flex-direction: column; align-items: center; gap: 6px">
+<span style="font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint)">Advertisement</span>
+<div style="width: 300px; max-width: 100%; height: 250px; box-sizing: border-box; border: 1px dashed var(--line-stronger); border-radius: 6px; background: repeating-linear-gradient(135deg, transparent 0 9px, var(--hatch) 9px 10px); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted)">in-feed · 300×250</div>
+</div>
+</sc-if>
+<sc-if value="{{canShowMore}}" hint-placeholder-val="{{ true }}">
+<button onClick="{{showMore}}" style="height: 52px; background: transparent; color: var(--text); border: 1px solid var(--line-stronger); border-radius: 10px; font-size: 16px; font-weight: 600">Show more matches</button>
+</sc-if>
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); text-align: center">{{listCount}}</div>
+</section>
+</sc-if>
+
+<!-- ============ GENERATE MODE ============ -->
+<sc-if value="{{isGenerate}}" hint-placeholder-val="{{ false }}">
+<section style="padding: 16px 16px 0; display: flex; flex-direction: column; gap: 16px">
+<div style="padding: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; display: flex; flex-direction: column; gap: 16px">
+<p style="margin: 0; font-size: 14px; line-height: 1.55; color: var(--text-3)">Searches the precomputed catalogue first, then composes a fresh ACCA from the same vetted predictions when no stored slip fits your filters.</p>
+<div style="display: grid; grid-template-columns: repeat(1, minmax(0, 1fr)); gap: 14px">
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700">Market
+<select value="{{gen.market}}" onChange="{{gen.setMarket}}" style="height: 48px; padding: 0 12px; background: var(--bg); color: var(--text); border: 1px solid var(--line-strong); border-radius: 10px; font-size: 15px; font-weight: 500">
+<sc-for list="{{genMarketOptions}}" as="o" hint-placeholder-count="4"><option value="{{o}}">{{o}}</option></sc-for>
+</select></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700">Country
+<select value="{{gen.country}}" onChange="{{gen.setCountry}}" style="height: 48px; padding: 0 12px; background: var(--bg); color: var(--text); border: 1px solid var(--line-strong); border-radius: 10px; font-size: 15px; font-weight: 500">
+<sc-for list="{{countryOptions}}" as="o" hint-placeholder-count="4"><option value="{{o.value}}">{{o.label}}</option></sc-for>
+</select></label>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 13px; font-weight: 700">Legs</span>
+<div style="height: 48px; display: grid; grid-template-columns: 52px minmax(0, 1fr) 52px; border: 1px solid var(--line-strong); border-radius: 10px; overflow: hidden; background: var(--bg)">
+<button aria-label="Fewer legs" onClick="{{gen.legsDown}}" style="background: transparent; color: var(--text); border: 0; border-right: 1px solid var(--line-strong); font-size: 22px">−</button>
+<span aria-live="polite" style="display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 600">{{gen.legs}}</span>
+<button aria-label="More legs" onClick="{{gen.legsUp}}" style="background: transparent; color: var(--text); border: 0; border-left: 1px solid var(--line-strong); font-size: 22px">+</button>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 13px; font-weight: 700">Combined fair odds</span>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px; align-items: center">
+<label style="display: flex; flex-direction: column"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Minimum fair odds</span><input type="number" step="0.1" min="1.1" value="{{gen.min}}" onChange="{{gen.setMin}}" style="width: 100%; height: 48px; box-sizing: border-box; padding: 0 12px; background: var(--bg); color: var(--text); border: 1px solid var(--line-strong); border-radius: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 16px"></label>
+<span style="font-size: 13px; color: var(--muted)">to</span>
+<label style="display: flex; flex-direction: column"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Maximum fair odds</span><input type="number" step="0.1" min="1.1" value="{{gen.max}}" onChange="{{gen.setMax}}" style="width: 100%; height: 48px; box-sizing: border-box; padding: 0 12px; background: var(--bg); color: var(--text); border: 1px solid var(--line-strong); border-radius: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 16px"></label>
+</div>
+</div>
+</div>
+<button onClick="{{gen.run}}" style="height: 54px; display: flex; align-items: center; justify-content: center; gap: 10px; background: var(--accent); color: var(--on-accent); border: 0; border-radius: 12px; font-size: 17px; font-weight: 800">Find an ACCA</button>
+</div>
+
+<sc-if value="{{gen.noResult}}" hint-placeholder-val="{{ true }}">
+<div style="padding: 24px 16px; border: 1px dashed var(--line-stronger); border-radius: 14px; display: flex; flex-direction: column; gap: 6px; text-align: center; color: var(--text-3)">
+<span style="font-size: 16px; font-weight: 700; color: var(--text)">Your generated ACCA appears here</span>
+<span style="font-size: 13px">Review every leg before adding it to your ticket.</span>
+</div>
+</sc-if>
+<sc-if value="{{gen.hasResult}}" hint-placeholder-val="{{ false }}">
+<article style="background: var(--surface); border: 1.5px solid var(--accent-ink); border-radius: 14px; overflow: hidden">
+<div style="padding: 16px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-ink)">Generated for you</span>
+<div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 12px">
+<h2 style="margin: 0; font-size: 26px; line-height: 1; font-weight: 800; font-stretch: 64%; text-transform: uppercase">{{gen.resultTitle}}</h2>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 30px; line-height: 1; font-weight: 500; color: var(--accent-ink)">{{gen.resultTotal}}</span>
+</div>
+<span style="{{gen.noteStyle}}; font-size: 13px; line-height: 1.45">{{gen.resultNote}}</span>
+<sc-if value="{{gen.hasReplaceNote}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; color: var(--muted)">{{gen.replaceNote}}</span></sc-if>
+</div>
+<ol style="margin: 0; padding: 0 16px; list-style: none">
+<sc-for list="{{gen.resultLegs}}" as="l" hint-placeholder-count="4">
+<li style="padding: 12px 0; border-top: 1px solid var(--line-soft); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: baseline">
+<span style="min-width: 0; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{l.match}}</span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 500">{{l.oddsLabel}}</span>
+<span style="grid-column: span 2; font-size: 13px; color: var(--text-3)"><span style="font-weight: 700; color: var(--text)">{{l.pick}}</span> · {{l.market}} · {{l.when}}</span>
+</li>
+</sc-for>
+</ol>
+<div style="padding: 12px 16px; background: var(--surface-sunk); border-top: 1px solid var(--line); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px">
+<button onClick="{{gen.addAll}}" style="height: 50px; background: var(--accent); color: var(--on-accent); border: 0; border-radius: 10px; font-size: 15px; font-weight: 800">{{gen.addLabel}}</button>
+<button onClick="{{gen.again}}" aria-label="Try another ACCA" style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background: transparent; color: var(--text); border: 1px solid var(--line-stronger); border-radius: 10px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"></path></svg></button>
+</div>
+</article>
+</sc-if>
+</section>
+</sc-if>
+
+<p style="margin: 28px 16px 0; font-size: 12px; line-height: 1.5; color: var(--muted)"><span style="font-weight: 700; color: var(--text)">18+</span> · Statistical estimates, never guaranteed outcomes. SokaLens is not a bookmaker and accepts no stakes. <a href="#" style="text-decoration: underline">Responsible use</a></p>
+</main>
+
+<footer style="flex-shrink: 0; margin-top: 40px; padding: 32px 16px 28px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 28px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 24px; font-weight: 800; font-stretch: 75%; text-transform: uppercase">SokaLens</span>
+<p style="margin: 0; font-size: 15px; line-height: 1.5; color: var(--text-3)">Football probabilities, explained clearly and tracked openly.</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+<nav aria-label="Explore" style="display: flex; flex-direction: column; font-size: 14px">
+<span style="padding-bottom: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.1em; color: var(--faint)">EXPLORE</span>
+<a href="{{links.TodayMobile}}" style="padding: 10px 0; color: var(--text-3)">Today’s predictions</a><a href="#" style="padding: 10px 0; color: var(--text-3)">Best Bets</a><a href="#" style="padding: 10px 0; color: var(--text-3)">Leagues</a><a href="#" style="padding: 10px 0; color: var(--text-3)">Performance status</a><a href="{{links.BuilderMobile}}" style="padding: 10px 0; color: var(--text-3)">Multi-match builder</a><a href="#" style="padding: 10px 0; color: var(--accent-ink); font-weight: 600">Go Pro</a>
+</nav>
+<nav aria-label="About" style="display: flex; flex-direction: column; font-size: 14px">
+<span style="padding-bottom: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.1em; color: var(--faint)">ABOUT</span>
+<a href="#" style="padding: 10px 0; color: var(--text-3)">About us</a><a href="#" style="padding: 10px 0; color: var(--text-3)">Contact</a><a href="{{links.AccaMobile}}" style="padding: 10px 0; color: var(--text-3)">Acca predictions</a><a href="#" style="padding: 10px 0; color: var(--text-3)">Responsible use</a><a href="#" style="padding: 10px 0; color: var(--text-3)">Terms</a><a href="#" style="padding: 10px 0; color: var(--text-3)">Privacy</a><a href="#" style="padding: 10px 0; color: var(--text-3)">Cookies</a>
+</nav>
+</div>
+<div style="padding-top: 18px; border-top: 1px solid var(--line); font-size: 12px; line-height: 1.55; color: var(--muted)"><span style="margin-right: 6px; padding: 2px 6px; border: 1.5px solid var(--text); border-radius: 5px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; color: var(--text)">18+</span>© 2026 SokaLens. Predictions are statistical estimates, not guaranteed outcomes. SokaLens is not a bookmaker and accepts no stakes. Bet responsibly.</div>
+</footer>
+
+<!-- STICKY TICKET (+ tab bar on mobile) -->
+<div style="flex-shrink: 0; position: sticky; bottom: 0; z-index: 5; display: flex; flex-direction: column">
+<sc-if value="{{ticket.open}}" hint-placeholder-val="{{ false }}">
+<section aria-label="Your ticket" style="max-height: 560px; overflow-y: auto; background: var(--surface); border-top: 1px solid var(--line-strong); border-radius: 18px 18px 0 0; box-shadow: 0 -20px 40px -20px rgba(0,0,0,0.5); display: flex; flex-direction: column">
+<div style="padding: 16px 16px 12px; display: flex; flex-direction: column; gap: 12px; border-bottom: 1px solid var(--line)">
+<div style="display: flex; justify-content: space-between; align-items: center">
+<h2 style="margin: 0; font-size: 24px; font-weight: 900; font-stretch: 64%; text-transform: uppercase">Your ticket</h2>
+<button onClick="{{ticket.toggleOpen}}" aria-label="Close ticket" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: transparent; color: var(--text); border: 1px solid var(--line-strong); border-radius: 10px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+</div>
+<div role="group" aria-label="Odds format" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 3px; background: var(--bg); border: 1px solid var(--line-strong); border-radius: 10px">
+<sc-for list="{{formats}}" as="f" hint-placeholder-count="3"><button aria-pressed="{{f.pressed}}" onClick="{{f.pick}}" style="{{f.style}}; height: 36px; border: 0; border-radius: 7px; font-size: 13px; font-weight: 600">{{f.label}}</button></sc-for>
+</div>
+</div>
+<sc-if value="{{ticket.isEmpty}}" hint-placeholder-val="{{ false }}">
+<div style="margin: 16px 16px; padding: 18px; border: 1.5px dashed var(--line-stronger); border-radius: 12px; font-size: 14px; color: var(--text-3)">{{ticket.needLabel}} Tap prices in the list, or generate an ACCA.</div>
+</sc-if>
+<ol style="margin: 0; padding: 0 16px; list-style: none">
+<sc-for list="{{ticket.legs}}" as="l" hint-placeholder-count="3">
+<li style="padding: 12px 0; border-bottom: 1px solid var(--line-soft); display: grid; grid-template-columns: minmax(0, 1fr) auto 40px; gap: 10px; align-items: center">
+<span style="min-width: 0; display: flex; flex-direction: column; gap: 3px">
+<span style="font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{l.pick}} <span style="font-weight: 500; color: var(--muted)">· {{l.market}}</span></span>
+<span style="font-size: 13px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{l.match}}</span>
+</span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600">{{l.oddsLabel}}</span>
+<button aria-label="Remove {{l.pick}} from ticket" onClick="{{l.remove}}" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: transparent; color: var(--muted); border: 1px solid var(--line-strong); border-radius: 8px">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</li>
+</sc-for>
+</ol>
+<div style="padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 12px; color: var(--muted)">Market odds where available; otherwise fair odds. {{ticket.impliedLabel}}.</span>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px">
+<button aria-disabled="{{ticket.notMulti}}" style="{{ticket.saveStyle}}; height: 50px; border: 0; border-radius: 10px; font-size: 16px; font-weight: 800">Save ticket</button>
+<button aria-label="Share ticket" style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background: transparent; color: var(--text); border: 1px solid var(--line-stronger); border-radius: 10px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="18" cy="5" r="2.5"></circle><circle cx="6" cy="12" r="2.5"></circle><circle cx="18" cy="19" r="2.5"></circle><path d="M8.2 10.9l7.6-4.6M8.2 13.1l7.6 4.6"></path></svg></button>
+<button onClick="{{ticket.clear}}" style="height: 50px; padding: 0 14px; background: transparent; color: var(--text-3); border: 1px solid var(--line-strong); border-radius: 10px; font-size: 14px; font-weight: 600">Clear</button>
+</div>
+</div>
+</section>
+</sc-if>
+<button onClick="{{ticket.toggleOpen}}" aria-label="Open your ticket" style="height: 68px; padding: 0 16px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; background: var(--text); color: var(--bg); border: 0; text-align: left">
+<span style="min-width: 38px; height: 38px; padding: 0 8px; box-sizing: border-box; border-radius: 999px; background: var(--accent); color: var(--on-accent); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 700">{{ticket.count}}</span>
+<span style="min-width: 0; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 15px; font-weight: 800">Your ticket</span><span style="font-size: 12px; opacity: 0.75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ticket.needLabel}}</span></span>
+<span style="display: flex; flex-direction: column; align-items: flex-end"><span style="font-size: 11px; opacity: 0.75">Total odds</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 22px; font-weight: 600">{{ticket.totalLabel}}</span></span>
+</button>
+<nav aria-label="App" style="flex-shrink: 0; height: 68px; box-sizing: border-box; padding: 0 8px; background: var(--bar); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(6, minmax(0, 1fr))">
+<a href="{{links.HomeMobile}}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; color: var(--muted)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 11l9-7 9 7v9H3z"></path></svg>Home</a>
+<a href="{{links.TodayMobile}}" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 700; color: var(--accent-ink)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="3"></circle></svg>Predictions</a>
+<a href="{{links.InPlayMobile}}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; color: var(--muted)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3" style="fill: var(--accent)"></circle><path d="M6.3 6.3a8 8 0 0 0 0 11.4M17.7 6.3a8 8 0 0 1 0 11.4"></path></svg>In-play</a>
+<a href="{{links.AccaMobile}}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; color: var(--muted)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 4h16v6a2 2 0 0 0 0 4v6H4v-6a2 2 0 0 0 0-4z"></path></svg>ACCAs</a>
+<a href="{{links.BuilderMobile}}" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 700; color: var(--accent-ink)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Builder</a>
+<a href="#" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; color: var(--muted)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg>Sign in</a>
+</nav>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"ads":{"editor":"enum","options":["filled","empty"],"default":"filled","section":"Ads"},"theme":{"editor":"enum","options":["dark","light"],"default":"dark","section":"Look"},"startMode":{"editor":"enum","options":["build","generate"],"default":"build","section":"Builder"},"demoTicket":{"editor":"boolean","default":true,"section":"Builder"},"accent":{"editor":"color","default":"#C8F169","options":["#C8F169","#5EE6C1","#FFB547","#F2F2EC"],"section":"Look"},"$preview":{"width":390,"height":3960}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const gen = props.startMode === 'generate';
+    this.state = { themeOverride: null, mode: gen ? 'generate' : 'build', q: '', country: 'all', market: 'All markets', expanded: {}, showCount: 5,
+      ticket: props.demoTicket === false ? [] : ['6:MR', '9:TG', '14:BTTS'], fmt: 'decimal', ticketOpen: false, seed: 1, genResult: null,
+      gen: { market: 'Mixed markets', country: 'all', legs: 4, min: '3.00', max: '10.00' } };
+  }
+  componentDidMount() { if (this.props.startMode === 'generate' && this._run) this._run(0); }
+  renderVals() {
+    // ===== THEME — one token set shared by every SokaLens artboard =====
+    const THEMES = {
+      dark:  { bg: '#0E1411', surface: '#131B16', 'surface-2': '#16201A', 'surface-3': '#1C2620', 'surface-sunk': '#0F1712', bar: '#0B100D', hatch: '#18221C',
+               line: '#243029', 'line-soft': '#1F2A23', 'line-strong': '#2E3B34', 'line-stronger': '#3B4741', 'line-heavy': '#4A5750', tick: '#5A675F', deco: '#1E2922',
+               text: '#EEF2EC', 'text-2': '#DCE4DD', 'text-3': '#C9D2CB', 'text-4': '#B8C3BB', muted: '#A7B3AB', faint: '#8A968E' },
+      light: { bg: '#F8F9F7', surface: '#FFFFFF', 'surface-2': '#F0F7E8', 'surface-3': '#F1F3F0', 'surface-sunk': '#F4F6F3', bar: '#FFFFFF', hatch: '#E6E9E4',
+               line: '#E1E5DF', 'line-soft': '#ECEFEA', 'line-strong': '#D1D7CF', 'line-stronger': '#BDC4BB', 'line-heavy': '#9AA39A', tick: '#7F8A80', deco: '#EBEEE9',
+               text: '#111812', 'text-2': '#1D271F', 'text-3': '#364238', 'text-4': '#445047', muted: '#56635A', faint: '#66736A' }
+    };
+    const themeName = (this.state && this.state.themeOverride) || this.props.theme || 'dark';
+    const isDark = themeName !== 'light';
+    const tokens = THEMES[isDark ? 'dark' : 'light'];
+    // Light theme gets its own deeper greens — bright lime is only 1.3:1 on white.
+    const LIGHT_GREENS = { '#C8F169': { fill: '#4C9F16', ink: '#2F6B0A' } };
+    const accentRaw = this.props.accent ?? '#C8F169';
+    const awayRaw = this.props.awayColor ?? '#8FB8FF';
+    const lg = LIGHT_GREENS[String(accentRaw).toUpperCase()];
+    const accentFill = isDark ? accentRaw : (lg ? lg.fill : accentRaw);
+    const accentInk = isDark ? accentRaw : (lg ? lg.ink : 'color-mix(in oklab, ' + accentRaw + ' 42%, #0E1411)');
+    const awayFill = isDark ? awayRaw : (String(awayRaw).toUpperCase() === '#8FB8FF' ? '#3D7BE0' : awayRaw);
+    const awayInk = isDark ? awayRaw : (String(awayRaw).toUpperCase() === '#8FB8FF' ? '#1F5BBF' : 'color-mix(in oklab, ' + awayRaw + ' 55%, #0E1411)');
+    const rootVars = Object.keys(tokens).map((k) => '--' + k + ': ' + tokens[k]).join('; ')
+      + '; --accent: ' + accentFill + '; --accent-ink: ' + accentInk
+      + '; --away: ' + awayFill + '; --away-ink: ' + awayInk
+      + '; --on-accent: #0E1411'
+      + '; color-scheme: ' + (isDark ? 'dark' : 'light');
+    const themeSuffix = isDark ? '' : 'Light';
+    const THEME_VALS = {
+      ads: { on: (this.props.ads || 'filled') !== 'empty' },
+      themeClass: isDark ? 'sl-dark' : 'sl-light', rootVars, isDark,
+      themeLabel: isDark ? 'Switch to light theme' : 'Switch to dark theme',
+      toggleTheme: () => this.setState({ themeOverride: isDark ? 'light' : 'dark' }),
+      links: { Acca: 'Acca' + themeSuffix + '.dc.html', AccaTablet: 'AccaTablet' + themeSuffix + '.dc.html', AccaMobile: 'AccaMobile' + themeSuffix + '.dc.html', AccaDetail: 'AccaDetail' + themeSuffix + '.dc.html', AccaDetailTablet: 'AccaDetailTablet' + themeSuffix + '.dc.html', AccaDetailMobile: 'AccaDetailMobile' + themeSuffix + '.dc.html', Home: 'Home' + themeSuffix + '.dc.html', HomeTablet: 'HomeTablet' + themeSuffix + '.dc.html', HomeMobile: 'HomeMobile' + themeSuffix + '.dc.html', Today: 'Today' + themeSuffix + '.dc.html', TodayTablet: 'TodayTablet' + themeSuffix + '.dc.html', TodayMobile: 'TodayMobile' + themeSuffix + '.dc.html', Builder: 'Builder' + themeSuffix + '.dc.html', BuilderTablet: 'BuilderTablet' + themeSuffix + '.dc.html', BuilderMobile: 'BuilderMobile' + themeSuffix + '.dc.html', InPlay: 'InPlay' + themeSuffix + '.dc.html', InPlayTablet: 'InPlayTablet' + themeSuffix + '.dc.html', InPlayMobile: 'InPlayMobile' + themeSuffix + '.dc.html', Main: 'Main' + themeSuffix + '.dc.html', Mobile: 'Mobile' + themeSuffix + '.dc.html', BuilderGen: 'BuilderGenerate' + themeSuffix + '.dc.html', BuilderGenTablet: 'BuilderTabletGenerate' + themeSuffix + '.dc.html', BuilderGenMobile: 'BuilderMobileGenerate' + themeSuffix + '.dc.html' }
+    };
+    // ===== end theme =====
+
+    const PAGE = 5;
+
+    // ===== BUILDER DATA — one line per match: home | away | league | country | YYYY-MM-DD HH:MM (UTC) | selections =====
+    // selections: CODE=Pick@odds ; add "m" after the odds when it is a market price, otherwise it is a fair price
+    const RAW = [
+      'Talleres Cordoba|Belgrano Cordoba|Liga Profesional Argentina|Argentina|2026-10-04 20:00|MR=Draw@3.40m;BTTS=No@1.38;BMR=Draw & No@3.78;BTG=No & Under 5.5@1.33;DC=Draw or Away@1.31;DNB=Away@1.65;HT=Draw@1.77;HSH=Equal@2.57;OE=Even@1.81;RTG=Draw & Under 2.5@2.56;SOT=Over 6.5@1.13;ATC=Over 3.5@1.45;HTC=Over 3.5@1.39;TCA=Over 2.5@1.19;TCO=Over 7.5@1.35;TFO=Under 24.5@1.34;TG=Under 2.5@1.22',
+      'Huracan|Aldosivi|Liga Profesional Argentina|Argentina|2026-10-04 00:30|MR=Home@1.78m;BTTS=No@1.55;BMR=Home & No@3.67;BTG=No & Under 5.5@1.49;DC=Home or Draw@1.37;DNB=Home@1.75;HT=Draw@1.95;HSH=Equal@2.90;OE=Even@1.86;RTG=Home & Under 2.5@4.14;SOT=Over 6.5@1.36;ATC=Under 5.5@1.42;HTC=Under 5.5@1.25;TSF=Home@2.27;TCA=Over 2.5@1.21;TCO=Under 10.5@1.29;TFO=Over 18.5@1.15;TG=Under 2.5@1.35',
+      'Novorizontino|Goias|Serie B|Brazil|2026-10-02 00:00|MR=Home@1.90m;BTTS=No@1.43;BMR=Home & No@3.27;BTG=No & Under 5.5@1.37;DC=Home or Draw@1.30;DNB=Home@1.61;HT=Draw@1.83;HSH=Equal@2.68;OE=Even@1.83;RTG=Home & Under 2.5@3.64;SOT=Over 6.5@1.15;ATC=Over 3.5@1.29;TSF=Home@2.25;TCA=Under 5.5@1.23;TFO=Over 18.5@1.10;TG=Under 2.5@1.26',
+      'Atletico-MG|RB Bragantino|Serie A|Brazil|2026-10-03 21:30|MR=Home@1.80m;BTTS=No@1.53;BMR=Home & No@2.91;BTG=No & Under 5.5@1.47;DC=Home or Draw@1.25;DNB=Home@1.44;HT=Draw@2.00;HSH=Equal@2.95;OE=Even@1.87;RTG=Home & Under 2.5@3.42;SOT=Over 6.5@1.18;HTC=Under 5.5@1.42;TSF=Home@1.95;TCA=Under 5.5@1.27;TCO=Over 7.5@1.12;TFO=Over 18.5@1.15;TG=Under 2.5@1.37',
+      'Independiente|Instituto Cordoba|Liga Profesional Argentina|Argentina|2026-10-02 22:15|MR=Draw@3.13m;BTTS=No@1.41;BMR=Draw & No@3.95;BTG=No & Under 5.5@1.36;DC=Draw or Away@1.34;DNB=Away@1.73;HT=Draw@1.80;HSH=Equal@2.62;OE=Even@1.82;RTG=Draw & Under 2.5@2.61;SOT=Over 6.5@1.39;ATC=Over 3.5@1.27;HTC=Over 3.5@1.24;TCA=Over 2.5@1.18;TCO=Over 7.5@1.17;TFO=Over 18.5@1.30;TG=Under 2.5@1.24',
+      'Boca Juniors|Union Santa Fe|Liga Profesional Argentina|Argentina|2026-10-04 22:15|MR=Home@1.71m;BTTS=Yes@1.84;BMR=Home & Yes@2.94;BTG=Yes & Over 0.5@1.94;DC=Home or Draw@1.10;DNB=Home@1.12;HT=Home@1.70;HSH=First Half@2.59;OE=Even@1.95;RTG=Home & Over 2.5@1.81;SOT=Over 6.5@1.15;ATC=Under 5.5@1.20;HTC=Over 3.5@1.24;TSF=Home@1.37;TCA=Under 5.5@1.23;TCO=Over 7.5@1.41;TFO=Over 18.5@1.31;TG=Over 2.5@1.49',
+      'Sarmiento Junin|River Plate|Liga Profesional Argentina|Argentina|2026-10-04 17:45|MR=Home@2.11m;BTTS=No@1.91;BMR=Home & No@3.69;BTG=No & Under 5.5@1.82;DC=Home or Draw@1.36;DNB=Home@1.61;HT=Draw@2.28;HSH=First Half@2.82;OE=Even@1.90;RTG=Home & Under 2.5@4.59;SOT=Over 6.5@1.31;ATC=Over 3.5@1.45;HTC=Under 5.5@1.27;TSF=Home@1.98;TCA=Over 2.5@1.29;TCO=Under 10.5@1.35;TFO=Over 18.5@1.08;TG=Under 2.5@1.68',
+      'Internacional de Bogota|Once Caldas|Primera A|Colombia|2026-10-02 01:00|MR=Home@2.21m;BTTS=No@1.42;BMR=Home & No@3.12;BTG=No & Under 5.5@1.37;DC=Home or Draw@1.28;DNB=Home@1.54;HT=Draw@1.84;HSH=Equal@2.68;OE=Even@1.83;RTG=Home & Under 2.5@3.49;SOT=Over 6.5@1.13;ATC=Over 3.5@1.45;HTC=Over 3.5@1.29;TSF=Home@2.18;TCA=Over 2.5@1.11;TCO=Over 7.5@1.28;TFO=Under 24.5@1.31;TG=Under 2.5@1.26',
+      'New York Red Bulls|St. Louis City|Major League Soccer|United States|2026-09-30 23:30|MR=Away@1.59m;BTTS=No@1.85;BMR=Away & No@3.12;BTG=No & Under 5.5@1.76;DC=Draw or Away@1.27;DNB=Away@1.43;HT=Draw@2.31;HSH=First Half@2.82;OE=Even@1.90;RTG=Away & Under 2.5@4.03;SOT=Over 6.5@1.25;ATC=Under 5.5@1.46;HTC=Over 3.5@1.34;TSF=Away@1.81;TCA=Over 2.5@1.25;TCO=Over 7.5@1.33;TFO=Over 18.5@1.06;TG=Under 2.5@1.68',
+      'Atletico Nacional|Junior|Primera A|Colombia|2026-10-01 01:00|MR=Home@1.51m;BTTS=Yes@1.86;BMR=Home & Yes@3.15;BTG=Yes & Over 0.5@1.81;DC=Home or Draw@1.16;DNB=Home@1.21;HT=Home@1.94;HSH=First Half@2.62;OE=Even@1.94;RTG=Home & Over 2.5@2.14;SOT=Over 6.5@1.09;ATC=Under 5.5@1.30;HTC=Over 3.5@1.10;TSF=Home@1.50;TCA=Over 2.5@1.09;TCO=Over 7.5@1.17;TG=Over 2.5@1.69',
+      'Independiente Medellin|Millonarios|Primera A|Colombia|2026-09-30 01:05|MR=Away@3.02m;BTTS=Yes@1.30;BMR=Away & Yes@2.47;BTG=Yes & Over 0.5@1.32;DC=Home or Away@1.24;DNB=Away@1.41;HT=Away@2.10;HSH=First Half@2.50;OE=Even@1.96;RTG=Away & Over 2.5@2.01;SOT=Over 6.5@1.09;ATC=Under 5.5@1.46;HTC=Under 5.5@1.30;TSF=Away@1.67;TCA=Over 2.5@1.10;TCO=Under 10.5@1.35;TFO=Over 18.5@1.07;TG=Over 2.5@1.29',
+      'Sao Paulo|Santos|Serie A|Brazil|2026-10-02 23:00|MR=Draw@3.42m;BTTS=No@1.53;BMR=Draw & No@4.83;BTG=No & Under 5.5@1.47;DC=Draw or Away@1.44;DNB=Away@1.94;HT=Draw@1.92;HSH=Equal@2.86;OE=Even@1.85;RTG=Draw & Under 2.5@2.88;SOT=Over 6.5@1.47;ATC=Over 3.5@1.15;HTC=Over 3.5@1.18;TCA=Over 2.5@1.27;TCO=Over 7.5@1.08;TFO=Over 18.5@1.09;TG=Under 2.5@1.33',
+      'Independ. Rivadavia|Gimnasia L.P.|Liga Profesional Argentina|Argentina|2026-10-03 00:30|MR=Home@1.66m;BTTS=No@1.92;BMR=Home & No@3.49;BTG=No & Under 5.5@1.83;DC=Home or Draw@1.32;DNB=Home@1.54;HT=Draw@2.32;HSH=First Half@2.81;OE=Even@1.90;RTG=Home & Under 2.5@4.44;SOT=Over 6.5@1.33;ATC=Under 5.5@1.13;HTC=Under 5.5@1.42;TSF=Home@1.90;TCA=Over 2.5@1.18;TCO=Under 10.5@1.20;TFO=Over 18.5@1.16;TG=Under 2.5@1.71',
+      'Platense|Estudiantes L.P.|Copa Argentina|Argentina|2026-10-02 00:15|MR=Draw@3.34m;BTTS=No@1.48;BMR=Draw & No@4.38;BTG=No & Under 5.5@1.42;DC=Draw or Away@1.44;DNB=Away@1.99;HT=Draw@1.86;HSH=Equal@2.75;OE=Even@1.84;RTG=Draw & Under 2.5@2.74;SOT=Over 6.5@1.18;ATC=Under 5.5@1.30;HTC=Under 5.5@1.24;TCA=Over 2.5@1.11;TCO=Under 10.5@1.22;TFO=Over 18.5@1.09;TG=Under 2.5@1.28',
+      'Seattle Sounders|Sporting Kansas City|Major League Soccer|United States|2026-10-02 01:30|MR=Home@1.81m;BTTS=Yes@1.52;BMR=Home & Yes@2.96;BTG=Yes & Over 0.5@1.46;DC=Home or Away@1.28;DNB=Home@1.44;HT=Home@2.25;HSH=First Half@2.56;OE=Even@1.95;RTG=Home & Over 2.5@2.34;SOT=Over 6.5@1.39;ATC=Under 5.5@1.27;HTC=Under 5.5@1.30;TSF=Home@1.71;TCA=Under 5.5@1.20;TCO=Under 10.5@1.24;TFO=Over 18.5@1.29;TG=Over 2.5@1.47;TSH=Over 18.5@1.15',
+      'Blooming|Independiente Petrolero|Copa de la División Profesional|Bolivia|2026-10-02 00:30|MR=Home@2.04m;BTTS=No@1.99;BMR=Home & No@3.19;BTG=No & Under 5.5@1.89;DC=Home or Draw@1.26;DNB=Home@1.41;HT=Draw@2.44;HSH=First Half@2.76;OE=Even@1.91;RTG=Home & Under 2.5@4.31;SOT=Over 6.5@1.16;ATC=Under 5.5@1.24;HTC=Over 3.5@1.36;TSF=Home@1.76;TCA=Over 2.5@1.07;TCO=Under 10.5@1.38;TFO=Over 18.5@1.16;TG=Under 2.5@1.84',
+      'Aurora|San Antonio Bulo Bulo|Copa de la División Profesional|Bolivia|2026-09-30 00:00|MR=Home@1.81m;BTTS=No@1.76;BMR=Home & No@2.91;BTG=No & Under 5.5@1.83;DC=Home or Draw@1.22;DNB=Home@1.33;HT=Home@2.40;HSH=First Half@2.77;OE=Even@1.91;RTG=Home & Under 2.5@4.01;SOT=Over 6.5@1.14;ATC=Under 5.5@1.17;HTC=Over 3.5@1.28;TSF=Home@1.68;TCO=Under 10.5@1.38;TFO=Over 18.5@1.09;TG=Under 2.5@1.82',
+      'Oriente Petrolero|The Strongest|Copa de la División Profesional|Bolivia|2026-10-01 00:30|MR=Home@1.83m;BTTS=Yes@1.50;BMR=Home & Yes@2.46;BTG=Yes & Over 0.5@1.44;DC=Home or Draw@1.21;DNB=Home@1.28;HT=Home@1.93;HSH=First Half@2.52;OE=Even@1.96;RTG=Home & Over 2.5@1.88;ATC=Over 3.5@1.18;HTC=Over 3.5@1.27;TSF=Home@1.56;TCO=Over 7.5@1.14;TG=Over 2.5@1.36',
+      'Argentina|Burkina Faso|Friendlies|International|2026-10-04 00:00|MR=Home@1.36m;BTTS=No@1.62;BMR=Home & No@1.87;BTG=No & Under 5.5@1.64;DC=Home or Draw@1.06;DNB=Home@1.07;HT=Home@1.65;HSH=First Half@2.66;OE=Even@1.95;RTG=Home & Over 2.5@2.01;SOT=Over 6.5@1.31;ATC=Over 3.5@1.20;HTC=Under 5.5@1.21;TSF=Home@1.30;TCA=Under 5.5@1.18;TCO=Over 7.5@1.35;TFO=Over 18.5@1.08;TG=Over 2.5@1.77;TSH=Over 18.5@1.15',
+      'San Antonio|SV Darmstadt 98|Friendlies Clubs|International|2026-09-30 00:30|MR=Home@1.97m;BTTS=No@1.19;BMR=Home & No@2.45;BTG=No & Under 5.5@1.15;DC=Home or Draw@1.13;DNB=Home@1.25;HT=Draw@1.60;HSH=Equal@2.19;OE=Even@1.74;RTG=Home & Under 2.5@2.67;TSF=Home@2.09;TG=Under 2.5@1.13',
+      'South Korea|Uruguay|Friendlies|International|2026-09-28 11:00|MR=Home@1.32m;BTTS=No@1.36;BMR=Home & No@1.47;BTG=No & Under 5.5@1.36;HT=Home@1.52;HSH=First Half@2.68;OE=Even@1.96;RTG=Home & Over 2.5@1.97;TSF=Home@1.20;TG=Over 2.5@1.95',
+      'Dominican Republic|Haiti|CONCACAF Nations League|International|2026-10-02 00:00|MR=Away@1.86m;BTTS=No@1.57;BMR=Away & No@1.63;BTG=No & Over 0.5@1.59;HT=Away@1.42;HSH=First Half@2.58;OE=Even@1.97;RTG=Away & Over 2.5@1.58;TSF=Away@1.19;TG=Over 2.5@1.54',
+      'Belize|St. Vincent / Grenadines|CONCACAF Nations League|International|2026-09-30 02:00|MR=Away@1.71m;BTTS=No@1.83;BMR=Away & No@1.79;BTG=No & Over 0.5@1.79;HT=Away@1.17;HSH=First Half@2.42;OE=Even@1.98;RTG=Away & Over 2.5@1.12;TSF=Away@1.13;TG=Over 2.5@1.13',
+      'The New Saints|Cambrian & Clydach|Premier League|Wales|2026-10-03 13:30|MR=Home@1.33m;BTTS=Yes@1.60;BMR=Home & Yes@2.06;BTG=Yes & Over 0.5@1.56;DC=Home or Draw@1.08;DNB=Home@1.09;HT=Home@1.49;HSH=First Half@2.48;OE=Even@1.97;RTG=Home & Over 2.5@1.40;TSF=Home@1.33;TG=Over 2.5@1.22'
+    ];
+    const HORIZON = { selections: 849, matches: 63 };
+    // ===== end builder data =====
+
+    const MK = { MR: 'Match Result', BTTS: 'Both Teams to Score', BMR: 'BTTS & Match Result', BTG: 'BTTS & Total Goals', DC: 'Double Chance', DNB: 'Draw No Bet',
+      HT: 'Half-Time Result', HSH: 'Highest Scoring Half', OE: 'Odd/Even Goals', RTG: 'Result & Total Goals', SOT: 'Shots on Target', ATC: 'Away Team Corners',
+      HTC: 'Home Team Corners', TSF: 'Team to Score First', TCA: 'Total Cards', TCO: 'Total Corners', TFO: 'Total Fouls', TG: 'Total Goals', TSH: 'Total Shots' };
+    const POPULAR = ['MR', 'BTTS', 'DC', 'TG', 'TCO', 'TCA'];
+    const WD = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const st = this.state;
+    const gcd = (a, b) => (b ? gcd(b, a % b) : a);
+    const fmtOdds = (d) => {
+      if (st.fmt === 'american') return d >= 2 ? '+' + Math.round((d - 1) * 100) : '-' + Math.round(100 / (d - 1));
+      if (st.fmt === 'fractional') {
+        const x = d - 1; let best = [Math.round(x), 1], err = Infinity;
+        for (let den = 1; den <= 20; den++) { const num = Math.round(x * den); const e = Math.abs(num / den - x); if (e < err - 1e-9) { err = e; best = [num, den]; } if (e <= x * 0.01) break; }
+        const g = gcd(best[0], best[1]) || 1; return (best[0] / g) + '/' + (best[1] / g);
+      }
+      return d.toFixed(2);
+    };
+    const MATCHES = RAW.map((line, i) => {
+      const [home, away, league, country, when, sels] = line.split('|');
+      const dt = new Date(when.replace(' ', 'T') + ':00Z');
+      const selections = sels.split(';').map((s) => {
+        const [code, rest] = s.split('=');
+        const [pick, o] = rest.split('@');
+        return { code, market: MK[code], pick, odds: parseFloat(o), isMarket: /m$/.test(o), key: i + ':' + code, mid: i };
+      });
+      return { id: i, home, away, league, country, dt, when: WD[dt.getUTCDay()] + ' ' + dt.getUTCDate() + ' ' + MO[dt.getUTCMonth()] + ' · ' + when.slice(11), selections };
+    }).sort((a, b) => a.dt - b.dt);
+    const byKey = {};
+    MATCHES.forEach((m) => m.selections.forEach((s) => { byKey[s.key] = { ...s, match: m }; }));
+
+    // ---- ticket
+    const ticketKeys = st.ticket.filter((k) => byKey[k]);
+    const addKey = (key) => {
+      const s = byKey[key]; if (!s) return;
+      const cur = this.state.ticket;
+      if (cur.includes(key)) { this.setState({ ticket: cur.filter((k) => k !== key) }); return; }
+      this.setState({ ticket: cur.filter((k) => byKey[k] && byKey[k].mid !== s.mid).concat(key), ticketOpen: this.state.ticketOpen });
+    };
+    const legs = ticketKeys.map((k) => {
+      const s = byKey[k];
+      return { key: k, match: s.match.home + ' v ' + s.match.away, when: s.match.when, market: s.market, pick: s.pick, oddsLabel: fmtOdds(s.odds),
+        src: s.isMarket ? 'Market' : 'Fair', remove: () => this.setState({ ticket: this.state.ticket.filter((x) => x !== k) }) };
+    });
+    const total = ticketKeys.reduce((p, k) => p * byKey[k].odds, 1);
+    const n = legs.length;
+    const imp = 100 / total;
+    const ticket = {
+      legs, count: n, hasLegs: n > 0, isEmpty: n === 0, isMulti: n >= 2, notMulti: n < 2,
+      countLabel: n === 1 ? '1 selection' : n + ' selections',
+      needLabel: n === 0 ? 'Add 2 or more selections to form a multi.' : n === 1 ? 'Add 1 more selection to form a multi.' : 'Ready — ' + n + '-leg multi.',
+      totalLabel: n ? fmtOdds(total) : '—',
+      impliedLabel: n ? '≈ ' + (imp < 1 ? imp.toFixed(2) : imp.toFixed(1)) + '% implied chance' : 'Total odds appear here',
+      saveStyle: n >= 2 ? 'background: var(--accent); color: var(--on-accent); cursor: pointer' : 'background: var(--surface-3); color: var(--faint); cursor: not-allowed',
+      clear: () => this.setState({ ticket: [] }),
+      open: !!st.ticketOpen, closed: !st.ticketOpen,
+      toggleOpen: () => this.setState({ ticketOpen: !this.state.ticketOpen })
+    };
+
+    // ---- build mode
+    const q = (st.q || '').trim().toLowerCase();
+    const shownMatches = MATCHES.filter((m) =>
+      (st.country === 'all' || m.country === st.country) &&
+      (!q || (m.home + ' ' + m.away + ' ' + m.league).toLowerCase().includes(q)) &&
+      (st.market === 'All markets' || m.selections.some((s) => s.market === st.market)));
+    const chipStyle = (on) => on
+      ? 'background: var(--accent); color: var(--on-accent); border: 1px solid var(--accent)'
+      : 'background: var(--bg); color: var(--text); border: 1px solid var(--line-strong)';
+    const matchCards = shownMatches.slice(0, st.showCount).map((m) => {
+      const expanded = !!st.expanded[m.id];
+      const list = st.market !== 'All markets' ? m.selections.filter((s) => s.market === st.market)
+        : expanded ? m.selections : m.selections.filter((s) => POPULAR.includes(s.code));
+      const inTicket = ticketKeys.find((k) => byKey[k].mid === m.id);
+      return {
+        id: m.id, home: m.home, away: m.away, league: m.league, country: m.country, when: m.when,
+        hasPick: !!inTicket, pickNote: inTicket ? 'In ticket: ' + byKey[inTicket].market + ' · ' + byKey[inTicket].pick : '',
+        chips: list.map((s) => {
+          const on = ticketKeys.includes(s.key);
+          return { market: s.market, pick: s.pick, oddsLabel: fmtOdds(s.odds), src: s.isMarket ? 'Market odds' : 'Fair odds', on, style: chipStyle(on),
+            action: on ? 'Remove' : 'Add', aria: (on ? 'Remove ' : 'Add ') + s.market + ' ' + s.pick + ' for ' + m.home + ' v ' + m.away,
+            toggle: () => addKey(s.key) };
+        }),
+        canExpand: st.market === 'All markets' && m.selections.length > POPULAR.length,
+        moreLabel: expanded ? 'Show fewer markets' : 'All ' + m.selections.length + ' markets',
+        toggleMore: () => this.setState({ expanded: { ...this.state.expanded, [m.id]: !expanded } })
+      };
+    });
+
+    // ---- generate mode
+    const g = st.gen;
+    const runGenerate = (seedBump) => {
+      const seed = (this.state.seed || 1) + (seedBump || 0);
+      const G = this.state.gen;
+      const legsN = Math.max(2, Math.min(12, parseInt(G.legs, 10) || 4));
+      const lo = parseFloat(G.min) || 1.5, hi = Math.max(lo, parseFloat(G.max) || lo * 3);
+      const target = Math.pow(Math.sqrt(lo * hi), 1 / legsN);
+      let pool = MATCHES.filter((m) => G.country === 'all' || m.country === G.country);
+      const rnd = (i) => { const x = Math.sin((i + 1) * 9301 + seed * 49297) * 233280; return x - Math.floor(x); };
+      const cands = pool.map((m) => {
+        const opts = m.selections.filter((s) => (G.market === 'Mixed markets' || s.market === G.market) && s.odds >= 1.10 && s.odds <= 4.0);
+        if (!opts.length) return null;
+        const best = opts.slice().sort((a, b) => Math.abs(Math.log(a.odds / target)) - Math.abs(Math.log(b.odds / target)))[Math.floor(rnd(m.id) * Math.min(2, opts.length))];
+        return { s: best, score: Math.abs(Math.log(best.odds / target)) + rnd(m.id + 100) * 0.35 };
+      }).filter(Boolean).sort((a, b) => a.score - b.score).slice(0, legsN);
+      const keys = cands.map((c) => c.s.key);
+      const tot = keys.reduce((p, k) => p * byKey[k].odds, 1);
+      this.setState({ seed, genResult: { keys, total: tot, lo, hi, asked: legsN } });
+    };
+    const R = st.genResult;
+    const genLegs = R ? R.keys.map((k) => { const s = byKey[k]; return { match: s.match.home + ' v ' + s.match.away, when: s.match.when, market: s.market, pick: s.pick, oddsLabel: fmtOdds(s.odds) }; }) : [];
+    const inRange = R ? R.total >= R.lo - 1e-9 && R.total <= R.hi + 1e-9 : false;
+    const gen = {
+      market: g.market, country: g.country, legs: g.legs, min: g.min, max: g.max,
+      hasResult: !!R, noResult: !R,
+      resultLegs: genLegs,
+      resultTitle: R ? genLegs.length + '-leg ' + (g.market === 'Mixed markets' ? 'mixed' : g.market) + ' ACCA' : '',
+      resultTotal: R ? fmtOdds(R.total) : '',
+      resultNote: !R ? '' : genLegs.length < R.asked ? 'Only ' + genLegs.length + ' matches fit these filters — widen the country or market.' : inRange ? 'Combined fair odds sit inside your ' + R.lo.toFixed(2) + '–' + R.hi.toFixed(2) + ' range.' : 'Closest fit to ' + R.lo.toFixed(2) + '–' + R.hi.toFixed(2) + '. Adjust legs or the odds range to get closer.',
+      noteStyle: inRange ? 'color: var(--accent-ink)' : 'color: var(--text-3)',
+      run: () => runGenerate(0),
+      again: () => runGenerate(1),
+      addLabel: n ? 'Replace my ticket with these ' + genLegs.length + ' legs' : 'Use these ' + genLegs.length + ' legs as my ticket',
+      replaceNote: n ? 'Your current ' + (n === 1 ? '1 selection' : n + ' selections') + ' will be replaced.' : '',
+      hasReplaceNote: n > 0,
+      addAll: () => { const keys = this.state.genResult ? this.state.genResult.keys : []; this.setState({ ticket: keys.slice(), ticketOpen: true }); },
+      setMarket: (e) => this.setState({ gen: { ...this.state.gen, market: e.target.value } }),
+      setCountry: (e) => this.setState({ gen: { ...this.state.gen, country: e.target.value } }),
+      setMin: (e) => this.setState({ gen: { ...this.state.gen, min: e.target.value } }),
+      setMax: (e) => this.setState({ gen: { ...this.state.gen, max: e.target.value } }),
+      legsDown: () => this.setState({ gen: { ...this.state.gen, legs: Math.max(2, (parseInt(this.state.gen.legs, 10) || 4) - 1) } }),
+      legsUp: () => this.setState({ gen: { ...this.state.gen, legs: Math.min(12, (parseInt(this.state.gen.legs, 10) || 4) + 1) } })
+    };
+
+    const modeTab = (key, label, sub) => ({ label, sub, pressed: st.mode === key ? 'true' : 'false',
+      style: st.mode === key ? 'background: var(--surface); color: var(--text); border: 1.5px solid var(--accent-ink); box-shadow: 0 1px 0 var(--line)' : 'background: transparent; color: var(--muted); border: 1.5px solid transparent',
+      pick: () => this.setState({ mode: key }) });
+    const countries = [...new Set(MATCHES.map((m) => m.country))].sort();
+    const FORMATS = [['decimal', 'Decimal'], ['fractional', 'Fractional'], ['american', 'American']];
+    const BUILDER_VALS = {
+      horizon: HORIZON, isBuild: st.mode === 'build', isGenerate: st.mode === 'generate',
+      modes: [modeTab('build', 'Pick selections', 'Choose each leg yourself'), modeTab('generate', 'Generate for me', 'Set legs & odds, we compose it')],
+      q: st.q, country: st.country, market: st.market,
+      countryOptions: [{ value: 'all', label: 'All countries' }].concat(countries.map((c) => ({ value: c, label: c }))),
+      marketOptions: ['All markets'].concat(Object.values(MK)),
+      genMarketOptions: ['Mixed markets'].concat(Object.values(MK)),
+      onQuery: (e) => this.setState({ q: e.target.value, showCount: PAGE }),
+      onCountry: (e) => this.setState({ country: e.target.value, showCount: PAGE }),
+      onMarket: (e) => this.setState({ market: e.target.value, showCount: PAGE }),
+      matchCards, noMatches: shownMatches.length === 0,
+      listCount: 'Showing ' + matchCards.length + ' of ' + shownMatches.length + ' matches · ' + HORIZON.selections + ' selections across ' + HORIZON.matches + ' matches this week',
+      canShowMore: shownMatches.length > matchCards.length,
+      showMore: () => this.setState({ showCount: this.state.showCount + PAGE }),
+      resetFilters: () => this.setState({ q: '', country: 'all', market: 'All markets' }),
+      ticket, gen,
+      formats: FORMATS.map(([key, label]) => ({ label, pressed: st.fmt === key ? 'true' : 'false',
+        style: st.fmt === key ? 'background: var(--accent); color: var(--on-accent)' : 'background: transparent; color: var(--text-3)',
+        pick: () => this.setState({ fmt: key }) }))
+    };
+
+    this._run = runGenerate;
+    return {
+      ...THEME_VALS, isLight: !isDark,
+      ...BUILDER_VALS
+    };
+  }
+}
+</script>
+</body>
+</html>

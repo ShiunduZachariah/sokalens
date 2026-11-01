@@ -1,0 +1,224 @@
+{
+  "$comment": [
+    "GENERATED FILE -- the expectations below are emitted by Go. Do not hand-edit them.",
+    "",
+    "Go is the source of truth for indexability. services/worker/internal/seourl.Decide",
+    "is the authority; this file is its output, and the web page is tested against it.",
+    "Regenerate with:",
+    "",
+    "    SEO_GOLDEN_UPDATE=1 go test ./internal/seourl/ -run TestIndexabilityGolden",
+    "",
+    "Why this exists. Indexability is necessarily decided twice: the worker sweep",
+    "decides what the sitemap advertises, and the fixture page decides its own robots",
+    "tag. Neither can call the other -- one is Go on a schedule, the other TypeScript",
+    "on a request -- so nothing structural kept them in step. On 2026-09-28 they went",
+    "out of step: the history gate was flagged on the sweep but applied unconditionally",
+    "on the page, and the sitemap advertised 136 URLs the page served as noindex.",
+    "",
+    "The repo already pinned the shared CONSTANTS across this boundary. It did not pin",
+    "the shared DECISION, which is where divergence actually happens. Now a change to",
+    "Decide regenerates this file, the TypeScript test fails until the page agrees, and",
+    "the mismatch is caught before merge rather than by a post-deploy audit that samples",
+    "400 of 16,730 URLs against a cached sitemap.",
+    "",
+    "goOnly marks cases the page cannot evaluate because the input is not on its",
+    "payload: duplicate resolution is a catalogue concern the sweep owns alone."
+  ],
+  "now": "2026-09-28T12:00:00Z",
+  "cases": [
+    {
+      "name": "upcoming fixture with a prediction and history on both sides",
+      "fixture": {
+        "status": "upcoming",
+        "kickoffAt": "2026-09-30T18:00:00Z",
+        "hasPrediction": true,
+        "homeHistory": 10,
+        "awayHistory": 12
+      },
+      "indexable": true,
+      "reason": ""
+    },
+    {
+      "name": "no prediction is the largest excluded population",
+      "fixture": {
+        "status": "upcoming",
+        "kickoffAt": "2026-09-30T18:00:00Z",
+        "hasPrediction": false,
+        "homeHistory": 10,
+        "awayHistory": 12
+      },
+      "indexable": false,
+      "reason": "no_prediction"
+    },
+    {
+      "name": "recently settled fixture still carries search demand",
+      "fixture": {
+        "status": "ft",
+        "kickoffAt": "2026-09-25T12:00:00Z",
+        "hasPrediction": true,
+        "homeHistory": 10,
+        "awayHistory": 12
+      },
+      "indexable": true,
+      "reason": ""
+    },
+    {
+      "name": "aged out well past the archive threshold",
+      "fixture": {
+        "status": "ft",
+        "kickoffAt": "2026-09-08T12:00:00Z",
+        "hasPrediction": true,
+        "homeHistory": 10,
+        "awayHistory": 12
+      },
+      "indexable": false,
+      "reason": "archived"
+    },
+    {
+      "name": "fractional days past the threshold still archive (14.16d once advertised a retired page)",
+      "fixture": {
+        "status": "ft",
+        "kickoffAt": "2026-09-14T08:00:00Z",
+        "hasPrediction": true,
+        "homeHistory": 10,
+        "awayHistory": 12
+      },
+      "indexable": false,
+      "reason": "archived"
+    },
+    {
+      "name": "just inside the threshold is still indexable",
+      "fixture": {
+        "status": "ft",
+        "kickoffAt": "2026-09-14T14:00:00Z",
+        "hasPrediction": true,
+        "homeHistory": 10,
+        "awayHistory": 12
+      },
+      "indexable": true,
+      "reason": ""
+    },
+    {
+      "name": "both sides brand new",
+      "fixture": {
+        "status": "upcoming",
+        "kickoffAt": "2026-09-30T18:00:00Z",
+        "hasPrediction": true,
+        "homeHistory": 0,
+        "awayHistory": 0
+      },
+      "indexable": false,
+      "reason": "insufficient_history"
+    },
+    {
+      "name": "one side thin still withholds -- the preview can say nothing about half the match",
+      "fixture": {
+        "status": "upcoming",
+        "kickoffAt": "2026-09-30T18:00:00Z",
+        "hasPrediction": true,
+        "homeHistory": 3,
+        "awayHistory": 11
+      },
+      "indexable": false,
+      "reason": "insufficient_history"
+    },
+    {
+      "name": "exactly at the bar on both sides is indexable",
+      "fixture": {
+        "status": "upcoming",
+        "kickoffAt": "2026-09-30T18:00:00Z",
+        "hasPrediction": true,
+        "homeHistory": 4,
+        "awayHistory": 4
+      },
+      "indexable": true,
+      "reason": ""
+    },
+    {
+      "name": "one short on the away side",
+      "fixture": {
+        "status": "upcoming",
+        "kickoffAt": "2026-09-30T18:00:00Z",
+        "hasPrediction": true,
+        "homeHistory": 4,
+        "awayHistory": 3
+      },
+      "indexable": false,
+      "reason": "insufficient_history"
+    },
+    {
+      "name": "a match on the pitch is never archived however old its kickoff reads",
+      "fixture": {
+        "status": "live",
+        "kickoffAt": "2026-08-29T12:00:00Z",
+        "hasPrediction": true,
+        "homeHistory": 10,
+        "awayHistory": 12
+      },
+      "indexable": true,
+      "reason": ""
+    },
+    {
+      "name": "unknown status past kickoff is not concluded, so it does not archive",
+      "fixture": {
+        "status": "unknown",
+        "kickoffAt": "2026-08-29T12:00:00Z",
+        "hasPrediction": true,
+        "homeHistory": 10,
+        "awayHistory": 12
+      },
+      "indexable": true,
+      "reason": ""
+    },
+    {
+      "name": "archived outranks thin history -- only one of the two is recoverable",
+      "fixture": {
+        "status": "ft",
+        "kickoffAt": "2026-09-01T12:00:00Z",
+        "hasPrediction": true,
+        "homeHistory": 0,
+        "awayHistory": 0
+      },
+      "indexable": false,
+      "reason": "archived"
+    },
+    {
+      "name": "no prediction outranks archived",
+      "fixture": {
+        "status": "ft",
+        "kickoffAt": "2026-09-01T12:00:00Z",
+        "hasPrediction": false,
+        "homeHistory": 0,
+        "awayHistory": 0
+      },
+      "indexable": false,
+      "reason": "no_prediction"
+    },
+    {
+      "name": "postponed ages out like any other concluded status",
+      "fixture": {
+        "status": "postponed",
+        "kickoffAt": "2026-09-08T12:00:00Z",
+        "hasPrediction": true,
+        "homeHistory": 10,
+        "awayHistory": 12
+      },
+      "indexable": false,
+      "reason": "archived"
+    },
+    {
+      "name": "a duplicate is never advertised whatever else is true of it",
+      "fixture": {
+        "status": "upcoming",
+        "kickoffAt": "2026-09-30T18:00:00Z",
+        "hasPrediction": true,
+        "homeHistory": 10,
+        "awayHistory": 12,
+        "duplicateOf": 4321
+      },
+      "goOnly": true,
+      "indexable": false,
+      "reason": "duplicate"
+    }
+  ]
+}

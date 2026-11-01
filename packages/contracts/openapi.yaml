@@ -1,0 +1,2436 @@
+openapi: 3.1.0
+info:
+  title: Sports Prediction Platform API
+  version: 0.1.0
+  description: Phase 1 foundation contract for health, readiness, API docs, mobile config, and admin auth shell.
+servers:
+  - url: http://localhost:8080
+paths:
+  /docs:
+    get:
+      operationId: getScalarDocs
+      responses:
+        "200":
+          description: Scalar API Reference HTML for this OpenAPI contract.
+          content:
+            text/html:
+              schema:
+                type: string
+  /openapi.yaml:
+    get:
+      operationId: getOpenAPIYAML
+      responses:
+        "200":
+          description: Raw OpenAPI contract used by Scalar docs.
+          content:
+            application/yaml:
+              schema:
+                type: string
+  /healthz:
+    get:
+      operationId: getHealth
+      responses:
+        "200":
+          description: API process is alive.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /health:
+    get:
+      operationId: getHealthAlias
+      description: Compatibility alias for `/healthz`.
+      responses:
+        "200":
+          description: API process is alive.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /readyz:
+    get:
+      operationId: getReadiness
+      responses:
+        "200":
+          description: API dependencies are ready.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
+        "503":
+          description: One or more API dependencies are unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
+  /ready:
+    get:
+      operationId: getReadinessAlias
+      description: Compatibility alias for `/readyz`.
+      responses:
+        "200":
+          description: API dependencies are ready.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
+        "503":
+          description: One or more API dependencies are unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
+  /v1/mobile/config:
+    get:
+      operationId: getMobileConfig
+      responses:
+        "200":
+          description: Server-driven mobile configuration.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MobileConfig"
+  /v1/matches/today:
+    get:
+      operationId: getTodayMatches
+      parameters:
+        - name: date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: day
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [yesterday, today, tomorrow]
+        - name: timezone
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+        - name: include_unavailable
+          in: query
+          required: false
+          description: Include QA/debug rows that have neither a prediction, odds, nor enough historical team data. Defaults to false.
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Today's internally-ingested football matches (no direct provider calls).
+          headers:
+            ETag:
+              $ref: "#/components/headers/CanonicalETag"
+            Cache-Control:
+              $ref: "#/components/headers/CanonicalCacheControl"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [matches]
+                properties:
+                  matches:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MatchSummary"
+                additionalProperties: false
+        "400":
+          description: Match filter query is invalid.
+        "503":
+          description: Internal match source is unavailable.
+  /v1/matches/history:
+    get:
+      operationId: getHistoricalMatches
+      parameters:
+        - name: date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: day
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [yesterday, today, tomorrow]
+        - name: timezone
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+        - name: include_unavailable
+          in: query
+          required: false
+          description: Include QA/debug rows that have neither a prediction, odds, nor enough historical team data. Defaults to false.
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Recent internally-ingested football results. Defaults to finished matches when no status is supplied and is limited to the configured public result-detail window (24 hours by default, aligned to the previous local calendar day).
+          headers:
+            ETag:
+              $ref: "#/components/headers/CanonicalETag"
+            Cache-Control:
+              $ref: "#/components/headers/CanonicalCacheControl"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [matches]
+                properties:
+                  matches:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MatchSummary"
+                additionalProperties: false
+        "400":
+          description: Match filter query is invalid.
+        "503":
+          description: Internal match source is unavailable.
+  /v1/matches/{match_id}:
+    get:
+      operationId: getMatchById
+      parameters:
+        - name: match_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Internally-ingested fixture detail with nullable scores, odds, and prediction state.
+          headers:
+            ETag:
+              $ref: "#/components/headers/CanonicalETag"
+            Cache-Control:
+              $ref: "#/components/headers/CanonicalCacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchSummary"
+        "400":
+          description: Match identifier is invalid.
+        "404":
+          description: Match was not found.
+        "503":
+          description: Internal match source is unavailable.
+  /v1/predictions/today:
+    get:
+      operationId: getTodayPredictions
+      parameters:
+        - name: market
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/PredictionMarketKey"
+        - name: minimum_confidence
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 0
+            maximum: 100
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of published predictions to return. Defaults to 100.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Published prediction summaries for today's public football surface. This endpoint reads internal data only and never calls API-Football.
+          headers:
+            ETag:
+              $ref: "#/components/headers/CanonicalETag"
+            Cache-Control:
+              $ref: "#/components/headers/CanonicalCacheControl"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [predictions, provider_predictions, page, limit, total]
+                properties:
+                  predictions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PredictionSummary"
+                  provider_predictions:
+                    description: API-Football native predictions for fixtures that have no current SokaLens engine prediction. They share the canonical primitives (market_key, selection, confidence, published_version, published_at) so clients can render both kinds alike; the `source` field on each item preserves provenance for administration.
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProviderPredictionSummary"
+                  page:
+                    type: integer
+                    minimum: 1
+                  limit:
+                    type: integer
+                    minimum: 1
+                    maximum: 100
+                  total:
+                    type: integer
+                    minimum: 0
+                additionalProperties: false
+        "400":
+          description: Prediction filter query is invalid.
+        "503":
+          description: Internal prediction source is unavailable.
+  /v1/predictions/{prediction_id}:
+    get:
+      operationId: getPredictionById
+      parameters:
+        - name: prediction_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Auditable published prediction detail with version and outcome state.
+          headers:
+            ETag:
+              $ref: "#/components/headers/CanonicalETag"
+            Cache-Control:
+              $ref: "#/components/headers/CanonicalCacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PredictionDetail"
+        "404":
+          description: Prediction was not found, is not public, or its settled match is outside the public result-detail window.
+        "503":
+          description: Internal prediction source is unavailable.
+  /v1/predictions/hit-rate:
+    get:
+      operationId: getPredictionHitRate
+      responses:
+        "200":
+          description: Durable settled performance by market. Each fixture-market counts only its latest prediction generated at or before kickoff; retained daily aggregates are combined with unpruned raw results.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PredictionHitRateReport"
+        "503":
+          description: Prediction reporting data is unavailable.
+  /v1/predictions/results:
+    get:
+      operationId: getPredictionResults
+      description: Final pre-kickoff predictions settled for one viewer-local match day, one row per fixture-market.
+      parameters:
+        - { name: date, in: query, schema: { type: string, format: date } }
+        - { name: day, in: query, schema: { type: string, enum: [yesterday, today, tomorrow] } }
+        - { name: timezone, in: query, schema: { type: string } }
+        - { name: market, in: query, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
+      responses:
+        "200":
+          description: Settled market results and pagination metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PredictionResultsResponse"
+        "400": { description: Prediction result filter is invalid. }
+        "503": { description: Prediction results are unavailable. }
+  /v1/predictions/provider:
+    get:
+      operationId: getProviderPredictions
+      description: API-Football native predictions used only as a fallback for fixtures that have no current SokaLens prediction. Returned separately so administration can preserve provenance; each item carries a `source` marker.
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Provider fallback predictions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [provider_predictions, source, marked]
+                properties:
+                  provider_predictions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProviderPredictionSummary"
+                  source:
+                    type: string
+                    enum: [provider]
+                  marked:
+                    type: string
+                    enum: [provider_fallback]
+                additionalProperties: false
+        "400":
+          description: Limit query parameter is invalid.
+        "503":
+          description: Provider prediction data is unavailable.
+  /v1/search:
+    get:
+      operationId: search
+      description: All-rounded entity search (teams, leagues, countries, competitions, matches) over canonical data. Requires at least three characters.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+      responses:
+        "200":
+          description: Typed search results.
+        "503":
+          description: Search is unavailable.
+  /v1/search/suggest:
+    get:
+      operationId: searchSuggest
+      description: Autocomplete alias of /v1/search. Requires at least three characters.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+      responses:
+        "200":
+          description: Typed autocomplete results.
+  /v1/leagues:
+    get:
+      operationId: listLeagues
+      description: List leagues ordered by priority then name.
+      responses:
+        "200":
+          description: League summaries.
+        "503":
+          description: Catalog data is unavailable.
+  /v1/leagues/{slug}:
+    get:
+      operationId: getLeague
+      description: League detail with upcoming fixtures, recent results, and teams.
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: League detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeagueDetail"
+        "404":
+          description: League not found.
+  /v1/teams/{slug}:
+    get:
+      operationId: getTeam
+      description: Team detail with next and recent matches.
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Team detail.
+        "404":
+          description: Team not found.
+  /v1/providers/status:
+    get:
+      operationId: getProviderStatus
+      responses:
+        "200":
+          description: Last-known provider operational and quota state for local testing. This endpoint does not make live provider calls.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminProviderStatusResponse"
+        "503":
+          description: Provider status data is unavailable.
+  /v1/best-bets:
+    get:
+      operationId: getBestBets
+      description: Returns future, prepared predictions explicitly marked as best bets by the prediction engine. Only the latest canonical fixture-market version is eligible, and the request only reads internal data.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: confidence
+          in: query
+          required: false
+          description: Minimum confidence, clamped by the server to 55 through 90. Defaults to 65.
+          schema:
+            type: number
+            minimum: 55
+            maximum: 90
+            default: 65
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 25
+      responses:
+        "200":
+          description: Prepared predictions available to the authenticated tier.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BestBetsResponse"
+        "401":
+          description: Authentication is required.
+        "403":
+          description: The account does not have standard-analysis access.
+        "503":
+          description: Prepared predictions are temporarily unavailable.
+  /v1/admin/auth/login:
+    post:
+      operationId: adminLogin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminLoginRequest"
+      responses:
+        "200":
+          description: Admin credentials were accepted and a session was created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSessionResponse"
+        "400":
+          description: Request body is malformed.
+        "401":
+          description: Admin credentials are invalid.
+  /v1/admin/auth/session:
+    get:
+      operationId: getAdminSession
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current admin session user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCurrentSessionResponse"
+        "401":
+          description: Admin session is missing, invalid, revoked, or expired.
+  /v1/admin/auth/logout:
+    post:
+      operationId: adminLogout
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Admin session was revoked.
+        "401":
+          description: Admin session is missing or invalid.
+  /v1/admin/providers/status:
+    get:
+      operationId: getAdminProviderStatus
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Last-known provider operational and quota state for admin monitoring. This endpoint does not make live provider calls.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminProviderStatusResponse"
+        "401":
+          description: Admin session is missing, invalid, revoked, or expired.
+        "503":
+          description: Provider status data is unavailable.
+  /v1/admin/predictions/hit-rate:
+    get:
+      operationId: getAdminPredictionHitRate
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Durable settled prediction performance using one final pre-kickoff prediction per fixture-market.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PredictionHitRateReport"
+        "401":
+          description: Admin session is missing, invalid, revoked, or expired.
+        "503":
+          description: Prediction reporting data is unavailable.
+  /v1/admin/predictions/results:
+    get:
+      operationId: getAdminPredictionResults
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: date, in: query, schema: { type: string, format: date } }
+        - { name: day, in: query, schema: { type: string, enum: [yesterday, today, tomorrow] } }
+        - { name: timezone, in: query, schema: { type: string } }
+        - { name: market, in: query, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
+      responses:
+        "200":
+          description: Authenticated settled match-market results.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PredictionResultsResponse"
+        "401": { description: "Admin session is missing, invalid, revoked, or expired." }
+        "503": { description: Prediction results are unavailable. }
+  /v1/admin/catalogue/coverage:
+    get:
+      operationId: getAdminCatalogueCoverage
+      description: Canonical reference-catalogue and search-index coverage for the admin control plane (entity counts, display-media coverage, live-pipeline freshness).
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Catalogue coverage counters.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - countries_total
+                  - countries_with_flag
+                  - teams_total
+                  - teams_with_logo
+                  - leagues_total
+                  - leagues_with_logo
+                  - search_indexed
+                properties:
+                  countries_total:
+                    type: integer
+                    minimum: 0
+                  countries_with_flag:
+                    type: integer
+                    minimum: 0
+                  teams_total:
+                    type: integer
+                    minimum: 0
+                  teams_with_logo:
+                    type: integer
+                    minimum: 0
+                  leagues_total:
+                    type: integer
+                    minimum: 0
+                  leagues_with_logo:
+                    type: integer
+                    minimum: 0
+                  search_indexed:
+                    description: Documents in the Typesense entities collection.
+                    type: integer
+                    minimum: 0
+                  live_last_seen:
+                    description: Most recent live-status provider poll time.
+                    type: string
+                    format: date-time
+                  worker_last_seen:
+                    description: Most recent job activity time.
+                    type: string
+                    format: date-time
+                additionalProperties: false
+        "401":
+          description: Admin session is missing, invalid, revoked, or expired.
+        "503":
+          description: Catalogue coverage data is unavailable.
+  /v1/admin/observability/metrics:
+    get:
+      operationId: getAdminObservabilityMetrics
+      description: Prometheus-format request count, server-error, and latency histograms with bounded route labels.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Process-local HTTP request metrics.
+          content:
+            text/plain:
+              schema:
+                type: string
+        "401":
+          description: Admin session is missing or invalid.
+        "403":
+          description: Analytics-read permission is required.
+  /v1/admin/observability/diagnostics:
+    get:
+      operationId: getAdminObservabilityDiagnostics
+      description: Restricted process and request-latency diagnostics without user or credential data.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Process-local operational diagnostics.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ObservabilityDiagnostics"
+        "401":
+          description: Admin session is missing or invalid.
+        "403":
+          description: Analytics-read permission is required.
+  /v1/access:
+    get:
+      operationId: getAccessContext
+      responses:
+        "200": {description: Server-authoritative guest or account entitlements, content: {application/json: {schema: {$ref: "#/components/schemas/GenericObject"}}}}
+  /v1/locales:
+    get:
+      operationId: resolvePublicLocale
+      description: Resolves a public-web locale. Explicit selection and saved account/guest preferences take precedence; country is only a hint and English is the final fallback.
+      parameters:
+        - {name: selected, in: query, schema: {$ref: "#/components/schemas/SupportedLocale"}}
+        - {name: country, in: query, schema: {type: string, minLength: 2, maxLength: 2}}
+      responses:
+        "200": {description: Supported locales and the resolved public-web locale, content: {application/json: {schema: {$ref: "#/components/schemas/LocaleContract"}}}}
+  /v1/growth/events:
+    post:
+      operationId: recordAnonymousGrowthEvent
+      description: Records an allow-listed, non-PII signup funnel event against a hashed visitor identifier.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/GrowthEventRequest"}}}}
+      responses:
+        "202": {description: Event accepted.}
+        "400": {description: Event type or bounded metadata is invalid.}
+  /v1/auth/register:
+    post:
+      operationId: registerAccount
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/RegisterRequest"}}}}
+      responses:
+        "201": {description: Account created; email verification is required.}
+        "400": {description: Invalid account or consent data.}
+        "409": {description: Email cannot be registered.}
+        "429": {description: Registration rate limit reached.}
+  /v1/auth/login:
+    post:
+      operationId: loginAccount
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/LoginRequest"}}}}
+      responses:
+        "200": {description: HttpOnly session and CSRF cookies created.}
+        "401": {description: Invalid credentials.}
+        "403": {description: Bot challenge failed or email verification is required.}
+        "429": {description: Login rate limit reached.}
+  /v1/auth/logout:
+    post:
+      operationId: logoutAccount
+      security: [{sessionCookie: []}]
+      responses: {"204": {description: Current session revoked.}}
+  /v1/auth/email-verification/request:
+    post:
+      operationId: requestEmailVerification
+      responses: {"202": {description: Generic response prevents account enumeration.}}
+  /v1/auth/email-verification/confirm:
+    post:
+      operationId: confirmEmailVerification
+      responses: {"200": {description: Email verified.}, "400": {description: Invalid or expired one-time token.}}
+  /v1/auth/password-reset/request:
+    post:
+      operationId: requestPasswordReset
+      description: Sends a one-time password-reset email when the address matches an account. The response never reveals whether it matched.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PasswordResetRequest"}}}}
+      responses: {"202": {description: Generic response prevents account enumeration.}}
+  /v1/auth/password-reset/confirm:
+    post:
+      operationId: confirmPasswordReset
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PasswordResetConfirmRequest"}}}}
+      responses: {"200": {description: Password reset and existing sessions revoked.}, "400": {description: Invalid token or password.}}
+  /v1/me:
+    get:
+      operationId: getMyAccount
+      security: [{sessionCookie: []}]
+      responses: {"200": {description: Current profile and account.}, "401": {description: Authentication required.}}
+    delete:
+      operationId: requestAccountDeletion
+      security: [{sessionCookie: []}]
+      responses: {"202": {description: Deletion request recorded and sessions revoked.}}
+  /v1/me/profile:
+    patch:
+      operationId: updateMyProfile
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/ProfileUpdateRequest"}}}}
+      responses: {"200": {description: "Profile, timezone, language, personalization, and preferred odds format updated."}}
+  /v1/me/password:
+    post:
+      operationId: changeMyPassword
+      description: Changes the password, revokes every active session, and clears the current session cookies.
+      security:
+        - sessionCookie: []
+          csrfHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordChangeRequest"
+      responses:
+        "200":
+          description: Password changed and sessions revoked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasswordChangeResponse"
+        "400":
+          description: The request or new password is invalid.
+        "401":
+          description: Authentication failed or the current password is incorrect.
+        "403":
+          description: CSRF validation failed.
+  /v1/me/sessions:
+    get:
+      operationId: listMySessions
+      security: [{sessionCookie: []}]
+      responses: {"200": {description: Revocable account sessions.}}
+    delete:
+      operationId: logoutAllDevices
+      security: [{sessionCookie: []}]
+      responses: {"204": {description: Every account session revoked.}}
+  /v1/me/favorites:
+    get:
+      operationId: listFavorites
+      security: [{sessionCookie: []}]
+      responses: {"200": {description: Normalized entity favorites.}}
+    post:
+      operationId: createFavorite
+      security: [{sessionCookie: []}]
+      responses: {"201": {description: Favorite created idempotently.}}
+    patch:
+      operationId: updateFavorite
+      security: [{sessionCookie: []}]
+      responses: {"200": {description: Per-favorite alert preference updated.}}
+    delete:
+      operationId: deleteFavorite
+      security: [{sessionCookie: []}]
+      responses: {"204": {description: Favorite removed.}}
+  /v1/me/interests:
+    get:
+      operationId: listInterests
+      security: [{sessionCookie: []}]
+      responses: {"200": {description: Explicit recommendation interests.}}
+    put:
+      operationId: replaceInterests
+      security: [{sessionCookie: []}]
+      responses: {"200": {description: Onboarding interests replaced.}}
+    delete:
+      operationId: resetRecommendationProfile
+      security: [{sessionCookie: []}]
+      responses: {"204": {description: Recommendation profile and activity reset.}}
+  /v1/recommendations:
+    get:
+      operationId: getRecommendations
+      security: [{sessionCookie: []}]
+      responses: {"200": {description: "Ranked prepared candidates with reasons, freshness, and sponsorship labels."}}
+  /v1/recommendations/events:
+    post:
+      operationId: recordRecommendationFeedback
+      security: [{sessionCookie: []}]
+      responses: {"202": {description: Feedback accepted for asynchronous ranking.}}
+  /v1/share-events:
+    post:
+      operationId: recordContentShare
+      description: Records a rate-limited share event against the signed-in account or an anonymous guest session.
+      responses: {"202": {description: Share event accepted.}, "400": {description: Share channel or entity is invalid.}, "429": {description: Client share-event rate limit reached.}}
+  /v1/me/notifications:
+    get:
+      operationId: listNotifications
+      security: [{sessionCookie: []}]
+      responses: {"200": {description: Notification inbox and preferences.}}
+    patch:
+      operationId: updateNotificationPreferences
+      security: [{sessionCookie: []}]
+      responses: {"200": {description: Notification controls updated.}}
+  /v1/plans:
+    get:
+      operationId: listPlans
+      responses: {"200": {description: Provider-configured public subscription catalogue.}}
+  /v1/checkout:
+    post:
+      operationId: createCheckout
+      security: [{sessionCookie: []}]
+      responses: {"201": {description: Checkout session created.}, "409": {description: Checkout not configured.}}
+  /v1/me/subscription:
+    get:
+      operationId: getMySubscription
+      security: [{sessionCookie: []}]
+      responses: {"200": {description: Provider-authoritative subscription and access state.}}
+    delete:
+      operationId: cancelSubscriptionAtPeriodEnd
+      security: [{sessionCookie: []}]
+      responses: {"200": {description: Automatic renewal cancelled; paid access remains through period end.}}
+  /v1/analysis/{match_id}:
+    get:
+      operationId: getAuthorizedAnalysis
+      parameters: [{name: match_id, in: path, required: true, schema: {type: integer, format: int64}}]
+      responses: {"200": {description: Prepared standard or advanced analysis projected for current access.}, "403": {description: Guest detailed-view limit reached.}, "404": {description: Prepared analysis unavailable.}}
+  /v1/inplay/fixtures:
+    get:
+      operationId: listInPlayFixtures
+      description: >-
+        In-play fixtures with their markets. The schema is identical for
+        anonymous and authenticated callers: only `locked` and the presence of
+        `prediction` differ. An anonymous response never carries a probability,
+        a selection, a confidence or a data cutoff -- the fields are absent,
+        not blurred or hidden. Never cacheable at the edge.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: {type: integer, minimum: 1, maximum: 200, default: 50}
+      responses:
+        "200":
+          description: In-play fixtures shaped for the caller's entitlement.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [fixtures, entitled]
+                properties:
+                  fixtures:
+                    type: array
+                    items: {$ref: "#/components/schemas/InPlayFixture"}
+                  entitled: {type: boolean}
+        "503":
+          description: In-play data is temporarily unavailable.
+  /v1/inplay/fixtures/{fixture_id}:
+    get:
+      operationId: getInPlayFixture
+      description: One in-play fixture, shaped by the same entitlement filter.
+      parameters:
+        - {name: fixture_id, in: path, required: true, schema: {type: integer, format: int64}}
+      responses:
+        "200":
+          description: In-play fixture shaped for the caller's entitlement.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [fixture, entitled]
+                properties:
+                  fixture: {$ref: "#/components/schemas/InPlayFixture"}
+                  entitled: {type: boolean}
+        "400":
+          description: Fixture identifier is invalid.
+        "404":
+          description: That match is not in play.
+        "503":
+          description: In-play data is temporarily unavailable.
+  /v1/billing/webhooks:
+    post:
+      operationId: receiveBillingWebhook
+      responses: {"202": {description: Signature-verified event persisted idempotently for worker reconciliation.}, "401": {description: Signature verification failed.}}
+  /v1/admin/subscriptions:
+    get:
+      operationId: adminListSubscriptions
+      security: [{bearerAuth: []}]
+      responses: {"200": {description: "Permission-filtered subscription, webhook, and dispute review list."}, "403": {description: Billing-read permission required.}}
+  /v1/admin/plans:
+    get:
+      operationId: adminListPlans
+      description: Lists editable Pro plan and provider-price configuration.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Pro plan pricing and entitlement configuration.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [plans]
+                properties:
+                  plans:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AdminPlanConfiguration"
+                additionalProperties: false
+        "401":
+          description: Admin session is missing or invalid.
+        "403":
+          description: Billing-read permission is required.
+        "503":
+          description: Plan configuration is temporarily unavailable.
+  /v1/admin/plans/{plan_key}:
+    put:
+      operationId: adminUpdatePlan
+      description: Updates one supported Pro plan and its active provider price.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: plan_key
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [pro_monthly, pro_yearly]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminPlanConfiguration"
+      responses:
+        "200":
+          description: Plan configuration updated.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    const: updated
+                additionalProperties: false
+        "400":
+          description: Plan configuration is invalid.
+        "401":
+          description: Admin session is missing or invalid.
+        "403":
+          description: Billing-management permission is required.
+        "404":
+          description: Plan key is unsupported.
+  /v1/context:
+    get:
+      operationId: getRuntimeContext
+      description: Client runtime context (geo country code, entitlements, ads decision, and active restriction rules) derived entirely from server-side state. Never calls a provider.
+      responses:
+        "200":
+          description: Runtime context.
+  /v1/ads/placements/{placement_key}:
+    get:
+      operationId: getAdPlacement
+      description: Server-side ad placement decision for one placement key and visitor country, including active campaigns and any blocking restriction rules.
+      parameters:
+        - name: placement_key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Placement decision.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdPlacementDecision"
+        "400":
+          description: Placement key is invalid.
+        "503":
+          description: Advertising state is unavailable.
+  /v1/ads/outcomes:
+    post:
+      operationId: reportAdProviderOutcome
+      description: Records one signed provider attempt outcome and updates session-local fallback and global circuit state. Attempt tokens are single-use and expire after five minutes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdProviderOutcome"
+      responses:
+        "204":
+          description: Outcome accepted, or an already accepted outcome was replayed idempotently.
+        "400":
+          description: Attempt token or outcome is invalid.
+        "503":
+          description: Advertising routing state is unavailable.
+  /v1/admin/ads:
+    get:
+      operationId: adminListAdCampaigns
+      security: [{bearerAuth: []}]
+      responses: {"200": {description: Stored ad campaigns.}, "401": {description: Admin session is missing or invalid.}, "403": {description: Content-management permission is required.}}
+  /v1/admin/policy/rules:
+    get:
+      operationId: adminListPolicyRules
+      security: [{bearerAuth: []}]
+      responses: {"200": {description: Stored restriction rules and feature flags.}, "401": {description: Admin session is missing or invalid.}, "403": {description: Policy-management permission is required.}}
+  /v1/admin/settings:
+    get:
+      operationId: adminListSettings
+      security: [{bearerAuth: []}]
+      responses: {"200": {description: Stored runtime application settings.}, "401": {description: Admin session is missing or invalid.}, "403": {description: Policy-management permission is required.}}
+  /v1/admin/matches:
+    get:
+      operationId: adminListMatches
+      security: [{bearerAuth: []}]
+      responses: {"200": {description: Match read model for the admin control plane.}, "401": {description: Admin session is missing or invalid.}, "403": {description: Analytics-read permission is required.}}
+  /v1/admin/leagues/priority:
+    get:
+      operationId: adminListLeaguePriority
+      security: [{bearerAuth: []}]
+      responses: {"200": {description: Leagues with priority scores.}, "401": {description: Admin session is missing or invalid.}, "403": {description: Analytics-read permission is required.}}
+  /v1/admin/notifications:
+    get:
+      operationId: adminListNotifications
+      security: [{bearerAuth: []}]
+      responses: {"200": {description: Recent notifications and outbox queue state.}, "401": {description: Admin session is missing or invalid.}, "403": {description: Notifications-read permission is required.}}
+components:
+  headers:
+    CanonicalETag:
+      description: Hash of the canonical response representation. Send it in If-None-Match to receive 304 when the prepared data is unchanged.
+      schema:
+        type: string
+    CanonicalCacheControl:
+      description: Allows client caching but requires revalidation so newly prepared canonical predictions surface immediately.
+      schema:
+        type: string
+        const: "public, no-cache, must-revalidate"
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: sokalens_session
+    csrfHeader:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+  schemas:
+    GenericObject:
+      type: object
+      additionalProperties: true
+    InPlayFixture:
+      type: object
+      required: [fixture_id, status, minute, stale, score, markets, locked_count]
+      properties:
+        fixture_id: {type: integer, format: int64}
+        status: {type: string, example: LIVE_2H}
+        minute: {type: integer}
+        home_team_logo:
+          type: string
+          description: >-
+            Crest URL for the home side, empty when the team has no logo on
+            record. Decoration, not identity: a fixture is identified by
+            fixture_id and a side by the fixture's own canonical team id, and a
+            crestless fixture is still served. Ungated -- identical for
+            anonymous and authenticated callers.
+        away_team_logo:
+          type: string
+          description: Crest URL for the away side; see home_team_logo.
+        stale:
+          type: boolean
+          description: The feed has stopped; the minute is the last known one and is frozen.
+        score:
+          type: object
+          required: [home, away]
+          properties:
+            home: {type: integer}
+            away: {type: integer}
+        markets:
+          type: array
+          items: {$ref: "#/components/schemas/InPlayMarket"}
+        locked_count: {type: integer}
+        unlock:
+          type: object
+          description: Present only when at least one market was withheld.
+          required: [reason, cta]
+          properties:
+            reason: {type: string, enum: [AUTH_REQUIRED]}
+            cta: {type: string, example: /register}
+    InPlayMarket:
+      type: object
+      required: [key, label, locked]
+      description: >-
+        When `locked` is true the market stops after `locked`. The prediction is
+        absent from the payload entirely, which is the server-side gate -- not a
+        presentation choice the client could undo.
+      properties:
+        key: {type: string, example: "1X2"}
+        label: {type: string, example: Match Result}
+        locked: {type: boolean}
+        prediction:
+          type: object
+          required: [selection, probability, confidence, confidence_score]
+          properties:
+            selection: {type: string}
+            probability: {type: number, format: double}
+            confidence: {type: string}
+            confidence_score: {type: number, format: double}
+        data_cutoff_at:
+          type: string
+          format: date-time
+          description: The snapshot instant this prediction was derived from.
+        match_minute: {type: integer}
+        settlement:
+          type: string
+          enum: [won, lost, void, unsettled_data_unavailable]
+          description: >
+            How this market was graded. Absent while the market is ungraded,
+            which is most of its life -- absent means "not graded yet" and it is
+            never sent as an empty string. Gated with `prediction`: the score is
+            public, so a grade beside a visible scoreline would leak the hidden
+            selection. Reversible with no time bound, so a client must not cache
+            it as final. See docs/integrations/in-play-data-contract.md section 5.
+    BestBetsResponse:
+      type: object
+      required: [predictions, tier]
+      properties:
+        predictions:
+          type: array
+          items:
+            $ref: "#/components/schemas/PredictionSummary"
+        tier:
+          type: string
+          enum: [basic, pro]
+      additionalProperties: false
+    PasswordChangeRequest:
+      type: object
+      required: [current_password, new_password]
+      properties:
+        current_password:
+          type: string
+        new_password:
+          type: string
+          minLength: 8
+      additionalProperties: false
+    PasswordChangeResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          const: password_changed
+      additionalProperties: false
+    PasswordResetRequest:
+      type: object
+      required: [email]
+      properties:
+        email: {type: string, format: email}
+      additionalProperties: false
+    PasswordResetConfirmRequest:
+      type: object
+      required: [token, password]
+      properties:
+        token: {type: string, minLength: 32, maxLength: 256}
+        password: {type: string, minLength: 8, maxLength: 128}
+      additionalProperties: false
+    AdminPlanConfiguration:
+      type: object
+      required: [plan_key, name, description, billing_interval, currency, amount_minor, enabled, savings_label, features]
+      properties:
+        plan_key:
+          type: string
+          enum: [pro_monthly, pro_yearly]
+        name:
+          type: string
+        description:
+          type: string
+        billing_interval:
+          type: string
+          enum: [month, year]
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        amount_minor:
+          type: integer
+          format: int64
+          minimum: 0
+        enabled:
+          type: boolean
+        savings_label:
+          type: string
+        features:
+          type: array
+          items:
+            type: string
+      additionalProperties: false
+    ObservabilityDiagnostics:
+      type: object
+      required: [started_at, uptime_seconds, requests, server_errors, server_error_rate, goroutines, heap_alloc_bytes, routes]
+      properties:
+        started_at:
+          type: string
+          format: date-time
+        uptime_seconds:
+          type: integer
+          format: int64
+          minimum: 0
+        requests:
+          type: integer
+          format: int64
+          minimum: 0
+        server_errors:
+          type: integer
+          format: int64
+          minimum: 0
+        server_error_rate:
+          type: number
+          minimum: 0
+          maximum: 1
+        goroutines:
+          type: integer
+          minimum: 0
+        heap_alloc_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+        routes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ObservabilityRouteDiagnostics"
+      additionalProperties: false
+    ObservabilityRouteDiagnostics:
+      type: object
+      required: [method, route, requests, client_errors, server_errors, server_error_rate, average_ms, approx_p95_ms, requests_under_3_seconds]
+      properties:
+        method:
+          type: string
+        route:
+          type: string
+        requests:
+          type: integer
+          format: int64
+          minimum: 0
+        client_errors:
+          type: integer
+          format: int64
+          minimum: 0
+        server_errors:
+          type: integer
+          format: int64
+          minimum: 0
+        server_error_rate:
+          type: number
+          minimum: 0
+          maximum: 1
+        average_ms:
+          type: number
+          minimum: 0
+        approx_p95_ms:
+          type: number
+          minimum: -1
+          description: Histogram upper bound in milliseconds, or -1 when above the largest finite bucket.
+        requests_under_3_seconds:
+          type: integer
+          format: int64
+          minimum: 0
+      additionalProperties: false
+    RegisterRequest:
+      type: object
+      required: [email, password, display_name, country_code, accept_terms]
+      properties:
+        email: {type: string, format: email}
+        password: {type: string, minLength: 8, maxLength: 128}
+        display_name: {type: string, maxLength: 80}
+        country_code: {type: string, minLength: 2, maxLength: 2, pattern: "^[A-Za-z]{2}$"}
+        preferred_language: {$ref: "#/components/schemas/SupportedLocale"}
+        guest_language: {$ref: "#/components/schemas/SupportedLocale"}
+        accept_terms: {type: boolean, const: true}
+        turnstile_token: {type: string, maxLength: 4096}
+        website: {type: string, maxLength: 200}
+        utm_source: {type: string, maxLength: 120}
+        utm_medium: {type: string, maxLength: 120}
+        utm_campaign: {type: string, maxLength: 160}
+        utm_content: {type: string, maxLength: 160}
+        landing_page: {type: string, maxLength: 512}
+        signup_page: {type: string, maxLength: 512}
+        referrer_host: {type: string, maxLength: 253}
+      additionalProperties: false
+    GrowthEventRequest:
+      type: object
+      required: [event_type]
+      properties:
+        event_type:
+          type: string
+          enum: [signup_viewed, signup_started, turnstile_succeeded, turnstile_failed, registration_succeeded, registration_failed]
+        source: {type: string, maxLength: 64}
+        locale: {type: string, maxLength: 16}
+        step: {type: string, maxLength: 64}
+        reason_code: {type: string, maxLength: 64}
+        website: {type: string, maxLength: 200, description: Honeypot field; clients leave it empty.}
+      additionalProperties: false
+    SupportedLocale:
+      type: string
+      enum: [en, es, fr, pt, ar, de, it]
+    LocaleContract:
+      type: object
+      required: [supported, resolved, fallback, country_is_hint]
+      properties:
+        supported:
+          type: array
+          items:
+            type: object
+            required: [code, name, direction]
+            properties:
+              code: {$ref: "#/components/schemas/SupportedLocale"}
+              name: {type: string}
+              direction: {type: string, enum: [ltr, rtl]}
+        resolved:
+          type: object
+          required: [locale, direction, source]
+          properties:
+            locale: {$ref: "#/components/schemas/SupportedLocale"}
+            direction: {type: string, enum: [ltr, rtl]}
+            source: {type: string, enum: [selected, account, guest, browser, country, fallback]}
+        fallback: {$ref: "#/components/schemas/SupportedLocale"}
+        country_is_hint: {type: boolean, const: true}
+      additionalProperties: false
+    ProfileUpdateRequest:
+      type: object
+      properties:
+        display_name: {type: string, maxLength: 80}
+        timezone: {type: string, maxLength: 64}
+        country_code: {type: string, minLength: 2, maxLength: 2, pattern: "^[A-Za-z]{2}$"}
+        odds_format: {type: string, enum: [decimal, fractional, american]}
+        preferred_language: {$ref: "#/components/schemas/SupportedLocale"}
+        language: {$ref: "#/components/schemas/SupportedLocale", description: Deprecated compatibility alias for preferred_language.}
+        personalization_enabled: {type: boolean}
+        marketing_consent: {type: boolean, description: Accepted for rolling-client compatibility but remains disabled at launch.}
+      additionalProperties: false
+    LoginRequest:
+      type: object
+      required: [email, password, turnstile_token]
+      properties:
+        email: {type: string, format: email}
+        password: {type: string}
+        device_name: {type: string, maxLength: 120}
+        turnstile_token: {type: string, maxLength: 4096}
+      additionalProperties: false
+    HealthResponse:
+      type: object
+      required: [service, status, environment]
+      properties:
+        service:
+          type: string
+        status:
+          type: string
+          enum: [ok]
+        environment:
+          type: string
+    ReadinessResponse:
+      type: object
+      required: [service, status, dependencies]
+      properties:
+        service:
+          type: string
+        status:
+          type: string
+          enum: [ready, not_ready]
+        dependencies:
+          type: object
+          additionalProperties:
+            type: string
+            enum: [ready, unavailable]
+    MobileConfig:
+      type: object
+      required: [features, terminology, multi_match_builder]
+      properties:
+        features:
+          type: object
+          required: [public_content, predictions, odds_display, partner_ctas, push_promotions]
+          properties:
+            public_content:
+              type: boolean
+            predictions:
+              type: boolean
+            odds_display:
+              type: boolean
+            partner_ctas:
+              type: boolean
+            push_promotions:
+              type: boolean
+          additionalProperties: false
+        terminology:
+          $ref: "#/components/schemas/MobileTerminology"
+        multi_match_builder:
+          $ref: "#/components/schemas/MultiMatchBuilderConstraints"
+    MobileTerminology:
+      type: object
+      required:
+        - match_analysis
+        - match_insights
+        - analysis_watchlist
+        - analysis_alerts
+        - multi_match_builder
+        - price_comparison
+        - confidence
+        - form_guide
+        - match_outlook
+        - model_signal
+      properties:
+        match_analysis:
+          type: string
+          const: Match Analysis
+        match_insights:
+          type: string
+          const: Match Insights
+        analysis_watchlist:
+          type: string
+          const: Analysis Watchlist
+        analysis_alerts:
+          type: string
+          const: Analysis Alerts
+        multi_match_builder:
+          type: string
+          const: Multi-Match Builder
+        price_comparison:
+          type: string
+          const: Price Comparison
+        confidence:
+          type: string
+          const: Confidence
+        form_guide:
+          type: string
+          const: Form Guide
+        match_outlook:
+          type: string
+          const: Match Outlook
+        model_signal:
+          type: string
+          const: Model Signal
+      additionalProperties: false
+    MultiMatchBuilderConstraints:
+      type: object
+      required: [label, min_matches, max_matches, filters]
+      properties:
+        label:
+          type: string
+          const: Multi-Match Builder
+        min_matches:
+          type: integer
+          const: 2
+        max_matches:
+          type: integer
+          const: 6
+        filters:
+          type: array
+          items:
+            type: string
+            enum:
+              - league
+              - competition
+              - team
+              - match_start_time
+              - match_end_time
+              - min_price
+              - max_price
+              - minimum_confidence_score
+              - market_type
+              - risk_level
+    EntityFavoriteType:
+      type: string
+      enum: [team, league, competition, match]
+    BasicMatchNotificationCategory:
+      type: string
+      enum: [match_starting_soon, live_start, goals, cards, final_result, lineups]
+    InsightAlertCategory:
+      type: string
+      enum:
+        - new_insight_published
+        - insight_updated
+        - market_signal
+        - confidence_threshold
+        - high_confidence
+        - model_performance_trend
+        - price_movement
+        - early_analysis
+    InsightWatchlistItem:
+      type: object
+      required: [id, user_id, scope_type, scope_id, created_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        user_id:
+          type: integer
+          format: int64
+        scope_type:
+          type: string
+          enum: [match, team, league, competition, market_signal]
+        scope_id:
+          type: string
+        market_key:
+          type: string
+        minimum_confidence:
+          type: number
+          minimum: 0
+          maximum: 100
+        created_at:
+          type: string
+          format: date-time
+    InsightAlertPreference:
+      type: object
+      required: [id, user_id, alert_key, enabled, created_at, updated_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        user_id:
+          type: integer
+          format: int64
+        alert_key:
+          $ref: "#/components/schemas/InsightAlertCategory"
+        scope_type:
+          type: string
+          enum: [match, team, league, competition, market_signal]
+        scope_id:
+          type: string
+        market_key:
+          type: string
+        confidence_threshold:
+          type: number
+          minimum: 0
+          maximum: 100
+        enabled:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    SubscriptionEntitlement:
+      type: object
+      required: [entitlement_key, tier, name]
+      properties:
+        entitlement_key:
+          type: string
+          enum:
+            - free_entity_favorites
+            - free_basic_match_notifications
+            - pro_no_ads
+            - pro_deeper_analysis
+            - pro_insight_watchlist
+            - pro_insight_alerts
+            - pro_market_alerts
+            - pro_confidence_alerts
+            - pro_advanced_multi_match_builder
+            - pro_price_movement_alerts
+            - pro_analysis_history
+            - pro_early_analysis_notifications
+        tier:
+          type: string
+          enum: [free, pro]
+        name:
+          type: string
+        mobile_label:
+          type: string
+        web_label:
+          type: string
+    PredictionMarketKey:
+      type: string
+      enum:
+        - 1x2
+        - double_chance
+        - btts
+        - ou_0_5
+        - ou_1_5
+        - ou_2_5
+        - ou_3_5
+        - ou_4_5
+        - ou_5_5
+        - team_ou_goals
+        - ht_ft
+        - corners
+        - cards
+        - fouls
+        - throw_ins
+        - multi_match_builder
+    PredictionOutcome:
+      type: string
+      enum: [pending, won, lost, void]
+    LeagueDetail:
+      type: object
+      required:
+        - id
+        - slug
+        - name
+        - country
+        - sport
+        - priority_score
+        - upcoming_matches
+        - recent_matches
+        - teams
+      properties:
+        id:
+          type: integer
+          format: int64
+        slug:
+          type: string
+        name:
+          type: string
+        country:
+          type: string
+        sport:
+          type: string
+        priority_score:
+          type: integer
+        logo_url:
+          type: string
+        upcoming_matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/MatchSummary"
+        recent_matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/MatchSummary"
+        teams:
+          type: array
+          items:
+            type: object
+            required: [id, slug, name]
+            properties:
+              id:
+                type: integer
+                format: int64
+              slug:
+                type: string
+              name:
+                type: string
+              country:
+                type: string
+              logo_url:
+                type: string
+            additionalProperties: false
+      additionalProperties: false
+    MatchSummary:
+      type: object
+      required:
+        - id
+        - league_name
+        - home_team
+        - away_team
+        - kickoff_at
+        - status
+      properties:
+        id:
+          type: integer
+          format: int64
+        league_name:
+          type: string
+        home_team:
+          type: string
+        away_team:
+          type: string
+        kickoff_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [scheduled, upcoming, delayed, live, halftime, second_half, extra_time, penalties, break, interrupted, finished, postponed, canceled, abandoned, suspended, awarded, walkover]
+        raw_status:
+          type: string
+        raw_status_label:
+          type: string
+        status_elapsed:
+          type: integer
+        venue_name:
+          type: string
+        venue_city:
+          type: string
+        home_score:
+          type: integer
+        away_score:
+          type: integer
+        half_time_home_score:
+          type: integer
+        half_time_away_score:
+          type: integer
+        odds:
+          type: array
+          items:
+            $ref: "#/components/schemas/MatchOddsPrice"
+        prediction_state:
+          type: string
+          enum: [published, pending]
+        prediction:
+          $ref: "#/components/schemas/MatchPredictionSummary"
+        timeline:
+          description: >-
+            Live match events in match-clock order. Absent when no events have
+            been recorded, which is the normal state for a fixture that has not
+            kicked off. Parsed from the event list already embedded in the live
+            fixtures response, so it costs no additional provider request.
+          type: array
+          items:
+            $ref: "#/components/schemas/MatchTimelineEvent"
+      additionalProperties: false
+    MatchTimelineEvent:
+      type: object
+      required: [minute, clock, event_kind, type, detail, retracted]
+      properties:
+        minute:
+          description: Match clock, not wall clock.
+          type: integer
+          minimum: 0
+        extra:
+          description: >-
+            Added time, absent outside it. Sent separately from minute because
+            90+3 is not the 93rd minute; collapsing the two moves an injury-time
+            goal to a minute that was never played.
+          type: integer
+          minimum: 0
+        clock:
+          description: The clock as a scoreboard renders it, e.g. "45+1'".
+          type: string
+        event_kind:
+          description: >-
+            The derived meaning. Switch on this rather than on type or detail:
+            an own goal, a penalty and an ordinary goal all arrive as
+            type="Goal" and only detail separates them.
+          type: string
+          enum: [goal, own_goal, penalty_goal, penalty_missed, yellow_card, red_card, second_yellow_card, substitution, var_retraction, var_other, unknown]
+        type:
+          description: The provider's raw type, preserved so an unrecognised event stays readable.
+          type: string
+        detail:
+          description: The provider's raw detail, preserved for the same reason.
+          type: string
+        side:
+          description: >-
+            Which team the event belongs to. Absent when the provider's team id
+            has no mapping to a canonical team, rather than being guessed.
+          type: string
+          enum: [home, away]
+        player:
+          type: string
+        assist:
+          type: string
+        comments:
+          type: string
+        retracted:
+          description: >-
+            True when a later VAR decision withdrew this event. The event stays
+            on the timeline: a cancelled goal that simply disappears leaves the
+            score unexplained. A retracted goal does not count towards the score.
+          type: boolean
+      additionalProperties: false
+    MatchOddsPrice:
+      type: object
+      required: [label, value, trend]
+      properties:
+        label:
+          type: string
+        value:
+          type: string
+        trend:
+          type: string
+          enum: [up, down, flat]
+      additionalProperties: false
+    MatchPredictionSummary:
+      type: object
+      required: [id, market_key, selection, confidence, published_version, published_at, updated_at, last_evaluated_at, tracker_state]
+      properties:
+        id:
+          type: integer
+          format: int64
+        market_key:
+          $ref: "#/components/schemas/PredictionMarketKey"
+        selection:
+          type: string
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 100
+        published_version:
+          type: integer
+          minimum: 1
+        published_at:
+          description: Prediction-engine generation time for the currently selected canonical version; use this as the prediction freshness timestamp.
+          type: string
+          format: date-time
+        updated_at:
+          description: Time the canonical prediction record last changed.
+          type: string
+          format: date-time
+        last_evaluated_at:
+          description: Most recent time the prediction engine evaluated this canonical prediction, including unchanged reevaluations.
+          type: string
+          format: date-time
+        outcome:
+          type: string
+          enum: [pending, won, lost, void]
+        actual:
+          type: string
+        void_reason:
+          description: >-
+            Why a void prediction was voided, when the void was not produced by
+            a market rule. Absent on a graded void (a drawn draw-no-bet needs
+            no explanation); present when no trustworthy result ever existed.
+          type: string
+        tracker_state:
+          description: >-
+            How the pick is doing right now, computed by the prediction engine
+            and stored, never derived by a client -- the web app and the mobile
+            app must not be able to judge the same pick differently.
+
+            Always present. `null` means nothing has judged this pick yet: the
+            in-play pass has never covered the fixture, or it has not kicked
+            off. That is NOT the same as `unknown`, which is a verdict the
+            engine reached because the match state cannot decide the pick
+            either way (a corners pick in a league with no corner data). Render
+            `null` as no tracker and `unknown` as "cannot be judged".
+
+            Independent of `outcome`: a pick can read `won` here while
+            `outcome` is still `pending`, because settlement writes a different
+            record. The tracker says how it is going; the outcome says what it
+            finished as.
+          type: ["string", "null"]
+          enum: [on_track, off_track, won, lost, void, unknown, null]
+      additionalProperties: false
+    PredictionSummary:
+      type: object
+      required:
+        - id
+        - match_id
+        - match_title
+        - home_team
+        - away_team
+        - league_name
+        - kickoff_at
+        - match_status
+        - market_key
+        - selection
+        - confidence
+        - probability
+        - is_best_bet
+        - published_version
+        - published_at
+        - updated_at
+        - last_evaluated_at
+      properties:
+        id:
+          type: integer
+          format: int64
+        match_id:
+          type: integer
+          format: int64
+        match_title:
+          type: string
+        home_team:
+          type: string
+        home_team_logo:
+          type: string
+        away_team:
+          type: string
+        away_team_logo:
+          type: string
+        league_name:
+          type: string
+        country:
+          type: string
+        kickoff_at:
+          type: string
+          format: date-time
+        match_status:
+          type: string
+          enum: [scheduled, upcoming, delayed, live, halftime, second_half, extra_time, penalties, break, interrupted, finished, postponed, canceled, abandoned, suspended, awarded, walkover]
+        market_key:
+          $ref: "#/components/schemas/PredictionMarketKey"
+        selection:
+          type: string
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 100
+        probability:
+          type: number
+          minimum: 0
+          maximum: 1
+        is_best_bet:
+          type: boolean
+        selection_odds:
+          type: string
+        markets:
+          type: array
+          items:
+            type: object
+            required: [market_key, selection, confidence, probability, is_best_bet]
+            properties:
+              market_key:
+                $ref: "#/components/schemas/PredictionMarketKey"
+              selection:
+                type: string
+              confidence:
+                type: number
+                minimum: 0
+                maximum: 100
+              probability:
+                type: number
+                minimum: 0
+                maximum: 1
+              is_best_bet:
+                type: boolean
+            additionalProperties: false
+        published_version:
+          type: integer
+          minimum: 1
+        published_at:
+          description: Prediction-engine generation time for the currently selected canonical version; use this as the prediction freshness timestamp.
+          type: string
+          format: date-time
+        updated_at:
+          description: Time the canonical prediction record last changed.
+          type: string
+          format: date-time
+        last_evaluated_at:
+          description: Most recent time the prediction engine evaluated this canonical prediction, including unchanged reevaluations.
+          type: string
+          format: date-time
+      additionalProperties: false
+    ProviderPredictionSummary:
+      description: API-Football native prediction used as a fallback for a fixture SokaLens has not predicted itself. The canonical primitives (market_key, selection, confidence, published_version, published_at) mirror PredictionSummary so clients can render engine and provider items alike; the provider-specific fields (predicted_winner, win_or_draw, under_over, percent_*, advice) are preserved for administration.
+      type: object
+      required:
+        - match_id
+        - match_title
+        - home_team
+        - away_team
+        - league_name
+        - kickoff_at
+        - match_status
+        - predicted_winner
+        - win_or_draw
+        - under_over
+        - percent_home
+        - percent_draw
+        - percent_away
+        - advice
+        - market_key
+        - selection
+        - confidence
+        - published_version
+        - published_at
+      properties:
+        match_id:
+          type: integer
+          format: int64
+        match_title:
+          type: string
+        home_team:
+          type: string
+        away_team:
+          type: string
+        home_team_logo:
+          type: string
+          description: >-
+            Crest URL for the home side, empty when the team has no logo on
+            record. Spelled the same as on PredictionSummary so engine and
+            provider rows render alike in one list.
+        away_team_logo:
+          type: string
+          description: Crest URL for the away side; see home_team_logo.
+        league_name:
+          type: string
+        kickoff_at:
+          type: string
+          format: date-time
+        match_status:
+          type: string
+        predicted_winner:
+          description: API-Football winner projection (team name).
+          type: string
+        win_or_draw:
+          description: API-Football win-or-draw advice flag.
+          type: boolean
+        under_over:
+          description: API-Football under/over projection label.
+          type: string
+        percent_home:
+          type: number
+          minimum: 0
+          maximum: 100
+        percent_draw:
+          type: number
+          minimum: 0
+          maximum: 100
+        percent_away:
+          type: number
+          minimum: 0
+          maximum: 100
+        advice:
+          type: string
+        market_key:
+          $ref: "#/components/schemas/PredictionMarketKey"
+        selection:
+          description: Home, Away, or Draw derived from the provider winner projection.
+          type: string
+        confidence:
+          description: Strongest of the provider's home/draw/away percentages on the shared 0-100 confidence scale.
+          type: number
+          minimum: 0
+          maximum: 100
+        published_version:
+          description: Always 0 for provider fallback items (no version lineage).
+          type: integer
+          minimum: 0
+        published_at:
+          description: Time the provider prediction was captured.
+          type: string
+          format: date-time
+      additionalProperties: false
+    PredictionDetail:
+      type: object
+      required:
+        - id
+        - match_id
+        - market_key
+        - selection
+        - confidence
+        - probabilities
+        - published_version
+        - input_snapshot_hash
+        - outcome
+        - published_at
+        - updated_at
+        - last_evaluated_at
+      properties:
+        id:
+          type: integer
+          format: int64
+        match_id:
+          type: integer
+          format: int64
+        market_key:
+          $ref: "#/components/schemas/PredictionMarketKey"
+        selection:
+          type: string
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 100
+        probabilities:
+          type: object
+          additionalProperties:
+            type: number
+            minimum: 0
+            maximum: 1
+        published_version:
+          type: integer
+          minimum: 1
+        input_snapshot_hash:
+          type: string
+        outcome:
+          $ref: "#/components/schemas/PredictionOutcome"
+        published_at:
+          description: Prediction-engine generation time for the currently selected canonical version; use this as the prediction freshness timestamp.
+          type: string
+          format: date-time
+        updated_at:
+          description: Time the canonical prediction record last changed.
+          type: string
+          format: date-time
+        last_evaluated_at:
+          description: Most recent time the prediction engine evaluated this canonical prediction, including unchanged reevaluations.
+          type: string
+          format: date-time
+      additionalProperties: false
+    PredictionHitRateReport:
+      type: object
+      required: [settled, won, lost, void, hit_rate, denominator, markets]
+      properties:
+        settled:
+          type: integer
+          minimum: 0
+        won:
+          type: integer
+          minimum: 0
+        lost:
+          type: integer
+          minimum: 0
+        void:
+          type: integer
+          minimum: 0
+        hit_rate:
+          type: number
+          minimum: 0
+          maximum: 100
+        denominator:
+          description: Number of settled non-void predictions (won + lost) the hit rate is computed against. Voids are excluded.
+          type: integer
+          minimum: 0
+        markets:
+          type: array
+          items:
+            $ref: "#/components/schemas/PredictionMarketHitRate"
+      additionalProperties: false
+    PredictionResultsResponse:
+      type: object
+      required: [results, total, page, limit]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/PredictionResultSummary"
+        total: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1, maximum: 100 }
+      additionalProperties: false
+    PredictionResultSummary:
+      type: object
+      required: [prediction_id, match_id, match_title, league_name, country, kickoff_at, match_status, market_key, selection, actual, outcome, confidence]
+      properties:
+        prediction_id: { type: integer, format: int64 }
+        match_id: { type: integer, format: int64 }
+        match_title: { type: string }
+        league_name: { type: string }
+        country: { type: string }
+        kickoff_at: { type: string, format: date-time }
+        match_status: { type: string }
+        market_key:
+          $ref: "#/components/schemas/PredictionMarketKey"
+        selection: { type: string }
+        actual: { type: string }
+        outcome: { type: string, enum: [won, lost, void] }
+        confidence: { type: number, minimum: 0, maximum: 100 }
+      additionalProperties: false
+    PredictionMarketHitRate:
+      type: object
+      required: [market_key, settled, won, lost, void, hit_rate, denominator]
+      properties:
+        market_key:
+          $ref: "#/components/schemas/PredictionMarketKey"
+        settled:
+          type: integer
+          minimum: 0
+        won:
+          type: integer
+          minimum: 0
+        lost:
+          type: integer
+          minimum: 0
+        void:
+          type: integer
+          minimum: 0
+        hit_rate:
+          type: number
+          minimum: 0
+          maximum: 100
+        denominator:
+          description: Number of settled non-void predictions (won + lost) for this market the hit rate is computed against. Voids are excluded.
+          type: integer
+          minimum: 0
+      additionalProperties: false
+    AdminLoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 12
+    AdminSessionResponse:
+      type: object
+      required: [token, expires_at, user]
+      properties:
+        token:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        user:
+          $ref: "#/components/schemas/AdminUser"
+    AdminCurrentSessionResponse:
+      type: object
+      required: [user]
+      properties:
+        user:
+          $ref: "#/components/schemas/AdminUser"
+    AdminUser:
+      type: object
+      required: [id, email, role]
+      properties:
+        id:
+          type: integer
+          format: int64
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [super_admin, admin, viewer]
+    AdminProviderStatusResponse:
+      type: object
+      required: [providers]
+      properties:
+        providers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminProviderStatus"
+      additionalProperties: false
+    AdminProviderStatus:
+      type: object
+      required: [provider, display_name, enabled, status, quota]
+      properties:
+        provider:
+          type: string
+          minLength: 1
+          examples: [api-football]
+        display_name:
+          type: string
+        enabled:
+          type: boolean
+        status:
+          type: string
+          enum: [ready, degraded, unavailable, throttled, disabled, unknown]
+        throttle_until:
+          type: string
+          format: date-time
+        quota:
+          $ref: "#/components/schemas/AdminProviderQuota"
+      additionalProperties: false
+    AdminProviderQuota:
+      type: object
+      required:
+        - daily_limit
+        - daily_remaining
+        - daily_reserve
+        - minute_limit
+        - minute_remaining
+        - minute_reserve
+        - updated_at
+      properties:
+        daily_limit:
+          type: integer
+          minimum: 0
+        daily_remaining:
+          type: integer
+          minimum: 0
+        daily_reserve:
+          type: integer
+          minimum: 0
+        minute_limit:
+          type: integer
+          minimum: 0
+        minute_remaining:
+          type: integer
+          minimum: 0
+        minute_reserve:
+          type: integer
+          minimum: 0
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+    AdPlacementDecision:
+      type: object
+      required: [placement_key, allowed, reason, campaigns, restrictions, providers]
+      properties:
+        placement_key:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9_-]{0,79}$"
+        allowed:
+          type: boolean
+        reason:
+          type: string
+        preferred_provider:
+          type: string
+        active_provider:
+          type: string
+        campaigns:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        restrictions:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        providers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdProviderAttempt"
+      additionalProperties: false
+    AdProviderAttempt:
+      type: object
+      required: [code, name, adapter_key, timeout_ms, public_config, attempt_token]
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        adapter_key:
+          type: string
+        timeout_ms:
+          type: integer
+          minimum: 500
+          maximum: 5000
+        public_config:
+          type: object
+          description: Browser-safe provider and placement configuration. Secrets and executable HTML are forbidden.
+          additionalProperties: true
+        attempt_token:
+          type: string
+          description: Signed, expiring token bound to the ad session, placement, and provider.
+      additionalProperties: false
+    AdProviderOutcome:
+      type: object
+      required: [attempt_token, outcome, duration_ms]
+      properties:
+        attempt_token:
+          type: string
+        outcome:
+          type: string
+          enum: [success, failure]
+        failure_reason:
+          type: string
+          enum: [NO_FILL, SCRIPT_ERROR, TIMEOUT, NETWORK_ERROR, BLOCKED, INVALID_ZONE, PROVIDER_UNAVAILABLE]
+        duration_ms:
+          type: integer
+          minimum: 0
+          maximum: 60000
+      additionalProperties: false

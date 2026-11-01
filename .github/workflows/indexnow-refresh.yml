@@ -1,0 +1,69 @@
+name: IndexNow refresh
+
+# A fixture's search demand is a roughly 72-hour window that closes at kickoff.
+# IndexNow previously fired only on deploy, so a prediction published between
+# releases was not announced until the next one -- by which time the query it
+# answers has already peaked and subsided.
+#
+# This announces what changed since the last run. The sitemaps carry a truthful
+# `lastmod` now, so "changed" means "published", and the submitter sends only
+# those URLs rather than resubmitting the whole property every twenty minutes.
+
+on:
+  schedule:
+    # Every 20 minutes. The fixture sitemap revalidates every 5 minutes, so a
+    # prediction is announced within ~25 minutes of publication in the worst
+    # case, against the hours or days a deploy cadence gave it.
+    - cron: '*/20 * * * *'
+  workflow_dispatch:
+    inputs:
+      since_hours:
+        description: Announce URLs changed within this many hours (0 sweeps everything)
+        required: false
+        default: '2'
+
+permissions:
+  contents: read
+
+# Never let two submissions overlap; a slow run should be skipped, not queued.
+concurrency:
+  group: indexnow-refresh
+  cancel-in-progress: false
+
+jobs:
+  submit:
+    # 72 runs a day. On a GitHub-hosted runner each one bills at least a
+    # minute, ~2,200 minutes a month -- more than the free allowance on its
+    # own. This job only ever SSHes into the VPS, so it runs on the
+    # self-hosted runner or not at all.
+    if: vars.CI_RUNNER != ''
+    runs-on: ${{ vars.CI_RUNNER }}
+    timeout-minutes: 10
+    # Bing rate-limits per host, and a failed announcement is not an outage:
+    # the next deploy's full sweep is the backstop.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/actions
+
+      - name: Configure SSH to the VPS
+        uses: ./.github/actions/vps-ssh
+        with:
+          private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          known-hosts: ${{ secrets.VPS_KNOWN_HOSTS }}
+          host: ${{ secrets.VPS_HOST }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          user: ${{ secrets.VPS_SSH_USER }}
+
+      - name: Announce recently published URLs
+        env:
+          SINCE_HOURS: ${{ github.event.inputs.since_hours || '2' }}
+        run: |
+          # The value is interpolated into a remote shell command.
+          case "$SINCE_HOURS" in
+            ''|*[!0-9]*) echo "::error::since_hours must be a whole number"; exit 1 ;;
+          esac
+          ssh vps \
+            "docker run --rm --network host -v /home/deploy/sokalens/apps/web/scripts:/audit:ro sports-prediction-platform-web node /audit/indexnow-submit.mjs --since-hours=$SINCE_HOURS"

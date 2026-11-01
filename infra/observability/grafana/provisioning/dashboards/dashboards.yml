@@ -1,0 +1,23 @@
+# Grafana dashboard provisioning (read-only, applied on container start).
+#
+# Every *.json file in the directory below is loaded as a dashboard. The JSON
+# files reference the Prometheus datasource by UID (`prometheus`), which is
+# defined in grafana/provisioning/datasources/datasources.yml.
+#
+# The Compose file mounts ../observability/grafana/provisioning to
+# /etc/grafana/provisioning, so this whole `dashboards` directory is available
+# to Grafana automatically.
+
+apiVersion: 1
+
+providers:
+  - name: SokaLens
+    orgId: 1
+    folder: SokaLens
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false

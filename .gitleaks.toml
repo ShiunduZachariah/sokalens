@@ -1,0 +1,37 @@
+# Gitleaks configuration.
+#
+# Inherits the full upstream default ruleset. Nothing is disabled: no rule is
+# switched off, no path is broadly excluded, and no regex is relaxed. The only
+# entry below is one narrowly scoped false positive.
+#
+# Scope note: CI checks out with fetch-depth: 0, which fetches every branch, so
+# `gitleaks detect` scans the history of all of them. A false positive in any
+# branch's history therefore fails EVERY pull request in the repository, not
+# just the branch that introduced it. That is why this is pinned here rather
+# than worked around on a single branch.
+
+[extend]
+useDefault = true
+
+# Pagination cursor test fixture, not a credential.
+#
+# services/api/internal/acca/query_validation_test.go in commit dd54ddff asserts
+# that encodeCursor/decodeCursor round-trip correctly, using the literal
+# "0123456789abcdef0123456789abcdef". The generic-api-key rule matches it purely
+# on shape: 32 hex characters. It is a repeating "0123456789abcdef" pattern with
+# an entropy of 4.0 -- no real key looks like that -- and it is a local variable
+# in a _test.go file that is never transmitted or persisted.
+#
+# The current branch head already avoids the match by building the same value as
+# strings.Repeat("0123456789abcdef", 2). This allowlist covers the historical
+# commit, which cannot be edited without rewriting published history.
+#
+# condition = "AND" means all three must hold: that exact commit, that exact
+# file, and that exact literal. Any other match of the rule still fails, and so
+# does any other value in the same file or any other file in the same commit.
+[[allowlists]]
+description = "ACCA cursor round-trip test fixture in commit dd54ddff (32 hex chars, entropy 4.0)"
+condition = "AND"
+commits = ["dd54ddff9e9c329e42021318d2ce8ad38493b891"]
+paths = ['''services/api/internal/acca/query_validation_test\.go$''']
+regexes = ['''0123456789abcdef0123456789abcdef''']

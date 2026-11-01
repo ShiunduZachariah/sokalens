@@ -1,0 +1,70 @@
+{
+  "as_of_timestamp": "2026-07-01T12:00:00+00:00",
+  "benchmark_config": {
+    "acca_legs_requested": 3,
+    "minimum_confidence_tier": "low",
+    "model_version": "python-engine-v1",
+    "per_fixture_cap": 2
+  },
+  "actual_outcomes": {
+    "101": "home",
+    "102": "yes",
+    "103": "under_2.5",
+    "104": "away",
+    "105": "no",
+    "106": "under_2.5"
+  },
+  "backtest_predictions": [
+    {"fixture_id": 101, "market": "1x2", "prediction": "home", "confidence_tier": "strong"},
+    {"fixture_id": 102, "market": "btts", "prediction": "yes", "confidence_tier": "strong"},
+    {"fixture_id": 103, "market": "total_goals", "prediction": "under_2.5", "confidence_tier": "medium"},
+    {"fixture_id": 104, "market": "1x2", "prediction": "home", "confidence_tier": "medium"},
+    {"fixture_id": 105, "market": "btts", "prediction": "no", "confidence_tier": "medium"},
+    {"fixture_id": 106, "market": "total_goals", "prediction": "over_2.5", "confidence_tier": "low"}
+  ],
+  "acca_request": {
+    "start_datetime": "2026-07-01T12:00:00+00:00",
+    "end_datetime": "2026-07-02T12:00:00+00:00",
+    "legs_requested": 3,
+    "minimum_confidence_tier": "low",
+    "per_fixture_cap": 2
+  },
+  "acca_candidates": [
+    {
+      "fixture_id": 201, "market": "1x2", "prediction": "home", "probability": 0.7,
+      "confidence": 0.82, "confidence_tier": "strong", "is_best_bet": true,
+      "lifecycle_stage": "PRE_MATCH", "data_completeness": 0.9,
+      "features_used": {"kickoff_at": "2026-07-01T14:00:00+00:00", "league_id": 39, "ranking_score": 0.95},
+      "explanation": "fixed benchmark home selection", "generated_at": "2026-07-01T12:00:00+00:00",
+      "gate_tier": "FULL", "horizon_eligible": true, "embargo_active": false,
+      "model_version": "python-engine-v1"
+    },
+    {
+      "fixture_id": 201, "market": "btts", "prediction": "yes", "probability": 0.62,
+      "confidence": 0.75, "confidence_tier": "medium", "is_best_bet": true,
+      "lifecycle_stage": "PRE_MATCH", "data_completeness": 0.9,
+      "features_used": {"kickoff_at": "2026-07-01T14:00:00+00:00", "league_id": 39, "ranking_score": 0.9},
+      "explanation": "fixed benchmark btts selection", "generated_at": "2026-07-01T12:00:00+00:00",
+      "gate_tier": "FULL", "horizon_eligible": true, "embargo_active": false,
+      "model_version": "python-engine-v1"
+    },
+    {
+      "fixture_id": 202, "market": "total_goals", "prediction": "over_2.5", "probability": 0.6,
+      "confidence": 0.72, "confidence_tier": "medium", "is_best_bet": true,
+      "lifecycle_stage": "PRE_MATCH", "data_completeness": 0.88,
+      "features_used": {"kickoff_at": "2026-07-01T16:00:00+00:00", "league_id": 140, "ranking_score": 0.8},
+      "explanation": "fixed benchmark goals selection", "generated_at": "2026-07-01T12:00:00+00:00",
+      "gate_tier": "FULL", "horizon_eligible": true, "embargo_active": false,
+      "model_version": "python-engine-v1"
+    },
+    {
+      "fixture_id": 203, "market": "1x2", "prediction": "away", "probability": 0.56,
+      "confidence": 0.61, "confidence_tier": "low", "is_best_bet": true,
+      "lifecycle_stage": "PRE_MATCH", "data_completeness": 0.8,
+      "features_used": {"kickoff_at": "2026-07-01T18:00:00+00:00", "league_id": 78, "ranking_score": 0.7},
+      "explanation": "fixed benchmark away selection", "generated_at": "2026-07-01T12:00:00+00:00",
+      "gate_tier": "FULL", "horizon_eligible": true, "embargo_active": false,
+      "model_version": "python-engine-v1"
+    }
+  ]
+}

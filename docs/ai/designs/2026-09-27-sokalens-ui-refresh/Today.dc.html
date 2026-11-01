@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Today's predictions · desktop</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}a:hover{color:var(--accent-ink)}
+button,select,input{font-family:inherit}
+button{cursor:pointer}
+select option{background:var(--surface);color:var(--text)}
+</style>
+</helmet>
+<div class="{{themeClass}}" style="{{rootVars}}; width: 1440px; height: 3540px; box-sizing: border-box; overflow-y: auto; background: var(--bg); color: var(--text); font-family: Archivo, 'Helvetica Neue', sans-serif; display: flex; flex-direction: column">
+
+<!-- NAV -->
+<header style="flex-shrink: 0; height: 72px; box-sizing: border-box; padding: 0 120px; display: flex; align-items: center; gap: 48px; border-bottom: 1px solid var(--line)">
+<a href="{{links.Home}}" style="display: flex; align-items: center; gap: 10px">
+<svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="14" cy="14" r="11"></circle><circle cx="14" cy="14" r="4" style="fill: var(--accent-ink); stroke: var(--accent-ink)"></circle><path d="M14 1v5M14 22v5M1 14h5M22 14h5"></path></svg>
+<span style="font-size: 24px; font-weight: 800; font-stretch: 75%; letter-spacing: 0.01em; text-transform: uppercase">SokaLens</span>
+</a>
+<nav aria-label="Main" style="display: flex; gap: 32px; font-size: 15px; font-weight: 500; flex-grow: 1">
+<a href="{{links.Home}}" style="color: var(--muted)">Home</a>
+<a href="{{links.Today}}" aria-current="page" style="color: var(--text); box-shadow: inset 0 -2px 0 var(--accent-ink); padding-bottom: 4px">Predictions</a>
+<a href="{{links.InPlay}}" style="color: var(--muted)">In-play</a>
+<a href="{{links.Acca}}" style="color: var(--muted)">ACCAs</a>
+<a href="{{links.Builder}}" style="color: var(--muted)">Builder</a>
+</nav>
+<button aria-label="{{themeLabel}}" onClick="{{toggleTheme}}" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid var(--line-strong); border-radius: 8px; color: var(--text)">
+<sc-if value="{{isDark}}" hint-placeholder-val="{{ true }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></sc-if>
+<sc-if value="{{isLight}}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"></path></svg></sc-if>
+</button>
+<button aria-label="Language: English" style="height: 44px; padding: 0 14px; display: flex; align-items: center; gap: 8px; background: transparent; border: 1px solid var(--line-strong); border-radius: 8px; color: var(--text); font-size: 14px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"></path></svg>EN</button>
+<button style="height: 44px; padding: 0 20px; background: var(--text); color: var(--bg); border: 0; border-radius: 8px; font-size: 15px; font-weight: 600">Sign in</button>
+</header>
+<sc-if value="{{ads.on}}" hint-placeholder-val="{{ true }}">
+<div data-ad-slot="top" data-ad-size="970x90" role="complementary" aria-label="Advertisement" style="flex-shrink: 0; padding: 12px 120px 0; display: flex; flex-direction: column; align-items: center; gap: 6px">
+<span style="font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint)">Advertisement</span>
+<div style="width: 970px; max-width: 100%; height: 90px; box-sizing: border-box; border: 1px dashed var(--line-stronger); border-radius: 6px; background: repeating-linear-gradient(135deg, transparent 0 9px, var(--hatch) 9px 10px); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted)">top · 970×90</div>
+</div>
+</sc-if>
+
+
+<main style="flex-grow: 1; display: flex; flex-direction: column">
+
+<!-- HEADER -->
+<section style="padding: 32px 120px 36px; display: flex; align-items: flex-end; justify-content: space-between; gap: 40px; border-bottom: 1px solid var(--line)">
+<div style="display: flex; flex-direction: column; gap: 18px">
+<nav aria-label="Breadcrumb" style="display: flex; gap: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--muted)"><a href="{{links.Home}}">Home</a><span aria-hidden="true">/</span><a href="{{links.Today}}">Predictions</a><span aria-hidden="true">/</span><span style="color: var(--text)">Today</span></nav>
+<div style="display: flex; align-items: center; gap: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)"><span style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent)"></span>{{dayLabel}} · UTC</div>
+<h1 style="margin: 0; font-size: 104px; line-height: 0.88; font-weight: 900; font-stretch: 62%; text-transform: uppercase">Today’s football <span style="color: var(--accent-ink)">predictions</span></h1>
+<p style="margin: 0; font-size: 16px; color: var(--text-3)">Statistical estimates, never guaranteed outcomes.</p>
+</div>
+<dl style="flex-shrink: 0; margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--surface)">
+<div style="padding: 18px 26px; display: flex; flex-direction: column; gap: 4px; border-right: 1px solid var(--line)"><dt style="font-size: 12px; color: var(--muted)">Fixtures</dt><dd style="margin: 0; font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 500">{{totals.fixtures}}</dd></div>
+<div style="padding: 18px 26px; display: flex; flex-direction: column; gap: 4px; border-right: 1px solid var(--line)"><dt style="font-size: 12px; color: var(--muted)">Predictions</dt><dd style="margin: 0; font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 500; color: var(--accent-ink)">{{totals.predictions}}</dd></div>
+<div style="padding: 18px 26px; display: flex; flex-direction: column; gap: 4px"><dt style="font-size: 12px; color: var(--muted)">Markets</dt><dd style="margin: 0; font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 500">{{totals.markets}}</dd></div>
+</dl>
+</section>
+
+<!-- DATE STRIP + QUICK FILTERS -->
+<section style="padding: 24px 120px 0; display: flex; flex-direction: column; gap: 16px">
+<nav aria-label="Choose a day" style="display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{days}}" as="d" hint-placeholder-count="8">
+<a href="#" aria-current="{{d.current}}" style="{{d.style}}; height: 64px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px">
+<span style="font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em">{{d.d}}</span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 500">{{d.n}}</span>
+</a>
+</sc-for>
+</nav>
+<nav aria-label="Quick filters" style="display: flex; gap: 8px; align-items: center">
+<a href="#" style="height: 40px; padding: 0 16px; display: flex; align-items: center; border: 1px solid var(--line-strong); border-radius: 999px; font-size: 14px">Tomorrow</a>
+<a href="#" style="height: 40px; padding: 0 16px; display: flex; align-items: center; border: 1px solid var(--line-strong); border-radius: 999px; font-size: 14px">Weekend</a>
+<a href="#" style="height: 40px; padding: 0 16px; display: flex; align-items: center; border: 1px solid var(--line-strong); border-radius: 999px; font-size: 14px">Over 2.5 goals</a>
+<a href="#" style="height: 40px; padding: 0 16px; display: flex; align-items: center; border: 1px solid var(--line-strong); border-radius: 999px; font-size: 14px">Both teams to score</a>
+<a href="#" style="height: 40px; padding: 0 16px; display: flex; align-items: center; border: 1px solid var(--line-strong); border-radius: 999px; font-size: 14px">Match result</a>
+</nav>
+</section>
+
+<!-- BODY -->
+<section style="padding: 28px 120px 0; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 24px; align-items: start">
+<div style="grid-column: span 8; display: flex; flex-direction: column; gap: 20px">
+
+<!-- toolbar -->
+<div style="padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; align-items: end">
+<label style="grid-column: span 2; display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted)">Search
+<span style="height: 44px; padding: 0 12px; display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1px solid var(--line-strong); border-radius: 10px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="color: var(--muted)"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+<input type="search" value="{{q}}" onChange="{{onQuery}}" placeholder="Team or competition" style="flex-grow: 1; min-width: 0; height: 42px; background: transparent; border: 0; outline: none; color: var(--text); font-size: 15px">
+</span></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted)">Country
+<select value="{{country}}" onChange="{{onCountry}}" style="height: 44px; padding: 0 10px; background: var(--bg); color: var(--text); border: 1px solid var(--line-strong); border-radius: 10px; font-size: 14px">
+<sc-for list="{{countryOptions}}" as="o" hint-placeholder-count="4"><option value="{{o.value}}">{{o.label}}</option></sc-for>
+</select></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted)">Market
+<select value="{{market}}" onChange="{{onMarket}}" style="height: 44px; padding: 0 10px; background: var(--bg); color: var(--text); border: 1px solid var(--line-strong); border-radius: 10px; font-size: 14px">
+<sc-for list="{{marketOptions}}" as="o" hint-placeholder-count="4"><option value="{{o}}">{{o}}</option></sc-for>
+</select></label>
+<div style="grid-column: span 2; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; font-weight: 600; color: var(--muted)">Group by</span>
+<div role="group" aria-label="Group by" style="height: 44px; box-sizing: border-box; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 3px; background: var(--bg); border: 1px solid var(--line-strong); border-radius: 10px">
+<sc-for list="{{groupToggles}}" as="t" hint-placeholder-count="2"><button aria-pressed="{{t.pressed}}" onClick="{{t.pick}}" style="{{t.style}}; border: 0; border-radius: 7px; font-size: 14px; font-weight: 600">{{t.label}}</button></sc-for>
+</div>
+</div>
+</div>
+
+<div style="display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--muted)"><span>{{countLine}}</span><span>Times in UTC</span></div>
+
+<sc-if value="{{isEmpty}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 48px; border: 1px dashed var(--line-stronger); border-radius: 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center">
+<div style="font-size: 20px; font-weight: 700">No predictions match these filters</div>
+<button onClick="{{reset}}" style="height: 44px; padding: 0 18px; background: transparent; color: var(--text); border: 1px solid var(--line-stronger); border-radius: 10px; font-size: 14px; font-weight: 600">Clear filters</button>
+</div>
+</sc-if>
+
+<!-- groups -->
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+<section style="background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden">
+<div style="height: 56px; box-sizing: border-box; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; background: var(--surface-sunk); border-bottom: 1px solid var(--line)">
+<h2 style="margin: 0; font-size: 22px; font-weight: 800; font-stretch: 70%; text-transform: uppercase; letter-spacing: 0.01em">{{g.title}}</h2>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted)">{{g.count}}</span>
+</div>
+<sc-for list="{{g.leagues}}" as="l" hint-placeholder-count="2">
+<div style="display: flex; flex-direction: column">
+<sc-if value="{{l.hasName}}" hint-placeholder-val="{{ true }}">
+<h3 style="margin: 0; height: 40px; box-sizing: border-box; padding: 0 20px; display: flex; align-items: center; font-size: 13px; font-weight: 700; color: var(--text-3); border-bottom: 1px solid var(--line-soft)">{{l.name}}</h3>
+</sc-if>
+<ol style="margin: 0; padding: 0; list-style: none">
+<sc-for list="{{l.rows}}" as="r" hint-placeholder-count="3">
+<li style="border-bottom: 1px solid var(--line-soft)">
+<a href="{{r.link}}" style="height: 64px; box-sizing: border-box; padding: 0 20px; display: grid; grid-template-columns: 56px minmax(0, 1fr) 104px 150px 56px 20px; gap: 16px; align-items: center">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px">{{r.time}}</span>
+<span style="min-width: 0; display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.home}} <span style="font-weight: 400; color: var(--faint)">v</span> {{r.away}}</span>
+<sc-if value="{{r.showLeague}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.league}} · {{r.country}}</span></sc-if>
+</span>
+<span aria-label="Outcome picked" style="display: flex; gap: 4px"><sc-for list="{{r.outcomes}}" as="o" hint-placeholder-count="3"><span title="{{o.label}}" style="{{o.style}}; width: 30px; height: 30px; box-sizing: border-box; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">{{o.k}}</span></sc-for></span>
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 700; color: var(--accent-ink)">{{r.pick}}</span><span style="font-size: 12px; color: var(--muted)">{{r.market}}</span></span>
+<span style="text-align: right; font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 500">{{r.confLabel}}</span>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="color: var(--faint)"><path d="M9 6l6 6-6 6"></path></svg>
+</a>
+</li>
+</sc-for>
+</ol>
+</div>
+</sc-for>
+</section>
+<sc-if value="{{g.adAfter}}" hint-placeholder-val="{{ false }}">
+<sc-if value="{{ads.on}}" hint-placeholder-val="{{ true }}">
+<div data-ad-slot="in-feed" data-ad-size="728x90" role="complementary" aria-label="Advertisement" style="padding: 4px 0; display: flex; flex-direction: column; align-items: center; gap: 6px">
+<span style="font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint)">Advertisement</span>
+<div style="width: 728px; max-width: 100%; height: 90px; box-sizing: border-box; border: 1px dashed var(--line-stronger); border-radius: 6px; background: repeating-linear-gradient(135deg, transparent 0 9px, var(--hatch) 9px 10px); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted)">in-feed · 728×90</div>
+</div>
+</sc-if>
+</sc-if>
+</sc-for>
+
+<div style="display: flex; justify-content: center; padding-top: 8px">
+<button style="height: 52px; padding: 0 32px; background: transparent; color: var(--text); border: 1px solid var(--line-stronger); border-radius: 10px; font-size: 16px; font-weight: 600">Load more predictions</button>
+</div>
+</div>
+
+<!-- SIDEBAR -->
+<aside style="grid-column: span 4; position: sticky; top: 24px; display: flex; flex-direction: column; gap: 20px">
+<div style="padding: 24px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; justify-content: space-between; align-items: baseline">
+<h2 style="margin: 0; font-size: 22px; font-weight: 800; font-stretch: 70%; text-transform: uppercase">Pick split</h2>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted)">{{listed}} in this list</span>
+</div>
+<sc-for list="{{split}}" as="s" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; justify-content: space-between; font-size: 14px"><span style="font-weight: 600">{{s.label}}</span><span style="font-family: 'IBM Plex Mono', monospace; color: var(--text-3)">{{s.n}} · {{s.pct}}%</span></div>
+<div style="height: 8px; border-radius: 999px; background: var(--line); position: relative"><div style="position: absolute; left: 0; top: 0; bottom: 0; width: {{s.pct}}%; border-radius: 999px; background: var(--accent)"></div></div>
+</div>
+</sc-for>
+<p style="margin: 0; padding-top: 14px; border-top: 1px solid var(--line); font-size: 13px; line-height: 1.5; color: var(--muted)">Confidence shows where the model published it. Tap a match for every market.</p>
+</div>
+<div style="padding: 24px; background: var(--accent); color: var(--on-accent); border-radius: 16px; display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-size: 34px; line-height: 0.95; font-weight: 900; font-stretch: 62%; text-transform: uppercase">Combine today’s picks into an ACCA</h2>
+<a href="{{links.Acca}}" style="align-self: flex-start; height: 46px; padding: 0 18px; display: flex; align-items: center; gap: 8px; background: var(--on-accent); color: #EEF2EC; border-radius: 10px; font-size: 15px; font-weight: 700">Browse ACCAs</a>
+</div>
+<div style="padding: 18px 20px; border: 1px solid var(--line-strong); border-radius: 14px; display: flex; gap: 14px; align-items: flex-start; font-size: 13px; line-height: 1.5; color: var(--text-3)">
+<span style="flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%; border: 2px solid var(--text); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; color: var(--text)">18+</span>
+<span>Predictions are informational and not guaranteed. They should not be treated as financial advice. <a href="#" style="font-weight: 600; text-decoration: underline">Responsible use</a></span>
+</div>
+<sc-if value="{{ads.on}}" hint-placeholder-val="{{ true }}">
+<div data-ad-slot="rail" data-ad-size="300x600" role="complementary" aria-label="Advertisement" style="padding: 0; display: flex; flex-direction: column; align-items: center; gap: 6px">
+<span style="font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint)">Advertisement</span>
+<div style="width: 300px; max-width: 100%; height: 600px; box-sizing: border-box; border: 1px dashed var(--line-stronger); border-radius: 6px; background: repeating-linear-gradient(135deg, transparent 0 9px, var(--hatch) 9px 10px); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted)">rail · 300×600</div>
+</div>
+</sc-if>
+</aside>
+</section>
+
+</main>
+
+<!-- FOOTER -->
+<footer style="flex-shrink: 0; margin-top: 88px; padding: 56px 120px 40px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 40px">
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px">
+<div style="grid-column: span 2; display: flex; flex-direction: column; gap: 12px">
+<span style="font-size: 28px; font-weight: 800; font-stretch: 75%; text-transform: uppercase">SokaLens</span>
+<p style="margin: 0; max-width: 360px; font-size: 16px; line-height: 1.5; color: var(--text-3)">Football probabilities, explained clearly and tracked openly.</p>
+</div>
+<nav aria-label="Explore" style="display: flex; flex-direction: column; gap: 10px; font-size: 14px">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; color: var(--faint)">EXPLORE</span>
+<a href="{{links.Today}}" style="color: var(--text-3)">Today’s predictions</a><a href="#" style="color: var(--text-3)">Best Bets</a><a href="#" style="color: var(--text-3)">Leagues</a><a href="#" style="color: var(--text-3)">Performance status</a><a href="{{links.Builder}}" style="color: var(--text-3)">Multi-match builder</a><a href="#" style="color: var(--text-3)">Sign in</a><a href="#" style="color: var(--accent-ink); font-weight: 600">Go Pro</a>
+</nav>
+<nav aria-label="About" style="display: flex; flex-direction: column; gap: 10px; font-size: 14px">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; color: var(--faint)">ABOUT</span>
+<a href="#" style="color: var(--text-3)">About us</a><a href="#" style="color: var(--text-3)">Contact and suggestions</a><a href="{{links.Acca}}" style="color: var(--text-3)">Acca predictions</a><a href="#" style="color: var(--text-3)">Responsible use</a><a href="#" style="color: var(--text-3)">Terms</a><a href="#" style="color: var(--text-3)">Privacy</a><a href="#" style="color: var(--text-3)">Cookies</a>
+</nav>
+</div>
+<div style="padding-top: 24px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 16px; font-size: 13px; line-height: 1.5; color: var(--muted)">
+<span style="flex-shrink: 0; padding: 4px 8px; border: 1.5px solid var(--text); border-radius: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; color: var(--text)">18+</span>
+<span>© 2026 SokaLens. Predictions are statistical estimates, not guaranteed outcomes. SokaLens is not a bookmaker and accepts no stakes. Bet responsibly.</span>
+</div>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"ads":{"editor":"enum","options":["filled","empty"],"default":"filled","section":"Ads"},"theme":{"editor":"enum","options":["dark","light"],"default":"dark","section":"Look"},"accent":{"editor":"color","default":"#C8F169","options":["#C8F169","#5EE6C1","#FFB547","#F2F2EC"],"section":"Look"},"$preview":{"width":1440,"height":3540}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { themeOverride: null, q: '', country: 'all', market: 'All markets', group: 'comp' };
+  }
+  renderVals() {
+    // ===== THEME — one token set shared by every SokaLens artboard =====
+    const THEMES = {
+      dark:  { bg: '#0E1411', surface: '#131B16', 'surface-2': '#16201A', 'surface-3': '#1C2620', 'surface-sunk': '#0F1712', bar: '#0B100D', hatch: '#18221C',
+               line: '#243029', 'line-soft': '#1F2A23', 'line-strong': '#2E3B34', 'line-stronger': '#3B4741', 'line-heavy': '#4A5750', tick: '#5A675F', deco: '#1E2922',
+               text: '#EEF2EC', 'text-2': '#DCE4DD', 'text-3': '#C9D2CB', 'text-4': '#B8C3BB', muted: '#A7B3AB', faint: '#8A968E' },
+      light: { bg: '#F8F9F7', surface: '#FFFFFF', 'surface-2': '#F0F7E8', 'surface-3': '#F1F3F0', 'surface-sunk': '#F4F6F3', bar: '#FFFFFF', hatch: '#E6E9E4',
+               line: '#E1E5DF', 'line-soft': '#ECEFEA', 'line-strong': '#D1D7CF', 'line-stronger': '#BDC4BB', 'line-heavy': '#9AA39A', tick: '#7F8A80', deco: '#EBEEE9',
+               text: '#111812', 'text-2': '#1D271F', 'text-3': '#364238', 'text-4': '#445047', muted: '#56635A', faint: '#66736A' }
+    };
+    const themeName = (this.state && this.state.themeOverride) || this.props.theme || 'dark';
+    const isDark = themeName !== 'light';
+    const tokens = THEMES[isDark ? 'dark' : 'light'];
+    // Light theme gets its own deeper greens — bright lime is only 1.3:1 on white.
+    const LIGHT_GREENS = { '#C8F169': { fill: '#4C9F16', ink: '#2F6B0A' } };
+    const accentRaw = this.props.accent ?? '#C8F169';
+    const awayRaw = this.props.awayColor ?? '#8FB8FF';
+    const lg = LIGHT_GREENS[String(accentRaw).toUpperCase()];
+    const accentFill = isDark ? accentRaw : (lg ? lg.fill : accentRaw);
+    const accentInk = isDark ? accentRaw : (lg ? lg.ink : 'color-mix(in oklab, ' + accentRaw + ' 42%, #0E1411)');
+    const awayFill = isDark ? awayRaw : (String(awayRaw).toUpperCase() === '#8FB8FF' ? '#3D7BE0' : awayRaw);
+    const awayInk = isDark ? awayRaw : (String(awayRaw).toUpperCase() === '#8FB8FF' ? '#1F5BBF' : 'color-mix(in oklab, ' + awayRaw + ' 55%, #0E1411)');
+    const rootVars = Object.keys(tokens).map((k) => '--' + k + ': ' + tokens[k]).join('; ')
+      + '; --accent: ' + accentFill + '; --accent-ink: ' + accentInk
+      + '; --away: ' + awayFill + '; --away-ink: ' + awayInk
+      + '; --on-accent: #0E1411'
+      + '; color-scheme: ' + (isDark ? 'dark' : 'light');
+    const themeSuffix = isDark ? '' : 'Light';
+    const THEME_VALS = {
+      ads: { on: (this.props.ads || 'filled') !== 'empty' },
+      themeClass: isDark ? 'sl-dark' : 'sl-light', rootVars, isDark,
+      themeLabel: isDark ? 'Switch to light theme' : 'Switch to dark theme',
+      toggleTheme: () => this.setState({ themeOverride: isDark ? 'light' : 'dark' }),
+      links: { Acca: 'Acca' + themeSuffix + '.dc.html', AccaTablet: 'AccaTablet' + themeSuffix + '.dc.html', AccaMobile: 'AccaMobile' + themeSuffix + '.dc.html', AccaDetail: 'AccaDetail' + themeSuffix + '.dc.html', AccaDetailTablet: 'AccaDetailTablet' + themeSuffix + '.dc.html', AccaDetailMobile: 'AccaDetailMobile' + themeSuffix + '.dc.html', Home: 'Home' + themeSuffix + '.dc.html', HomeTablet: 'HomeTablet' + themeSuffix + '.dc.html', HomeMobile: 'HomeMobile' + themeSuffix + '.dc.html', Today: 'Today' + themeSuffix + '.dc.html', TodayTablet: 'TodayTablet' + themeSuffix + '.dc.html', TodayMobile: 'TodayMobile' + themeSuffix + '.dc.html', Builder: 'Builder' + themeSuffix + '.dc.html', BuilderTablet: 'BuilderTablet' + themeSuffix + '.dc.html', BuilderMobile: 'BuilderMobile' + themeSuffix + '.dc.html', InPlay: 'InPlay' + themeSuffix + '.dc.html', InPlayTablet: 'InPlayTablet' + themeSuffix + '.dc.html', InPlayMobile: 'InPlayMobile' + themeSuffix + '.dc.html', Main: 'Main' + themeSuffix + '.dc.html', Mobile: 'Mobile' + themeSuffix + '.dc.html', BuilderGen: 'BuilderGenerate' + themeSuffix + '.dc.html', BuilderGenTablet: 'BuilderTabletGenerate' + themeSuffix + '.dc.html', BuilderGenMobile: 'BuilderMobileGenerate' + themeSuffix + '.dc.html' }
+    };
+    // ===== end theme =====
+
+    const MATCH_PAGE = 'Main'; // match page artboard the rows open
+
+    // ===== TODAY DATA — one object per prediction (times UTC); conf is optional =====
+    const DAY_LABEL = 'Sun 27 Sep 2026';
+    const TOTALS = { fixtures: 165, predictions: 301, markets: 20 };
+    const DAYS = [['Today', '27'], ['Mon', '28'], ['Tue', '29'], ['Wed', '30'], ['Thu', '1'], ['Fri', '2'], ['Sat', '3'], ['Sun', '4']];
+    const FIXTURES = [
+      { country: 'United States', league: 'Major League Soccer', time: '23:00', home: 'Columbus Crew', away: 'Inter Miami', pick: 'Home win', market: 'Match Result', conf: 51 },
+      { country: 'International', league: 'Africa Cup of Nations U20', time: '13:00', home: 'Tunisia U20', away: 'Morocco U20', pick: 'Home win', market: 'Match Result' },
+      { country: 'International', league: 'CONCACAF Nations League', time: '19:00', home: 'Guyana', away: 'Cayman Islands', pick: 'Home win', market: 'Match Result' },
+      { country: 'International', league: 'CONCACAF Nations League', time: '23:00', home: 'Haiti', away: 'Costa Rica', pick: 'Home win', market: 'Match Result' },
+      { country: 'International', league: 'COSAFA U20 Championship', time: '13:00', home: 'Zambia U20', away: 'Namibia U20', pick: 'Home win', market: 'Match Result' },
+      { country: 'International', league: 'COSAFA U20 Championship', time: '16:30', home: 'South Africa U20', away: 'Mozambique U20', pick: 'Home win', market: 'Match Result' },
+      { country: 'International', league: 'FIFA Asean Cup', time: '07:00', home: 'Cambodia', away: 'Myanmar', pick: 'Home win', market: 'Match Result' },
+      { country: 'International', league: 'FIFA Asean Cup', time: '07:00', home: 'Hong Kong', away: 'Laos', pick: 'Home win', market: 'Match Result' },
+      { country: 'International', league: 'FIFA Asean Cup', time: '10:00', home: 'Cambodia', away: 'Myanmar', pick: 'Home win', market: 'Match Result' },
+      { country: 'International', league: 'FIFA Asean Cup', time: '10:00', home: 'Hong Kong', away: 'Laos', pick: 'Home win', market: 'Match Result' },
+      { country: 'International', league: 'Friendlies', time: '20:30', home: 'Bolivia', away: 'Paraguay', pick: 'Away win', market: 'Match Result' },
+      { country: 'International', league: 'Friendlies', time: '23:35', home: 'China', away: 'New Zealand', pick: 'Home win', market: 'Match Result', conf: 49 },
+      { country: 'International', league: 'Gulf Cup of Nations', time: '15:00', home: 'Yemen', away: 'Qatar', pick: 'Home win', market: 'Match Result' },
+      { country: 'International', league: 'Gulf Cup of Nations', time: '18:00', home: 'Bahrain', away: 'United Arab Emirates', pick: 'Away win', market: 'Match Result' },
+      { country: 'International', league: 'UEFA Nations League', time: '18:45', home: 'Germany', away: 'Greece', pick: 'Home win', market: 'Match Result' },
+      { country: 'International', league: 'UEFA Nations League', time: '18:45', home: 'Israel', away: 'Rep. Of Ireland', pick: 'Away win', market: 'Match Result' },
+      { country: 'International', league: 'UEFA Nations League', time: '18:45', home: 'Norway', away: 'Portugal', pick: 'Home win', market: 'Match Result' },
+      { country: 'England', league: 'Premiership Women', time: '15:30', home: 'Glentoran BU W', away: 'Lisburn Ladies W', pick: 'Home win', market: 'Match Result' },
+      { country: 'Spain', league: 'Primera División RFEF Group 2', time: '18:30', home: 'Real Madrid II', away: 'Alcorcon', pick: 'Away win', market: 'Match Result' }
+    ];
+    const MARKETS = ['All markets','Match Result','Both Teams to Score','BTTS & Match Result','BTTS & Total Goals','Double Chance','Draw No Bet','Half-Time Result','Highest Scoring Half','Odd/Even Goals','Result & Total Goals','Shots on Target','Away Team Corners','Home Team Corners','Team to Score First','Total Cards','Total Corners','Total Fouls','Total Goals','Total Shots'];
+    // ===== end today data =====
+
+    const st = this.state;
+    const q = (st.q || '').trim().toLowerCase();
+    const matchLink = (MATCH_PAGE || 'Main') + themeSuffix + '.dc.html';
+    const box = (on) => on
+      ? 'background: var(--accent); color: var(--on-accent); border: 1px solid var(--accent)'
+      : 'background: transparent; color: var(--faint); border: 1px solid var(--line-strong)';
+    const shaped = FIXTURES.map((f, i) => {
+      const side = f.pick === 'Home win' ? 'home' : f.pick === 'Away win' ? 'away' : 'draw';
+      return { ...f, id: i, side, hasConf: f.conf != null, confLabel: f.conf != null ? f.conf + '%' : '', link: matchLink,
+        outcomes: [{ k: '1', label: 'Home', style: box(side === 'home') }, { k: 'X', label: 'Draw', style: box(side === 'draw') }, { k: '2', label: 'Away', style: box(side === 'away') }] };
+    });
+    const visible = shaped.filter((f) =>
+      (st.country === 'all' || f.country === st.country) &&
+      (st.market === 'All markets' || f.market === st.market) &&
+      (!q || (f.home + ' ' + f.away + ' ' + f.league + ' ' + f.country).toLowerCase().includes(q)));
+    let groups = [];
+    if (st.group === 'time') {
+      const rows = visible.slice().sort((a, b) => a.time.localeCompare(b.time)).map((r) => ({ ...r, showLeague: true }));
+      if (rows.length) groups = [{ title: 'By kick-off time', count: rows.length + (rows.length === 1 ? ' prediction' : ' predictions'), leagues: [{ name: '', hasName: false, rows }] }];
+    } else {
+      visible.forEach((f) => {
+        let g = groups.find((x) => x.title === f.country);
+        if (!g) { g = { title: f.country, leagues: [] }; groups.push(g); }
+        let l = g.leagues.find((x) => x.name === f.league);
+        if (!l) { l = { name: f.league, hasName: true, rows: [] }; g.leagues.push(l); }
+        l.rows.push({ ...f, showLeague: false });
+      });
+      groups.forEach((g) => { const n = g.leagues.reduce((s, l) => s + l.rows.length, 0); g.count = n + (n === 1 ? ' prediction' : ' predictions'); });
+    }
+    groups.forEach((g, i) => { g.adAfter = i === 1 && groups.length > 2; });
+    const split = ['home', 'draw', 'away'].map((k) => {
+      const n = visible.filter((f) => f.side === k).length;
+      return { label: k === 'home' ? 'Home win' : k === 'draw' ? 'Draw' : 'Away win', n, pct: visible.length ? Math.round(n / visible.length * 100) : 0 };
+    });
+    const toggle = (key, label) => ({ label, pressed: st.group === key ? 'true' : 'false',
+      style: st.group === key ? 'background: var(--accent); color: var(--on-accent)' : 'background: transparent; color: var(--text-3)',
+      pick: () => this.setState({ group: key }) });
+    const TODAY_VALS = {
+      dayLabel: DAY_LABEL, totals: TOTALS,
+      days: DAYS.map(([d, n], i) => ({ d, n, current: i === 0 ? 'page' : 'false',
+        style: i === 0 ? 'background: var(--accent); color: var(--on-accent); border: 1px solid var(--accent)' : 'background: transparent; color: var(--text-3); border: 1px solid var(--line-strong)' })),
+      groups, isEmpty: visible.length === 0,
+      countLine: 'Showing ' + visible.length + ' of ' + TOTALS.predictions + ' predictions',
+      split, listed: visible.length,
+      groupToggles: [toggle('comp', 'Competition'), toggle('time', 'Kick-off')],
+      countryOptions: [{ value: 'all', label: 'All countries' }].concat([...new Set(FIXTURES.map((f) => f.country))].map((c) => ({ value: c, label: c }))),
+      marketOptions: MARKETS, q: st.q, country: st.country, market: st.market,
+      onQuery: (e) => this.setState({ q: e.target.value }),
+      onCountry: (e) => this.setState({ country: e.target.value }),
+      onMarket: (e) => this.setState({ market: e.target.value }),
+      reset: () => this.setState({ q: '', country: 'all', market: 'All markets' })
+    };
+
+    return {
+      ...THEME_VALS, isLight: !isDark,
+      ...TODAY_VALS
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+DROP TRIGGER IF EXISTS ops_component_version_heads_require_transition ON ops_component_version_heads;
+DROP FUNCTION IF EXISTS require_component_version_transition();
+DROP TRIGGER IF EXISTS ops_component_version_heads_no_delete ON ops_component_version_heads;
+DROP TRIGGER IF EXISTS ops_component_version_transitions_immutable ON ops_component_version_transitions;
+DROP TRIGGER IF EXISTS ops_component_versions_immutable ON ops_component_versions;
+DROP FUNCTION IF EXISTS reject_component_version_evidence_mutation();
+DROP TABLE IF EXISTS ops_component_version_transitions;
+DROP TABLE IF EXISTS ops_component_version_heads;
+DROP TABLE IF EXISTS ops_component_versions;

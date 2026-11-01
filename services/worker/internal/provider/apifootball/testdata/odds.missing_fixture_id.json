@@ -1,0 +1,29 @@
+{
+  "get": "odds",
+  "parameters": {},
+  "errors": [],
+  "results": 1,
+  "paging": {
+    "current": 1,
+    "total": 1
+  },
+  "response": [
+    {
+      "league": {
+        "id": 39,
+        "name": "Premier League",
+        "season": 2025
+      },
+      "fixture": {
+        "date": "2026-01-04T16:30:00+00:00"
+      },
+      "bookmakers": [
+        {
+          "id": 8,
+          "name": "Bet365",
+          "bets": []
+        }
+      ]
+    }
+  ]
+}

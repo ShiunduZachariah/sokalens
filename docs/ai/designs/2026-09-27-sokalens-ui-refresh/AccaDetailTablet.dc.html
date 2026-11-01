@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ACCA detail · tablet</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}a:hover{color:var(--accent-ink)}
+button{font-family:inherit;cursor:pointer}
+</style>
+</helmet>
+<div class="{{themeClass}}" style="{{rootVars}}; width: 834px; height: 2616px; box-sizing: border-box; overflow-y: auto; background: var(--bg); color: var(--text); font-family: Archivo, 'Helvetica Neue', sans-serif; display: flex; flex-direction: column">
+
+<!-- NAV -->
+<header style="flex-shrink: 0; height: 64px; box-sizing: border-box; padding: 0 32px; display: flex; align-items: center; gap: 28px; border-bottom: 1px solid var(--line)">
+<a href="#" style="display: flex; align-items: center; gap: 8px">
+<svg width="26" height="26" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="14" cy="14" r="11"></circle><circle cx="14" cy="14" r="4" style="fill: var(--accent-ink); stroke: var(--accent-ink)"></circle><path d="M14 1v5M14 22v5M1 14h5M22 14h5"></path></svg>
+<span style="font-size: 22px; font-weight: 800; font-stretch: 75%; text-transform: uppercase">SokaLens</span>
+</a>
+<nav aria-label="Main" style="flex-grow: 1; display: flex; gap: 20px; font-size: 14px; font-weight: 500">
+<a href="{{links.HomeTablet}}" style="color: var(--muted)">Home</a>
+<a href="{{links.TodayTablet}}" style="color: var(--muted)">Predictions</a>
+<a href="{{links.InPlayTablet}}" style="color: var(--muted)">In-play</a>
+<a href="{{links.AccaTablet}}" style="color: var(--text); box-shadow: inset 0 -2px 0 var(--accent-ink); padding-bottom: 4px">ACCAs</a>
+<a href="{{links.BuilderTablet}}" style="color: var(--muted)">Builder</a>
+</nav>
+<button aria-label="{{themeLabel}}" onClick="{{toggleTheme}}" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid var(--line-strong); border-radius: 8px; color: var(--text)">
+<sc-if value="{{isDark}}" hint-placeholder-val="{{ true }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></sc-if>
+<sc-if value="{{isLight}}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"></path></svg></sc-if>
+</button>
+<button aria-label="Language: English" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid var(--line-strong); border-radius: 8px; color: var(--text)">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"></path></svg></button>
+<button style="height: 44px; padding: 0 16px; background: var(--text); color: var(--bg); border: 0; border-radius: 8px; font-size: 14px; font-weight: 600">Sign in</button>
+</header>
+<sc-if value="{{ads.on}}" hint-placeholder-val="{{ true }}">
+<div data-ad-slot="top" data-ad-size="728x90" role="complementary" aria-label="Advertisement" style="flex-shrink: 0; padding: 12px 32px 0; display: flex; flex-direction: column; align-items: center; gap: 6px">
+<span style="font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint)">Advertisement</span>
+<div style="width: 728px; max-width: 100%; height: 90px; box-sizing: border-box; border: 1px dashed var(--line-stronger); border-radius: 6px; background: repeating-linear-gradient(135deg, transparent 0 9px, var(--hatch) 9px 10px); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted)">top · 728×90</div>
+</div>
+</sc-if>
+
+
+<main style="flex-grow: 1; display: flex; flex-direction: column">
+
+<!-- HEADER -->
+<section style="padding: 28px 32px 32px; display: flex; flex-direction: column; gap: 18px">
+<nav aria-label="Breadcrumb" style="display: flex; gap: 10px; align-items: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted)">
+<a href="{{links.AccaTablet}}" style="display: flex; align-items: center; gap: 6px; color: var(--muted)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"></path></svg>ACCA predictions</a>
+<span aria-hidden="true">/</span><span style="color: var(--text)">ACCA {{t.num}}</span>
+</nav>
+<div style="display: flex; align-items: center; gap: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">
+<span style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent)"></span>System-generated · {{t.window}} · UTC</div>
+<h1 style="margin: 0; font-size: 72px; line-height: 0.88; font-weight: 900; font-stretch: 62%; text-transform: uppercase">{{t.legCount}}-leg <span style="color: var(--accent-ink)">{{t.market}}</span></h1>
+<div aria-hidden="true" style="display: flex; gap: 4px">
+<sc-for list="{{t.segments}}" as="s" hint-placeholder-count="8"><div style="flex-grow: 1; height: 6px; border-radius: 3px; background: var(--accent)"></div></sc-for>
+</div>
+</section>
+
+<!-- SUMMARY -->
+<section style="margin: 0 32px; padding: 24px; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 20px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">Combined fair odds</span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 52px; line-height: 1; font-weight: 500; color: var(--accent-ink)">{{t.oddsLabel}}</span>
+</div>
+<div role="group" aria-label="Odds format" style="display: flex; gap: 4px; padding: 4px; background: var(--bg); border: 1px solid var(--line-strong); border-radius: 10px">
+<sc-for list="{{formats}}" as="f" hint-placeholder-count="3">
+<button aria-pressed="{{f.pressed}}" onClick="{{f.pick}}" style="{{f.style}}; height: 38px; padding: 0 14px; border: 0; border-radius: 7px; font-size: 14px; font-weight: 600">{{f.label}}</button>
+</sc-for>
+</div>
+</div>
+<dl style="margin: 0; padding-top: 18px; border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 4px"><dt style="font-size: 12px; color: var(--muted)">Implied chance</dt><dd style="margin: 0; font-family: 'IBM Plex Mono', monospace; font-size: 18px">≈ {{t.implied}}</dd></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><dt style="font-size: 12px; color: var(--muted)">Legs</dt><dd style="margin: 0; font-family: 'IBM Plex Mono', monospace; font-size: 18px">{{t.legCount}}</dd></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><dt style="font-size: 12px; color: var(--muted)">First kick-off</dt><dd style="margin: 0; font-family: 'IBM Plex Mono', monospace; font-size: 14px">{{t.first}}</dd></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><dt style="font-size: 12px; color: var(--muted)">Last kick-off</dt><dd style="margin: 0; font-family: 'IBM Plex Mono', monospace; font-size: 14px">{{t.last}}</dd></div>
+</dl>
+<div style="display: flex; gap: 10px">
+<a href="{{links.BuilderTablet}}" style="flex-grow: 1; height: 50px; display: flex; align-items: center; justify-content: center; gap: 8px; background: var(--accent); color: var(--on-accent); border-radius: 10px; font-size: 16px; font-weight: 700">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Add ACCA to Builder</a>
+<button aria-label="Share this ACCA" style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background: transparent; color: var(--text); border: 1px solid var(--line-stronger); border-radius: 10px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="18" cy="5" r="2.5"></circle><circle cx="6" cy="12" r="2.5"></circle><circle cx="18" cy="19" r="2.5"></circle><path d="M8.2 10.9l7.6-4.6M8.2 13.1l7.6 4.6"></path></svg></button>
+</div>
+</section>
+
+<!-- LEGS -->
+<section style="padding: 40px 32px 0; display: flex; flex-direction: column; gap: 24px">
+<div style="display: flex; justify-content: space-between; align-items: baseline">
+<h2 style="margin: 0; font-size: 32px; line-height: 1; font-weight: 800; font-stretch: 66%; text-transform: uppercase">Every leg</h2>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted)">By kick-off · chance = 1 ÷ fair odds</span>
+</div>
+<sc-for list="{{t.days}}" as="d" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column">
+<div style="padding-bottom: 10px; display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid var(--line-stronger)">
+<h3 style="margin: 0; font-size: 15px; font-weight: 700">{{d.label}}</h3>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted)">{{d.count}}</span>
+</div>
+<ol style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column">
+<sc-for list="{{d.legs}}" as="l" hint-placeholder-count="3">
+<li style="min-height: 76px; box-sizing: border-box; padding: 12px 0; display: grid; grid-template-columns: 46px minmax(0, 1fr) 160px 64px; gap: 14px; align-items: center; border-bottom: 1px solid var(--line-soft)">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">{{l.time}}</span>
+<a href="#" style="display: flex; flex-direction: column; gap: 3px; min-width: 0">
+<span style="font-size: 15px; font-weight: 600; line-height: 1.3">{{l.home}} <span style="font-weight: 400; color: var(--faint)">v</span> {{l.away}}</span>
+<span style="font-size: 12px; color: var(--muted)">{{l.league}}</span>
+</a>
+<div style="display: flex; flex-direction: column; gap: 3px">
+<span style="font-size: 11px; color: var(--faint)">{{l.market}}</span>
+<span style="font-size: 14px; font-weight: 600; color: var(--text-2)">{{l.pick}}</span>
+</div>
+<div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 500">{{l.oddsLabel}}</span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted)">≈ {{l.chance}}%</span>
+</div>
+</li>
+</sc-for>
+</ol>
+</div>
+</sc-for>
+</section>
+
+<sc-if value="{{ads.on}}" hint-placeholder-val="{{ true }}">
+<div data-ad-slot="in-feed" data-ad-size="728x90" role="complementary" aria-label="Advertisement" style="padding: 28px 32px 0; display: flex; flex-direction: column; align-items: center; gap: 6px">
+<span style="font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint)">Advertisement</span>
+<div style="width: 728px; max-width: 100%; height: 90px; box-sizing: border-box; border: 1px dashed var(--line-stronger); border-radius: 6px; background: repeating-linear-gradient(135deg, transparent 0 9px, var(--hatch) 9px 10px); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted)">in-feed · 728×90</div>
+</div>
+</sc-if>
+<!-- NEXT -->
+<section style="padding: 56px 32px 0">
+<div style="padding: 24px 28px; border: 1px solid var(--line); border-radius: 16px; display: flex; flex-direction: column; gap: 16px">
+<h2 style="margin: 0; font-size: 34px; line-height: 0.95; font-weight: 900; font-stretch: 62%; text-transform: uppercase">Browse the other ACCAs</h2>
+<p style="margin: 0; font-size: 15px; line-height: 1.5; color: var(--text-3)">More legs add uncertainty, so every bundle is framed as analysis — never a guaranteed outcome.</p>
+<div style="display: flex; gap: 12px">
+<a href="{{links.AccaTablet}}" style="height: 48px; padding: 0 22px; display: flex; align-items: center; border: 1px solid var(--line-stronger); border-radius: 10px; font-size: 15px; font-weight: 600">All ACCAs</a>
+<a href="{{links.BuilderTablet}}" style="height: 48px; padding: 0 22px; display: flex; align-items: center; background: var(--text); color: var(--bg); border-radius: 10px; font-size: 15px; font-weight: 700">Build your own</a>
+</div>
+</div>
+</section>
+
+</main>
+
+<footer style="flex-shrink: 0; margin-top: 64px; padding: 28px 32px 32px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px; font-size: 13px; line-height: 1.5; color: var(--muted)">
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="font-size: 20px; font-weight: 800; font-stretch: 75%; text-transform: uppercase; color: var(--text)">SokaLens</span>
+<span style="padding: 3px 7px; border: 1.5px solid var(--text); border-radius: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; color: var(--text)">18+</span>
+</div>
+<span>© 2026 SokaLens. Predictions are statistical estimates, not guaranteed outcomes. SokaLens is not a bookmaker and accepts no stakes. Bet responsibly.</span>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"ads":{"editor":"enum","options":["filled","empty"],"default":"filled","section":"Ads"},"theme":{"editor":"enum","options":["dark","light"],"default":"dark","section":"Look"},"accaNumber":{"editor":"int","default":1,"min":1,"max":10,"section":"ACCA"},"accent":{"editor":"color","default":"#C8F169","options":["#C8F169","#5EE6C1","#FFB547","#F2F2EC"],"section":"Look"},"$preview":{"width":834,"height":2616}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { themeOverride: null, fmt: 'decimal' };
+  }
+  renderVals() {
+    // ===== THEME — one token set shared by every SokaLens artboard =====
+    const THEMES = {
+      dark:  { bg: '#0E1411', surface: '#131B16', 'surface-2': '#16201A', 'surface-3': '#1C2620', 'surface-sunk': '#0F1712', bar: '#0B100D', hatch: '#18221C',
+               line: '#243029', 'line-soft': '#1F2A23', 'line-strong': '#2E3B34', 'line-stronger': '#3B4741', 'line-heavy': '#4A5750', tick: '#5A675F', deco: '#1E2922',
+               text: '#EEF2EC', 'text-2': '#DCE4DD', 'text-3': '#C9D2CB', 'text-4': '#B8C3BB', muted: '#A7B3AB', faint: '#8A968E' },
+      light: { bg: '#F8F9F7', surface: '#FFFFFF', 'surface-2': '#F0F7E8', 'surface-3': '#F1F3F0', 'surface-sunk': '#F4F6F3', bar: '#FFFFFF', hatch: '#E6E9E4',
+               line: '#E1E5DF', 'line-soft': '#ECEFEA', 'line-strong': '#D1D7CF', 'line-stronger': '#BDC4BB', 'line-heavy': '#9AA39A', tick: '#7F8A80', deco: '#EBEEE9',
+               text: '#111812', 'text-2': '#1D271F', 'text-3': '#364238', 'text-4': '#445047', muted: '#56635A', faint: '#66736A' }
+    };
+    const themeName = (this.state && this.state.themeOverride) || this.props.theme || 'dark';
+    const isDark = themeName !== 'light';
+    const tokens = THEMES[isDark ? 'dark' : 'light'];
+    // Light theme gets its own deeper greens — bright lime is only 1.3:1 on white.
+    const LIGHT_GREENS = { '#C8F169': { fill: '#4C9F16', ink: '#2F6B0A' } };
+    const accentRaw = this.props.accent ?? '#C8F169';
+    const awayRaw = this.props.awayColor ?? '#8FB8FF';
+    const lg = LIGHT_GREENS[String(accentRaw).toUpperCase()];
+    const accentFill = isDark ? accentRaw : (lg ? lg.fill : accentRaw);
+    const accentInk = isDark ? accentRaw : (lg ? lg.ink : 'color-mix(in oklab, ' + accentRaw + ' 42%, #0E1411)');
+    const awayFill = isDark ? awayRaw : (String(awayRaw).toUpperCase() === '#8FB8FF' ? '#3D7BE0' : awayRaw);
+    const awayInk = isDark ? awayRaw : (String(awayRaw).toUpperCase() === '#8FB8FF' ? '#1F5BBF' : 'color-mix(in oklab, ' + awayRaw + ' 55%, #0E1411)');
+    const rootVars = Object.keys(tokens).map((k) => '--' + k + ': ' + tokens[k]).join('; ')
+      + '; --accent: ' + accentFill + '; --accent-ink: ' + accentInk
+      + '; --away: ' + awayFill + '; --away-ink: ' + awayInk
+      + '; --on-accent: #0E1411'
+      + '; color-scheme: ' + (isDark ? 'dark' : 'light');
+    const themeSuffix = isDark ? '' : 'Light';
+    const THEME_VALS = {
+      ads: { on: (this.props.ads || 'filled') !== 'empty' },
+      themeClass: isDark ? 'sl-dark' : 'sl-light', rootVars, isDark,
+      themeLabel: isDark ? 'Switch to light theme' : 'Switch to dark theme',
+      toggleTheme: () => this.setState({ themeOverride: isDark ? 'light' : 'dark' }),
+      links: { Acca: 'Acca' + themeSuffix + '.dc.html', AccaTablet: 'AccaTablet' + themeSuffix + '.dc.html', AccaMobile: 'AccaMobile' + themeSuffix + '.dc.html', AccaDetail: 'AccaDetail' + themeSuffix + '.dc.html', AccaDetailTablet: 'AccaDetailTablet' + themeSuffix + '.dc.html', AccaDetailMobile: 'AccaDetailMobile' + themeSuffix + '.dc.html', Home: 'Home' + themeSuffix + '.dc.html', HomeTablet: 'HomeTablet' + themeSuffix + '.dc.html', HomeMobile: 'HomeMobile' + themeSuffix + '.dc.html', Today: 'Today' + themeSuffix + '.dc.html', TodayTablet: 'TodayTablet' + themeSuffix + '.dc.html', TodayMobile: 'TodayMobile' + themeSuffix + '.dc.html', Builder: 'Builder' + themeSuffix + '.dc.html', BuilderTablet: 'BuilderTablet' + themeSuffix + '.dc.html', BuilderMobile: 'BuilderMobile' + themeSuffix + '.dc.html', InPlay: 'InPlay' + themeSuffix + '.dc.html', InPlayTablet: 'InPlayTablet' + themeSuffix + '.dc.html', InPlayMobile: 'InPlayMobile' + themeSuffix + '.dc.html', Main: 'Main' + themeSuffix + '.dc.html', Mobile: 'Mobile' + themeSuffix + '.dc.html', BuilderGen: 'BuilderGenerate' + themeSuffix + '.dc.html', BuilderGenTablet: 'BuilderTabletGenerate' + themeSuffix + '.dc.html', BuilderGenMobile: 'BuilderMobileGenerate' + themeSuffix + '.dc.html' }
+    };
+    // ===== end theme =====
+
+    // ===== ACCA DATA — same format as the ACCA list page =====
+    const ACCAS = [
+      { market: 'Double Chance', odds: 27.90, legs: `New York Red Bulls|St. Louis City|Major League Soccer|2026-09-26 23:30|Double Chance|Draw or Away|1.27
+Swindon Town|Accrington ST|League Two|2026-09-26 14:00|Double Chance|Home or Draw|1.35
+Seattle Sounders|Minnesota United FC|Major League Soccer|2026-09-27 00:30|Double Chance|Home or Away|1.40
+Atletico Nacional|Millonarios|Primera A|2026-09-25 00:30|Double Chance|Home or Away|1.36
+Atlante FC|Monterrey|Liga MX|2026-09-26 01:00|Double Chance|Draw or Away|1.45
+Guadalajara Chivas|Club Queretaro|Liga MX|2026-09-26 23:07|Double Chance|Home or Draw|1.20
+Galway United|Shelbourne|Premier Division|2026-09-25 18:45|Double Chance|Home or Draw|1.31
+Atletico Nacional|Junior|Primera A|2026-10-01 01:00|Double Chance|Home or Draw|1.12
+Once Caldas|Bucaramanga|Primera A|2026-09-26 01:15|Double Chance|Home or Draw|1.36
+Philadelphia Union|Orlando City SC|Major League Soccer|2026-09-26 23:30|Double Chance|Home or Draw|1.16
+York|Gillingham|League Two|2026-09-26 14:00|Double Chance|Home or Away|1.43
+Sport Boys|Alianza Atletico|Copa De La Liga|2026-09-27 18:00|Double Chance|Home or Draw|1.16
+York United|Pacific FC|Canadian Premier League|2026-09-27 18:00|Double Chance|Home or Away|1.28` },
+      { market: 'Half-Time Result', odds: 135.31, legs: `Austin|San Diego|Major League Soccer|2026-09-27 00:30|Half-Time Result|Draw|2.23
+Cavalry FC|Supra du Quebec|Canadian Premier League|2026-09-26 01:00|Half-Time Result|Home|2.28
+Charlotte|Chicago Fire|Major League Soccer|2026-09-26 23:30|Half-Time Result|Draw|2.34
+Club Tijuana|Atlas|Liga MX|2026-09-26 03:00|Half-Time Result|Draw|2.51
+VfB Stuttgart|1. FC Heidenheim|Friendlies Clubs|2026-09-25 14:30|Half-Time Result|Draw|2.40
+U. Catolica|Union La Calera|Copa Chile|2026-09-26 23:00|Half-Time Result|Draw|1.88` },
+      { market: 'Half-Time Result', odds: 5.24, legs: `Belgium|France|UEFA Nations League|2026-09-28 18:45|Half-Time Result|Draw|2.23
+Girona|Albacete|Segunda División|2026-09-25 18:30|Half-Time Result|Home|2.35` },
+      { market: 'BTTS & Total Goals', odds: 410.22, legs: `Cambridge United|AFC Wimbledon|League One|2026-09-26 14:00|BTTS & Total Goals|No & Under 5.5|1.67
+FC Dallas|Los Angeles FC|Major League Soccer|2026-09-27 00:30|BTTS & Total Goals|No & Under 5.5|1.58
+Valladolid|Cordoba|Segunda División|2026-09-27 12:00|BTTS & Total Goals|Yes & Over 0.5|1.11
+Fleetwood Town|Rochdale|League Two|2026-09-26 14:00|BTTS & Total Goals|No & Under 5.5|1.47
+CRB|Cuiaba|Serie B|2026-09-27 19:00|BTTS & Total Goals|No & Under 5.5|1.63
+San Jose Earthquakes|Portland Timbers|Major League Soccer|2026-09-27 02:30|BTTS & Total Goals|Yes & Over 0.5|2.02
+Vancouver Whitecaps|DC United|Major League Soccer|2026-09-27 02:30|BTTS & Total Goals|No & Under 5.5|1.55
+Rubio NU|2 de Mayo|Division Profesional - Clausura|2026-09-26 19:30|BTTS & Total Goals|No & Under 5.5|1.28
+Girona|Albacete|Segunda División|2026-09-25 18:30|BTTS & Total Goals|No & Under 5.5|1.70
+Leicester|Wigan|League One|2026-09-26 14:00|BTTS & Total Goals|No & Under 5.5|1.63
+Philadelphia Union|Orlando City SC|Major League Soccer|2026-09-26 23:30|BTTS & Total Goals|Yes & Over 0.5|1.89
+Criciuma|Avai|Serie B|2026-09-27 14:00|BTTS & Total Goals|No & Under 5.5|1.24
+Tigres UANL|Puebla|Liga MX|2026-09-27 01:00|BTTS & Total Goals|No & Under 5.5|1.39
+Santos Laguna|CF Pachuca|Liga MX|2026-09-27 03:05|BTTS & Total Goals|No & Under 5.5|1.61` },
+      { market: 'Total Corners', odds: 80.78, legs: `Once Caldas|Bucaramanga|Primera A|2026-09-26 01:15|Total Corners|Under 10.5|1.12
+Leganes|Castellón|Segunda División|2026-09-28 18:30|Total Corners|Under 10.5|1.37
+Rubio NU|2 de Mayo|Division Profesional - Clausura|2026-09-26 19:30|Total Corners|Under 10.5|1.33
+Cheltenham|Chesterfield|League Two|2026-09-26 14:00|Total Corners|Under 10.5|1.38
+Operario-PR|Ceara|Serie B|2026-09-26 19:30|Total Corners|Over 7.5|1.37
+Libertad Asuncion|Olimpia|Division Profesional - Clausura|2026-09-30 20:00|Total Corners|Over 7.5|1.14
+Nautico Recife|Sport Recife|Serie B|2026-09-26 19:30|Total Corners|Over 7.5|1.22
+Houston Dynamo|Sporting Kansas City|Major League Soccer|2026-09-27 00:30|Total Corners|Under 10.5|1.23
+America Mineiro|Juventude|Serie B|2026-09-28 22:30|Total Corners|Under 10.5|1.39
+Girona|Albacete|Segunda División|2026-09-25 18:30|Total Corners|Over 7.5|1.36
+Nashville SC|Toronto FC|Major League Soccer|2026-09-27 00:30|Total Corners|Over 7.5|1.28
+Emmen|FC OSS|Eerste Divisie|2026-09-26 18:00|Total Corners|Over 7.5|1.19
+Atlanta United FC|New York City FC|Major League Soccer|2026-09-26 23:30|Total Corners|Over 7.5|1.43
+U.N.A.M. - Pumas|Atletico San Luis|Liga MX|2026-09-27 18:00|Total Corners|Under 10.5|1.25
+Tranmere|Walsall|League Two|2026-09-26 14:00|Total Corners|Under 10.5|1.38
+Doncaster|Oxford United|League One|2026-09-26 14:00|Total Corners|Under 10.5|1.33
+Rubio NU|2 de Mayo|Division Profesional - Clausura|2026-09-30 20:00|Total Corners|Under 10.5|1.33` },
+      { market: 'Away Team Corners', odds: 11.47, legs: `Junior|Independiente Medellin|Primera A|2026-09-27 01:20|Away Team Corners|Under 5.5|1.15
+DC United|SC Paderborn 07|Friendlies Clubs|2026-09-30 23:30|Away Team Corners|Over 3.5|1.36
+Girona|Albacete|Segunda División|2026-09-25 18:30|Away Team Corners|Over 3.5|1.34
+Cucuta|Llanos|Primera A|2026-09-26 23:15|Away Team Corners|Under 5.5|1.46
+Emmen|FC OSS|Eerste Divisie|2026-09-26 18:00|Away Team Corners|Under 5.5|1.42
+Belgium|France|UEFA Nations League|2026-09-28 18:45|Away Team Corners|Over 3.5|1.13
+Charlotte|Chicago Fire|Major League Soccer|2026-09-26 23:30|Away Team Corners|Under 5.5|1.23
+U.N.A.M. - Pumas|Atletico San Luis|Liga MX|2026-09-27 18:00|Away Team Corners|Under 5.5|1.16
+Sportivo Trinidense|Cerro Porteno|Division Profesional - Clausura|2026-09-26 22:00|Away Team Corners|Under 5.5|1.27
+Vancouver Whitecaps|DC United|Major League Soccer|2026-09-27 02:30|Away Team Corners|Over 3.5|1.29` },
+      { market: 'Home Team Corners', odds: 43.36, legs: `Stevenage|Sheffield Wednesday|League One|2026-09-26 14:00|Home Team Corners|Under 5.5|1.46
+U.N.A.M. - Pumas|Atletico San Luis|Liga MX|2026-09-27 18:00|Home Team Corners|Over 3.5|1.45
+New York Red Bulls|St. Louis City|Major League Soccer|2026-09-26 23:30|Home Team Corners|Over 3.5|1.34
+Tranmere|Walsall|League Two|2026-09-26 14:00|Home Team Corners|Under 5.5|1.12
+Everton de Vina|Universidad de Chile|Copa Chile|2026-09-24 23:30|Home Team Corners|Over 3.5|1.16
+Shrewsbury|Colchester|League Two|2026-09-26 14:00|Home Team Corners|Under 5.5|1.46
+Emmen|FC OSS|Eerste Divisie|2026-09-26 18:00|Home Team Corners|Over 3.5|1.15
+Goias|Atletico Goianiense|Serie B|2026-09-26 21:30|Home Team Corners|Over 3.5|1.29
+Bristol Rovers|Exeter City|League Two|2026-09-26 14:00|Home Team Corners|Over 3.5|1.23
+Vila Nova|Londrina|Serie B|2026-09-25 23:30|Home Team Corners|Over 3.5|1.27
+Charlotte|Chicago Fire|Major League Soccer|2026-09-26 23:30|Home Team Corners|Under 5.5|1.39
+Cavalry FC|Supra du Quebec|Canadian Premier League|2026-09-26 01:00|Home Team Corners|Over 3.5|1.27
+Rubio NU|2 de Mayo|Division Profesional - Clausura|2026-09-26 19:30|Home Team Corners|Under 5.5|1.36
+Doncaster|Oxford United|League One|2026-09-26 14:00|Home Team Corners|Under 5.5|1.46` },
+      { market: 'Total Goals', odds: 390.00, legs: `Mansfield Town|Leyton Orient|League One|2026-09-26 14:00|Total Goals|Over 2.5|2.10
+Tigres UANL|Puebla|Liga MX|2026-09-27 03:10|Total Goals|Under 2.5|1.20
+Atletico Nacional|Millonarios|Primera A|2026-09-25 00:30|Total Goals|Over 2.5|1.78
+Bristol Rovers|Exeter City|League Two|2026-09-26 14:00|Total Goals|Under 2.5|1.19
+Leganes|Castellón|Segunda División|2026-09-28 18:30|Total Goals|Under 2.5|1.72
+Belgium|France|UEFA Nations League|2026-09-28 18:45|Total Goals|Under 2.5|1.60
+Chico|Deportivo Pasto|Primera A|2026-09-25 23:10|Total Goals|Under 2.5|1.18
+Independiente Medellin|Millonarios|Primera A|2026-09-30 01:05|Total Goals|Over 2.5|1.27
+Criciuma|Avai|Serie B|2026-09-27 14:00|Total Goals|Under 2.5|1.15
+Fortaleza FC|Deportes Tolima|Primera A|2026-09-27 23:05|Total Goals|Under 2.5|1.39
+Sportivo Trinidense|Cerro Porteno|Division Profesional - Clausura|2026-09-26 22:00|Total Goals|Under 2.5|1.54
+Bradford|Barnsley|League One|2026-09-26 14:00|Total Goals|Under 2.5|1.68
+Leon|FC Juarez|Liga MX|2026-09-28 01:00|Total Goals|Under 2.5|1.67
+Atletico Nacional|Junior|Primera A|2026-10-01 01:00|Total Goals|Over 2.5|1.45
+Botafogo SP|Ponte Preta|Serie B|2026-09-29 22:30|Total Goals|Under 2.5|1.77` },
+      { market: 'BTTS & Match Result', odds: 120.41, legs: `New York Red Bulls|St. Louis City|Major League Soccer|2026-09-26 23:30|BTTS & Match Result|Away & No|3.12
+Houston Dynamo|Sporting Kansas City|Major League Soccer|2026-09-27 00:30|BTTS & Match Result|Home & No|2.47
+Vila Nova|Londrina|Serie B|2026-09-25 23:30|BTTS & Match Result|Home & Yes|2.56
+Oviedo|Sporting Gijon|Segunda División|2026-09-27 19:00|BTTS & Match Result|Draw & No|1.35
+Operario-PR|Ceara|Serie B|2026-09-26 19:30|BTTS & Match Result|Home & Yes|4.52` },
+      { market: 'Mixed', odds: 65.94, legs: `Necaxa|Club America|Liga MX|2026-09-28 03:00|Home Team Corners|Over 3.5|1.34
+ATK Mohun Bagan|NorthEast United|IFA Shield|2026-09-29 09:30|BTTS & Total Goals|No & Under 5.5|1.23
+Houston Dynamo|Sporting Kansas City|Major League Soccer|2026-09-27 00:30|Total Fouls|Over 18.5|1.24
+Atlanta United FC|New York City FC|Major League Soccer|2026-09-26 23:30|Odd/Even Goals|Even|1.84
+Leganes|Castellón|Segunda División|2026-09-28 18:30|Highest Scoring Half|First Half|2.77
+Crawley Town|Barnet|League Two|2026-09-26 11:30|Odd/Even Goals|Even|1.92
+AD Ceuta FC|Real Sociedad II|Segunda División|2026-09-26 12:00|Away Team Corners|Over 3.5|1.42
+Cruz Azul|Toluca|Liga MX|2026-09-26 22:50|Home Team Corners|Over 3.5|1.14
+Washington Spirit W|Angel City W|WNSL Women|2026-09-26 22:30|Double Chance|Draw or Away|1.27
+Cavalry FC|Supra du Quebec|Canadian Premier League|2026-09-26 01:00|Match Result|Home|1.61` }
+    ];
+    // ===== end of ACCA data =====
+
+    const accent = this.props.accent ?? '#C8F169';
+    const st = this.state;
+    const idx = Math.min(Math.max((this.props.accaNumber ?? 1), 1), ACCAS.length) - 1;
+    const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const gcd = (a, b) => b ? gcd(b, a % b) : a;
+    const fmtOdds = (d) => {
+      if (st.fmt === 'american') return d >= 2 ? '+' + Math.round((d - 1) * 100) : '-' + Math.round(100 / (d - 1));
+      if (st.fmt === 'fractional') {
+        const x = d - 1; let best = [Math.round(x), 1], err = Infinity;
+        for (let den = 1; den <= 20; den++) { const num = Math.round(x * den); const e = Math.abs(num / den - x); if (e < err - 1e-9) { err = e; best = [num, den]; } if (e <= x * 0.01) break; }
+        const g = gcd(best[0], best[1]) || 1; return (best[0] / g) + '/' + (best[1] / g);
+      }
+      return d.toFixed(2);
+    };
+    const A = ACCAS[idx];
+    const legs = A.legs.split('\n').map((line) => {
+      const [home, away, league, when, market, pick, odds] = line.split('|');
+      const o = parseFloat(odds);
+      const dt = new Date(when.replace(' ', 'T') + ':00Z');
+      return { home, away, league, market, pick, odds: o, dt, time: when.slice(11),
+        dayKey: when.slice(0, 10), chance: Math.round(100 / o), oddsLabel: fmtOdds(o),
+        pickLine: A.market === 'Mixed' ? market + ': ' + pick : pick };
+    }).sort((x, y) => x.dt - y.dt);
+    const dayLabel = (d) => DAYS[d.getUTCDay()] + ' ' + d.getUTCDate() + ' ' + MONTHS[d.getUTCMonth()];
+    const stamp = (d) => DAYS[d.getUTCDay()] + ' ' + d.getUTCDate() + ' ' + MONTHS[d.getUTCMonth()] + ', ' + d.toISOString().slice(11, 16);
+    const days = [];
+    legs.forEach((l) => {
+      let g = days[days.length - 1];
+      if (!g || g.key !== l.dayKey) { g = { key: l.dayKey, label: dayLabel(l.dt), legs: [] }; days.push(g); }
+      g.legs.push(l);
+    });
+    days.forEach((g) => { g.count = g.legs.length + (g.legs.length === 1 ? ' leg' : ' legs'); });
+    const first = legs[0].dt, last = legs[legs.length - 1].dt;
+    const md = (d) => MONTHS[d.getUTCMonth()] + ' ' + d.getUTCDate();
+    const imp = 100 / A.odds;
+
+    const FORMATS = [['decimal','Decimal'],['fractional','Fractional'],['american','American']];
+    return {
+      ...THEME_VALS, isLight: !isDark,
+      accent,
+      t: {
+        num: String(idx + 1).padStart(2, '0'), market: A.market, legCount: legs.length,
+        oddsLabel: fmtOdds(A.odds), implied: (imp < 1 ? imp.toFixed(2) : imp.toFixed(1)) + '%',
+        window: md(first) === md(last) ? md(first) : md(first) + ' – ' + md(last),
+        first: stamp(first), last: stamp(last),
+        segments: legs.map(() => ({})), days
+      },
+      formats: FORMATS.map(([key, label]) => ({
+        label, pressed: st.fmt === key ? 'true' : 'false',
+        style: st.fmt === key ? 'background: var(--accent); color: var(--on-accent)' : 'background: transparent; color: var(--text-3)',
+        pick: () => this.setState({ fmt: key })
+      }))
+    };
+  }
+}
+</script>
+</body>
+</html>

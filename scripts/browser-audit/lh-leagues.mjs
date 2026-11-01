@@ -1,0 +1,12 @@
+import lighthouse from "lighthouse";
+import * as chromeLauncher from "chrome-launcher";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
+const profile = join(process.cwd(), ".lh-profile-seo");
+mkdirSync(profile, { recursive: true });
+const chrome = await chromeLauncher.launch({ chromeFlags: ["--headless", "--no-sandbox"], userDataDir: profile });
+const result = await lighthouse("http://localhost:3000/leagues", { port: chrome.port, preset: "mobile", onlyCategories: ["seo", "accessibility", "performance", "best-practices"] }, null);
+await chrome.kill();
+const s = {};
+for (const [k, v] of Object.entries(result.lhr.categories)) s[k] = Math.round(v.score * 100);
+console.log(JSON.stringify(s));

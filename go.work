@@ -1,0 +1,9 @@
+go 1.27
+
+use (
+	./packages/ai-contract
+	./services/api
+	./services/ops-controller
+	./services/worker
+	./tools/release-manifest
+)

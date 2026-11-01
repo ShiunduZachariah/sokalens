@@ -1,0 +1,430 @@
+version: '3'
+
+vars:
+  API_DIR: services/api
+  OPS_CONTROLLER_DIR: services/ops-controller
+  WORKER_DIR: services/worker
+
+tasks:
+  account:seed:
+    desc: Idempotently create the configured local admin and Basic test accounts
+    cmds:
+      - go run ./services/api/cmd/seedaccounts
+
+  email:test:
+    desc: Send one transactional email using the configured backend provider
+    cmds:
+      - go run ./services/worker/cmd/emailtest
+  setup:
+    desc: Show local setup prerequisites.
+    cmds:
+      - go version
+      - node --version
+      - npm --version
+      - docker --version
+
+  api:test:
+    desc: Run Go API tests.
+    dir: '{{.API_DIR}}'
+    cmds:
+      - go test ./...
+
+  security-invariants:test:
+    desc: Run the permanent authentication, authorization, entitlement, and billing invariant battery.
+    dir: '{{.API_DIR}}'
+    cmds:
+      - go test -count=1 ./internal/securityinvariants
+
+  api:dev:
+    desc: Run Go API locally.
+    dir: '{{.API_DIR}}'
+    cmds:
+      - go run ./cmd/api
+
+  api:lint:
+    desc: Run Go API static checks available in the standard toolchain.
+    dir: '{{.API_DIR}}'
+    cmds:
+      - go vet ./...
+
+  api:build:
+    desc: Build Go API binary.
+    dir: '{{.API_DIR}}'
+    cmds:
+      - go build ./cmd/api
+
+  worker:test:
+    desc: Run Go worker tests.
+    dir: '{{.WORKER_DIR}}'
+    cmds:
+      - go test ./...
+
+  worker:dev:
+    desc: Run Go worker locally.
+    dir: '{{.WORKER_DIR}}'
+    cmds:
+      - go run ./cmd/worker
+
+  worker:lint:
+    desc: Run Go worker static checks available in the standard toolchain.
+    dir: '{{.WORKER_DIR}}'
+    cmds:
+      - go vet ./...
+
+  worker:build:
+    desc: Build Go worker binary.
+    dir: '{{.WORKER_DIR}}'
+    cmds:
+      - go build ./cmd/worker
+
+  ops-controller:test:
+    desc: Run observe-only operations controller tests.
+    dir: '{{.OPS_CONTROLLER_DIR}}'
+    cmds:
+      - go test ./...
+
+  ops-controller:lint:
+    desc: Run operations controller static checks.
+    dir: '{{.OPS_CONTROLLER_DIR}}'
+    cmds:
+      - go vet ./...
+
+  ops-controller:build:
+    desc: Build the operations controller binary.
+    dir: '{{.OPS_CONTROLLER_DIR}}'
+    cmds:
+      - go build ./cmd/ops-controller
+
+  ai-contract:test:
+    desc: Validate the redacted-evidence AI provider contract using zero-network mocks.
+    dir: packages/ai-contract
+    cmds:
+      - go test ./...
+
+  release-manifest:test:
+    desc: Validate immutable release-manifest sealing.
+    dir: tools/release-manifest
+    cmds:
+      - go test ./...
+
+  release-manifest:build:
+    desc: Build the immutable release-manifest tool.
+    dir: tools/release-manifest
+    cmds:
+      - go build ./cmd/release-manifest
+
+  architecture:test:
+    desc: Verify deterministic schema, v1 benchmark, and accumulator-correlation baselines.
+    cmds:
+      - python -m unittest discover -s tests/architecture -v
+      - python scripts/architecture/v1_benchmark.py --verify
+
+  architecture:migrations:verify:
+    desc: Verify additive engine and operations migrations through a disposable PostgreSQL up/down/up cycle.
+    cmds:
+      - python scripts/architecture/verify_additive_migrations.py
+
+  web:test:
+    desc: Run public web foundation checks.
+    cmds:
+      - npm --prefix apps/web run test
+      - node --test tests/web/phase3-verify.test.mjs
+
+  seo-invariants:test:
+    desc: Run the static SEO invariants gate (no network, no running site).
+    cmds:
+      - node apps/web/scripts/seo-invariants.mjs
+      - node --test apps/web/scripts/seo-invariants.test.mjs apps/web/app/i18n/canonical.test.mjs apps/web/app/i18n/i18n.test.mjs apps/web/app/sitemaps/fixtures.xml/route.test.mjs apps/web/scripts/dynamic-not-found-contract.test.mjs apps/web/app/lib/emailLinkParity.test.mjs apps/web/app/lib/sitemapSource.test.mjs apps/web/app/robots.test.mjs apps/web/app/predictions/todayCounts.test.mjs
+
+  web:lint:
+    desc: Run public web foundation lint.
+    cmds:
+      - npm --prefix apps/web run lint
+
+  web:build:
+    desc: Run public web foundation build.
+    cmds:
+      - npm --prefix apps/web run build
+
+  web:load:smoke:
+    desc: Run a lightweight public web route load smoke against a running web server.
+    cmds:
+      - node apps/web/scripts/load-smoke.mjs
+
+  web:load:k6:
+    desc: Run a k6 public web route load smoke against a running web server.
+    cmds:
+      - docker run --rm -e WEB_BASE_URL=http://host.docker.internal:3000 -v "${PWD}/tests/load:/scripts:ro" grafana/k6:latest run /scripts/public-web-smoke.js
+
+  admin:test:
+    desc: Run admin foundation checks.
+    cmds:
+      - npm --prefix apps/admin run test
+
+  admin:lint:
+    desc: Run admin foundation lint.
+    cmds:
+      - npm --prefix apps/admin run lint
+
+  admin:build:
+    desc: Run admin foundation build.
+    cmds:
+      - npm --prefix apps/admin run build
+
+  web:dev:
+    desc: Run public web locally.
+    cmds:
+      - npm --prefix apps/web run dev
+
+  admin:dev:
+    desc: Run admin locally.
+    cmds:
+      - npm --prefix apps/admin run dev -- --port 3001
+
+  mobile:test:
+    desc: Validate the Phase 1 Flutter mobile boundary.
+    cmds:
+      - node -e "const fs=require('node:fs'); if (!fs.existsSync('apps/mobile/README.md')) throw new Error('apps/mobile boundary is missing')"
+
+  model:test:
+    desc: Run offline model-lab/backtesting checks.
+    cmds:
+      - python -m unittest discover -s tests/model-lab -v
+      - python -m compileall -q services/model-lab tests/model-lab
+
+  prediction-engine:test:
+    desc: Run Python prediction-engine unittest and compile checks.
+    env:
+      PYTHONPATH: services/prediction-engine
+    cmds:
+      - python -m unittest discover -s tests/prediction-engine -v
+      - python -m compileall -q services/prediction-engine tests/prediction-engine
+
+  prediction-engine:run-historical:
+    desc: Dry-run the Python prediction engine against imported historical data without publishing replay rows.
+    env:
+      PYTHONPATH: services/prediction-engine
+      DATABASE_URL: '{{.DATABASE_URL | default "postgres://sports:sports@127.0.0.1:5433/sports_prediction?sslmode=disable"}}'
+    cmds:
+      - python -m prediction_engine.cli run-scope --scope historical --limit {{.LIMIT | default 1}}
+
+  prediction-engine:local-training-report:
+    desc: Run local Football-Data training/backtest report with tested/success/failure/hit-rate fields.
+    env:
+      PYTHONPATH: services/model-lab
+    cmds:
+      - python -m model_lab.football_data {{.TRAINING_DATA_PATH | default "Model-Training-Data"}} --train-fraction {{.TRAIN_FRACTION | default 0.7}}
+
+  db:migrate:
+    desc: Apply foundation migrations.
+    cmds:
+      - go run ./services/api/cmd/dbtool -env-file .env -mode up -migrations infra/db/migrations -timeout {{.DB_MIGRATION_TIMEOUT | default "5m"}}
+
+  db:rollback:
+    desc: Roll back foundation migrations.
+    cmds:
+      - go run ./services/api/cmd/dbtool -env-file .env -mode down -migrations infra/db/migrations -timeout {{.DB_MIGRATION_TIMEOUT | default "5m"}}
+
+  db:seed:
+    desc: Apply foundation seed data.
+    cmds:
+      - go run ./services/api/cmd/dbtool -env-file .env -mode seed -seed infra/db/seeds/001_foundation_seed.sql
+
+  db:verify:
+    desc: Verify foundation seed data exists in the local database.
+    cmds:
+      - go run ./services/api/cmd/dbtool -env-file .env -mode verify
+
+  db:verify:engine:
+    desc: Verify the prediction engine Section 3.1 database contract exists.
+    cmds:
+      - go run ./services/api/cmd/dbtool -env-file .env -mode verify-engine-contract
+
+  db:compact:predictions:
+    desc: Reclaim engine prediction storage after deduplication (exclusive maintenance lock).
+    cmds:
+      - go run ./services/api/cmd/dbtool -env-file .env -mode compact-predictions -timeout {{.DB_MAINTENANCE_TIMEOUT | default "10m"}}
+
+  db:import:football-data:
+    desc: Import local Football-Data CSVs into the prediction engine contract tables.
+    cmds:
+      - go run ./services/api/cmd/dbtool -mode import-football-data -football-data-path Model-Training-Data -football-data-season 2025-2026 -football-data-replace=true -timeout 5m
+
+  db:reset:
+    desc: Reset local Docker Postgres volume and reapply migrations/seeds.
+    cmds:
+      - docker compose --env-file .env.example -f infra/docker/docker-compose.yml down -v
+      - docker compose --env-file .env.example -f infra/docker/docker-compose.yml --profile core up -d postgres
+      - task: db:migrate
+      - task: db:seed
+      - task: db:verify
+      - task: db:verify:engine
+
+  contracts:lint:
+    desc: Validate foundation OpenAPI contract.
+    cmds:
+      - npm --prefix packages/contracts run validate
+
+  contracts:gen:
+    desc: Validate contract generation inputs.
+    cmds:
+      - npm --prefix packages/contracts run validate
+
+  contracts:test:
+    desc: Test foundation OpenAPI contract.
+    cmds:
+      - npm --prefix packages/contracts run validate
+
+  provider:mock:
+    desc: Start mock API-Football service.
+    cmds:
+      - docker compose --env-file .env.example -f infra/docker/docker-compose.yml --profile mock up -d mock-api-football
+
+  provider:mock:test:
+    desc: Smoke test the mock API-Football countries fixture and rate-limit headers.
+    cmds:
+      - powershell -NoProfile -Command '$r = Invoke-WebRequest -UseBasicParsing http://localhost:8090/countries; if ($r.StatusCode -ne 200) { throw "mock countries status failed" }; if ($r.Headers["x-ratelimit-requests-remaining"] -ne "99") { throw "mock rate-limit header missing" }; if ($r.Content -notmatch "Kenya") { throw "mock countries fixture missing Kenya" }'
+
+  provider:live:validate:
+    desc: Run one controlled API-Football countries request using .env credentials.
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -Command '$envFile = ".env"; if (!(Test-Path $envFile)) { throw ".env is required for live provider validation" }; Get-Content $envFile | ForEach-Object { if ($_ -match "^\s*#" -or $_ -notmatch "=") { return }; $name,$value = $_.Split("=",2); if ($name.Trim()) { [Environment]::SetEnvironmentVariable($name.Trim(), $value.Trim(), "Process") } }; [Environment]::SetEnvironmentVariable("FOOTBALL_PROVIDER", "api-football", "Process"); [Environment]::SetEnvironmentVariable("ENABLE_REAL_API_FOOTBALL_CALLS", "true", "Process"); go run ./services/worker/cmd/providercheck'
+
+  provider:football-data:live:validate:
+    desc: Run one controlled football-data.org competitions request using .env credentials.
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -Command '$envFile = ".env"; if (!(Test-Path $envFile)) { throw ".env is required for football-data.org validation" }; Get-Content $envFile | ForEach-Object { if ($_ -match "^\s*#" -or $_ -notmatch "=") { return }; $name,$value = $_.Split("=",2); if ($name.Trim()) { [Environment]::SetEnvironmentVariable($name.Trim(), $value.Trim(), "Process") } }; [Environment]::SetEnvironmentVariable("FOOTBALL_PROVIDER", "football-data-org", "Process"); [Environment]::SetEnvironmentVariable("ENABLE_REAL_FOOTBALL_DATA_ORG_CALLS", "true", "Process"); go run ./services/worker/cmd/providercheck'
+
+  provider:enqueue:countries:
+    desc: Queue the current bounded provider schedule (mock, single-provider, or hybrid).
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -Command '$envFile = ".env"; if (Test-Path $envFile) { Get-Content $envFile | ForEach-Object { if ($_ -match "^\s*#" -or $_ -notmatch "=") { return }; $name,$value = $_.Split("=",2); if ($name.Trim()) { [Environment]::SetEnvironmentVariable($name.Trim(), $value.Trim(), "Process") } } }; go run ./services/worker/cmd/enqueueprovider'
+
+  provider:run-once:
+    desc: Process queued provider ingestion jobs once with a bounded max-job count.
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -Command '$envFile = ".env"; if (Test-Path $envFile) { Get-Content $envFile | ForEach-Object { if ($_ -match "^\s*#" -or $_ -notmatch "=") { return }; $name,$value = $_.Split("=",2); if ($name.Trim()) { [Environment]::SetEnvironmentVariable($name.Trim(), $value.Trim(), "Process") } } }; go run ./services/worker/cmd/runprovider --max-jobs {{.MAX_JOBS | default 20}} --queues "{{.QUEUES | default ""}}"'
+
+  provider:enqueue:team-history:
+    desc: Queue API-Football team-history fixture backfill jobs for odds-backed upcoming teams.
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -Command '$envFile = ".env"; if (Test-Path $envFile) { Get-Content $envFile | ForEach-Object { if ($_ -match "^\s*#" -or $_ -notmatch "=") { return }; $name,$value = $_.Split("=",2); if ($name.Trim()) { [Environment]::SetEnvironmentVariable($name.Trim(), $value.Trim(), "Process") } } }; go run ./services/worker/cmd/enqueueteamhistory --last {{.LAST | default 15}} --max-teams {{.MAX_TEAMS | default 50}} --min-history {{.MIN_HISTORY | default 5}}'
+
+  provider:predictions:fetch:
+    desc: Fetch API-Football native predictions for upcoming fixtures we have not predicted.
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -Command '$envFile = ".env"; if (Test-Path $envFile) { Get-Content $envFile | ForEach-Object { if ($_ -match "^\s*#" -or $_ -notmatch "=") { return }; $name,$value = $_.Split("=",2); if ($name.Trim()) { [Environment]::SetEnvironmentVariable($name.Trim(), $value.Trim(), "Process") } } }; go run ./services/worker/cmd/fetchproviderpredictions'
+
+  search:sync:
+    desc: Rebuild the Typesense entities search collection from PostgreSQL canonical data.
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -Command '$envFile = ".env"; if (Test-Path $envFile) { Get-Content $envFile | ForEach-Object { if ($_ -match "^\s*#" -or $_ -notmatch "=") { return }; $name,$value = $_.Split("=",2); if ($name.Trim()) { [Environment]::SetEnvironmentVariable($name.Trim(), $value.Trim(), "Process") } } }; $env:TYPESENSE_URL = "http://localhost:8108"; go run ./services/api/cmd/syncsearchindex'
+
+  provider:test:
+    desc: Verify provider calls remain controlled by config and mock-first ingestion helpers.
+    dir: '{{.WORKER_DIR}}'
+    cmds:
+      - go test ./internal/config -run TestLoadRequiresAPIKeyWhenRealProviderCallsAreEnabled
+      - go test ./internal/provider/... ./internal/ingestion
+
+  prediction:run-once:
+    desc: Process queued prediction generation and settlement jobs once using local .env if present.
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -Command '$envFile = ".env"; if (Test-Path $envFile) { Get-Content $envFile | ForEach-Object { if ($_ -match "^\s*#" -or $_ -notmatch "=") { return }; $name,$value = $_.Split("=",2); if ($name.Trim()) { [Environment]::SetEnvironmentVariable($name.Trim(), $value.Trim(), "Process") } } }; go run ./services/worker/cmd/runpredictions'
+
+  load:smoke:
+    desc: Run a k6 health/readiness smoke test against the Docker Compose API.
+    cmds:
+      - docker run --rm --network sports-prediction-platform_default -e API_BASE_URL=http://api:8080 -v "${PWD}/tests/load:/scripts:ro" grafana/k6:latest run /scripts/health-smoke.js
+
+  load:api:slo:
+    desc: Load-test public read APIs against the 3s maximum latency and 0.5% error SLOs.
+    cmds:
+      - docker run --rm --network sports-prediction-platform_default -e API_BASE_URL=http://api:8080 -e API_LOAD_VUS={{.API_LOAD_VUS | default 25}} -e API_LOAD_DURATION={{.API_LOAD_DURATION | default "60s"}} -e API_LOAD_SLEEP={{.API_LOAD_SLEEP | default 0.1}} -e MATCH_ID={{.MATCH_ID | default ""}} -v "${PWD}/tests/load:/scripts:ro" grafana/k6:latest run /scripts/public-api-slo.js
+
+  load:account:slo:
+    desc: Load-test authenticated account/read APIs against the 3s maximum latency and 0.5% error SLOs.
+    cmds:
+      - docker run --rm --network sports-prediction-platform_default -e API_BASE_URL=http://api:8080 -e API_LOAD_VUS={{.API_LOAD_VUS | default 10}} -e API_LOAD_DURATION={{.API_LOAD_DURATION | default "30s"}} -e ACCOUNT_LOAD_EMAIL={{.ACCOUNT_LOAD_EMAIL}} -e ACCOUNT_LOAD_PASSWORD={{.ACCOUNT_LOAD_PASSWORD}} -e MATCH_ID={{.MATCH_ID | default "30984"}} -v "${PWD}/tests/load:/scripts:ro" grafana/k6:latest run /scripts/account-api-slo.js
+
+  stack:up:
+    desc: Start local Docker Compose stack.
+    cmds:
+      - docker compose --env-file .env.example -f infra/docker/docker-compose.yml --profile all up -d
+
+  stack:down:
+    desc: Stop local Docker Compose stack.
+    cmds:
+      - docker compose --env-file .env.example -f infra/docker/docker-compose.yml down
+
+  stack:ps:
+    desc: Show local Docker Compose services.
+    cmds:
+      - docker compose --env-file .env.example -f infra/docker/docker-compose.yml --profile all ps
+
+  stack:logs:
+    desc: Tail local Docker Compose logs.
+    cmds:
+      - docker compose --env-file .env.example -f infra/docker/docker-compose.yml --profile all logs -f
+
+  acca:qa:up:
+    desc: Start the isolated ACCA QA stack using Docker-only services.
+    cmds:
+      - powershell -NoProfile -Command 'if (!(Test-Path .env.acca-qa)) { throw ".env.acca-qa is required; copy .env.example and set ACCA_DB_SCHEMA=acca_qa, ACCA_REDIS_NAMESPACE=qa:acca, ACCA_INVENTORY_V2_ENABLED=true" }'
+      - docker compose --env-file .env.acca-qa -f infra/docker/docker-compose.yml up -d postgres redis api worker web
+
+  acca:qa:down:
+    desc: Stop and remove the isolated ACCA QA Docker stack (preserves volumes).
+    cmds:
+      - docker compose --env-file .env.acca-qa -f infra/docker/docker-compose.yml down
+
+  acca:qa:smoke:
+    desc: Smoke-test the isolated ACCA API and web through Docker-published ports.
+    cmds:
+      - powershell -NoProfile -Command '$api = Invoke-WebRequest -UseBasicParsing http://localhost:8080/healthz; if ($api.StatusCode -ne 200) { throw "API health failed" }; $web = Invoke-WebRequest -UseBasicParsing http://localhost:3000/acca-predictions; if ($web.StatusCode -ne 200) { throw "ACCA page failed" }; $gen = Invoke-WebRequest -UseBasicParsing http://localhost:3000/acca-generator; if ($gen.StatusCode -ne 200) { throw "Generator page failed" }; $acca = Invoke-WebRequest -UseBasicParsing "http://localhost:3000/api/accas?limit=3"; if ($acca.StatusCode -ne 200 -and $acca.StatusCode -ne 503) { throw "ACCA route failed" }; Write-Host "Docker ACCA QA smoke passed"'
+
+  test:
+    desc: Run current foundation tests.
+    cmds:
+      - task: api:test
+      - task: security-invariants:test
+      - task: worker:test
+      - task: ops-controller:test
+      - task: ai-contract:test
+      - task: release-manifest:test
+      - task: architecture:test
+      - task: web:test
+      - task: admin:test
+      - task: mobile:test
+      - task: model:test
+      - task: prediction-engine:test
+      - task: contracts:test
+      - task: provider:test
+
+  lint:
+    desc: Run current foundation lint checks.
+    cmds:
+      - task: api:lint
+      - task: worker:lint
+      - task: ops-controller:lint
+      - task: web:lint
+      - task: admin:lint
+      - task: contracts:lint
+
+  build:
+    desc: Run current foundation builds.
+    cmds:
+      - task: api:build
+      - task: worker:build
+      - task: ops-controller:build
+      - task: release-manifest:build
+      - task: web:build
+      - task: admin:build
+      - task: contracts:gen
+
+  ci:
+    desc: Run local CI-equivalent checks for the current foundation slice.
+    cmds:
+      - task: test
+      - task: lint
+      - task: build

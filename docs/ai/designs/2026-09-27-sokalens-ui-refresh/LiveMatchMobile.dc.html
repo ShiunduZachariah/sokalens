@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Live match · mobile</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}a:hover{color:var(--accent-ink)}
+button{font-family:inherit;cursor:pointer}
+@keyframes slpulse{0%{box-shadow:0 0 0 0 rgba(200,241,105,.55)}70%{box-shadow:0 0 0 8px rgba(200,241,105,0)}100%{box-shadow:0 0 0 0 rgba(200,241,105,0)}}
+</style>
+</helmet>
+<div class="{{themeClass}}" style="{{rootVars}}; position: relative; width: 390px; height: 3836px; box-sizing: border-box; overflow-y: auto; background: var(--bg); color: var(--text); font-family: Archivo, 'Helvetica Neue', sans-serif; display: flex; flex-direction: column">
+
+<!-- NAV -->
+<header style="flex-shrink: 0; height: 60px; box-sizing: border-box; padding: 0 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--line)">
+<a href="{{links.HomeMobile}}" style="display: flex; align-items: center; gap: 8px; flex-grow: 1">
+<svg width="24" height="24" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="14" cy="14" r="11"></circle><circle cx="14" cy="14" r="4" style="fill: var(--accent-ink); stroke: var(--accent-ink)"></circle><path d="M14 1v5M14 22v5M1 14h5M22 14h5"></path></svg>
+<span style="font-size: 21px; font-weight: 800; font-stretch: 75%; text-transform: uppercase">SokaLens</span>
+</a>
+<button aria-label="{{themeLabel}}" onClick="{{toggleTheme}}" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid var(--line-strong); border-radius: 8px; color: var(--text)">
+<sc-if value="{{isDark}}" hint-placeholder-val="{{ true }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></sc-if>
+<sc-if value="{{isLight}}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"></path></svg></sc-if>
+</button>
+<button aria-label="Language: English" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid var(--line-strong); border-radius: 8px; color: var(--text)">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"></path></svg></button>
+</header>
+
+<main style="flex-grow: 1; display: flex; flex-direction: column">
+
+<!-- SCOREBOARD -->
+<section style="padding: 14px 16px 18px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px">
+<nav aria-label="Breadcrumb" style="display: flex; gap: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden"><a href="{{links.InPlayMobile}}">In-play</a><span aria-hidden="true">/</span><span>{{m.league}}</span><span aria-hidden="true">/</span><span style="color: var(--text); overflow: hidden; text-overflow: ellipsis">{{home.name}} v {{away.name}}</span></nav>
+<div style="text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted)">{{m.league}} · {{m.round}}</div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 6px; align-items: start">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center">
+<div style="width: 52px; height: 52px; border-radius: 50%; border: 3px solid var(--accent-ink); display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800; font-stretch: 70%; color: var(--accent-ink)">{{home.initials}}</div>
+<span style="font-size: 18px; line-height: 1; font-weight: 800; font-stretch: 66%; text-transform: uppercase">{{home.name}}</span>
+<span style="min-height: 34px; font-size: 12px; line-height: 1.4; color: var(--muted)">{{scorersHome}}</span>
+</div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 10px; padding-top: 8px">
+<sc-if value="{{hasScore}}" hint-placeholder-val="{{ true }}"><div style="font-family: 'IBM Plex Mono', monospace; font-size: 44px; line-height: 1; font-weight: 600; letter-spacing: -0.02em; white-space: nowrap">{{scoreH}}<span style="margin: 0 0.18em; color: var(--faint)">–</span>{{scoreA}}</div></sc-if>
+<sc-if value="{{isPre}}" hint-placeholder-val="{{ false }}"><div aria-label="Kick-off {{koTime}} UTC" style="font-family: 'IBM Plex Mono', monospace; font-size: 44px; line-height: 1; font-weight: 500; letter-spacing: -0.02em; white-space: nowrap; color: var(--text-3)">{{koTime}}</div></sc-if>
+<sc-if value="{{isLive}}" hint-placeholder-val="{{ true }}"><span style="height: 30px; padding: 0 12px; display: flex; align-items: center; gap: 8px; background: var(--surface-2); border: 1.5px solid var(--accent-ink); border-radius: 999px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 700; color: var(--accent-ink); white-space: nowrap"><span style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: slpulse 1.6s infinite"></span>{{statusLabel}}</span></sc-if>
+<sc-if value="{{isFinished}}" hint-placeholder-val="{{ false }}"><span style="height: 30px; padding: 0 12px; display: flex; align-items: center; background: var(--surface-3); border-radius: 999px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 700; white-space: nowrap">{{statusLabel}}</span></sc-if>
+<sc-if value="{{isPre}}" hint-placeholder-val="{{ false }}"><span style="height: 30px; padding: 0 12px; display: flex; align-items: center; gap: 8px; background: transparent; border: 1.5px solid var(--line-strong); border-radius: 999px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 700; white-space: nowrap; color: var(--text-3)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>{{statusLabel}}</span></sc-if>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted)">{{htLabel}}</span>
+</div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center">
+<div style="width: 52px; height: 52px; border-radius: 50%; border: 3px solid var(--away-ink); display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800; font-stretch: 70%; color: var(--away-ink)">{{away.initials}}</div>
+<span style="font-size: 18px; line-height: 1; font-weight: 800; font-stretch: 66%; text-transform: uppercase">{{away.name}}</span>
+<span style="min-height: 34px; font-size: 12px; line-height: 1.4; color: var(--muted)">{{scorersAway}}</span>
+</div>
+</div>
+<div style="text-align: center; font-size: 12px; color: var(--muted)">{{m.venue}} · {{m.kickoff}}</div>
+<button onClick="{{goInplay}}" aria-label="Pre-match picks: {{sbPicksAria}}. Open the tracker" style="align-self: center; max-width: 100%; min-height: 44px; box-sizing: border-box; padding: 6px 8px 6px 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; background: var(--surface); color: var(--text); border: 1px solid var(--line-strong); border-radius: 999px"><span style="font-size: 13px; font-weight: 700">Pre-match picks</span><sc-for list="{{sbPicks}}" as="q" hint-placeholder-count="3"><span style="{{q.style}}; height: 26px; padding: 0 10px; display: flex; align-items: center; gap: 6px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap"><span style="font-family: 'IBM Plex Mono', monospace">{{q.n}}</span>{{q.label}}</span></sc-for><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="color: var(--muted)"><path d="M9 6l6 6-6 6"></path></svg></button>
+</section>
+
+<!-- TABS -->
+<nav role="tablist" aria-label="Match sections" style="flex-shrink: 0; position: sticky; top: 0; z-index: 3; padding: 0 16px; display: flex; gap: 20px; overflow-x: auto; background: var(--bg); border-bottom: 1px solid var(--line)">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+<button role="tab" aria-selected="{{t.selected}}" onClick="{{t.pick}}" style="{{t.style}}; flex-shrink: 0; height: 52px; padding: 0 4px; background: transparent; border: 0; font-size: 15px; font-weight: 700; white-space: nowrap">{{t.label}}</button>
+</sc-for>
+<a href="{{links.Mobile}}" style="flex-shrink: 0; height: 52px; padding: 0 4px; display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 700; color: var(--muted); white-space: nowrap">Pre-match analysis<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"></path></svg></a>
+</nav>
+
+<sc-if value="{{ads.on}}" hint-placeholder-val="{{ true }}">
+<div data-ad-slot="top" data-ad-size="320x50" role="complementary" aria-label="Advertisement" style="flex-shrink: 0; padding: 12px 16px 0; margin-bottom: -8px; display: flex; flex-direction: column; align-items: center; gap: 6px">
+<span style="font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint)">Advertisement</span>
+<div style="width: 320px; max-width: 100%; height: 50px; box-sizing: border-box; border: 1px dashed var(--line-stronger); border-radius: 6px; background: repeating-linear-gradient(135deg, transparent 0 9px, var(--hatch) 9px 10px); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted)">top · 320×50</div>
+</div>
+</sc-if>
+<!-- ================= SUMMARY ================= -->
+<sc-if value="{{tabSummary}}" hint-placeholder-val="{{ true }}">
+<section style="padding: 24px 16px 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start">
+<div style="background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden">
+<sc-for list="{{halves}}" as="h" hint-placeholder-count="2">
+<div>
+<div style="height: 40px; box-sizing: border-box; padding: 0 12px; display: flex; align-items: center; justify-content: space-between; background: var(--surface-sunk); border-bottom: 1px solid var(--line); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase"><span>{{h.title}}</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">{{h.score}}</span></div>
+<sc-if value="{{h.empty}}" hint-placeholder-val="{{ false }}"><div style="padding: 16px 12px; font-size: 13px; color: var(--muted); border-bottom: 1px solid var(--line-soft)">No events yet.</div></sc-if>
+<ol style="margin: 0; padding: 0; list-style: none">
+<sc-for list="{{h.rows}}" as="e" hint-placeholder-count="3">
+<li style="min-height: 52px; box-sizing: border-box; padding: 8px 12px; display: grid; grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1fr); gap: 10px; align-items: center; border-bottom: 1px solid var(--line-soft)">
+<div style="min-width: 0; display: flex; justify-content: flex-end">
+<sc-if value="{{e.isHome}}" hint-placeholder-val="{{ true }}">
+<div style="min-width: 0; display: flex; align-items: center; gap: 10px; flex-direction: row-reverse; text-align: right">
+<span style="flex-shrink: 0; width: 22px; display: flex; justify-content: center">
+<sc-if value="{{e.isGoalEv}}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-label="Goal"><circle cx="12" cy="12" r="9"></circle><path d="M12 7l4 3-1.5 5h-5L8 10z"></path></svg></sc-if>
+<sc-if value="{{e.isYellow}}" hint-placeholder-val="{{ false }}"><span aria-label="Yellow card" style="display: block; width: 11px; height: 15px; border-radius: 2px; background: #E8B931"></span></sc-if>
+<sc-if value="{{e.isRed}}" hint-placeholder-val="{{ false }}"><span aria-label="Red card" style="display: block; width: 11px; height: 15px; border-radius: 2px; background: #D64545"></span></sc-if>
+<sc-if value="{{e.isSub}}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="2.2" aria-label="Substitution"><path d="M8 19V5M4 9l4-4 4 4" style="stroke: var(--accent-ink)"></path><path d="M16 5v14M12 15l4 4 4-4" style="stroke: var(--muted)"></path></svg></sc-if>
+</span>
+<span style="min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; font-weight: 700">{{e.player}}</span><span style="font-size: 12px; color: var(--muted)">{{e.extra}}</span></span>
+<sc-if value="{{e.isGoalEv}}" hint-placeholder-val="{{ false }}"><span style="flex-shrink: 0; height: 24px; padding: 0 8px; display: flex; align-items: center; background: var(--text); color: var(--bg); border-radius: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 700">{{e.scoreAfter}}</span></sc-if>
+</div>
+</sc-if>
+</div>
+<span style="justify-self: center; min-width: 40px; height: 26px; padding: 0 6px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; background: var(--surface-3); border-radius: 999px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 700">{{e.min}}</span>
+<div style="min-width: 0; display: flex; justify-content: flex-start">
+<sc-if value="{{e.isAway}}" hint-placeholder-val="{{ false }}">
+<div style="min-width: 0; display: flex; align-items: center; gap: 10px">
+<span style="flex-shrink: 0; width: 22px; display: flex; justify-content: center">
+<sc-if value="{{e.isGoalEv}}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-label="Goal"><circle cx="12" cy="12" r="9"></circle><path d="M12 7l4 3-1.5 5h-5L8 10z"></path></svg></sc-if>
+<sc-if value="{{e.isYellow}}" hint-placeholder-val="{{ false }}"><span aria-label="Yellow card" style="display: block; width: 11px; height: 15px; border-radius: 2px; background: #E8B931"></span></sc-if>
+<sc-if value="{{e.isRed}}" hint-placeholder-val="{{ false }}"><span aria-label="Red card" style="display: block; width: 11px; height: 15px; border-radius: 2px; background: #D64545"></span></sc-if>
+<sc-if value="{{e.isSub}}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="2.2" aria-label="Substitution"><path d="M8 19V5M4 9l4-4 4 4" style="stroke: var(--accent-ink)"></path><path d="M16 5v14M12 15l4 4 4-4" style="stroke: var(--muted)"></path></svg></sc-if>
+</span>
+<span style="min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; font-weight: 700">{{e.player}}</span><span style="font-size: 12px; color: var(--muted)">{{e.extra}}</span></span>
+<sc-if value="{{e.isGoalEv}}" hint-placeholder-val="{{ false }}"><span style="flex-shrink: 0; height: 24px; padding: 0 8px; display: flex; align-items: center; background: var(--text); color: var(--bg); border-radius: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 700">{{e.scoreAfter}}</span></sc-if>
+</div>
+</sc-if>
+</div>
+</li>
+</sc-for>
+</ol>
+</div>
+</sc-for>
+<sc-if value="{{isFinished}}" hint-placeholder-val="{{ false }}"><div style="height: 44px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase">Full time <span style="font-family: 'IBM Plex Mono', monospace">{{scoreH}} – {{scoreA}}</span></div></sc-if>
+<div style="padding: 12px 12px; display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line)">
+<span style="display: flex; align-items: center; gap: 6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7l4 3-1.5 5h-5L8 10z"></path></svg>Goal</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 9px; height: 12px; border-radius: 2px; background: #E8B931"></span>Yellow</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 9px; height: 12px; border-radius: 2px; background: #D64545"></span>Red</span>
+<span style="display: flex; align-items: center; gap: 6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="2.2" aria-hidden="true"><path d="M8 19V5M4 9l4-4 4 4" style="stroke: var(--accent-ink)"></path><path d="M16 5v14M12 15l4 4 4-4" style="stroke: var(--muted)"></path></svg>Substitution</span>
+</div>
+</div>
+
+<!-- side -->
+<div style="display: flex; flex-direction: column; gap: 16px">
+<div style="padding: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; justify-content: space-between; align-items: baseline; gap: 10px"><h2 style="margin: 0; font-size: 20px; font-weight: 800; font-stretch: 70%; text-transform: uppercase">Our pre-match picks</h2><button onClick="{{goInplay}}" style="background: transparent; border: 0; padding: 0; font-size: 13px; font-weight: 700; color: var(--accent-ink)">Details</button></div>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted)">{{tallyLine}}</span>
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column">
+<sc-for list="{{picks}}" as="p" hint-placeholder-count="4">
+<li style="padding: 9px 0; border-top: 1px solid var(--line-soft); display: flex; justify-content: space-between; align-items: center; gap: 10px">
+<span style="min-width: 0; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 11px; color: var(--muted)">{{p.market}}</span><span style="font-size: 14px; font-weight: 700">{{p.pick}}</span></span>
+<span style="{{p.style}}; flex-shrink: 0; height: 26px; padding: 0 10px; display: flex; align-items: center; border-radius: 999px; font-size: 12px; font-weight: 700">{{p.state}}</span>
+</li>
+</sc-for>
+</ul>
+</div>
+<dl style="margin: 0; padding: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px 16px; font-size: 13px">
+<dt style="color: var(--muted)">Competition</dt><dd style="margin: 0; font-weight: 600">{{m.league}} · {{m.round}}</dd>
+<dt style="color: var(--muted)">Kick-off</dt><dd style="margin: 0; font-weight: 600">{{m.kickoff}}</dd>
+<dt style="color: var(--muted)">Venue</dt><dd style="margin: 0; font-weight: 600">{{m.venue}}</dd>
+</dl>
+</div>
+</section>
+</sc-if>
+
+<!-- ================= IN-PLAY PREDICTION ================= -->
+<sc-if value="{{tabInplay}}" hint-placeholder-val="{{ false }}">
+<section style="padding: 24px 16px 0; display: flex; flex-direction: column; gap: 20px">
+
+<!-- in-play predictions -->
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap">
+<h2 style="margin: 0; font-size: 24px; line-height: 1; font-weight: 800; font-stretch: 68%; text-transform: uppercase">{{ipTitle}}</h2>
+<span style="height: 28px; padding: 0 12px; display: flex; align-items: center; gap: 8px; background: var(--surface-2); border: 1.5px solid var(--accent-ink); border-radius: 999px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 700; color: var(--accent-ink); white-space: nowrap"><sc-if value="{{isLive}}" hint-placeholder-val="{{ true }}"><span style="display: block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: slpulse 1.6s infinite"></span></sc-if>{{ipBadge}}</span>
+</div>
+<p style="margin: 0; font-size: 13px; line-height: 1.5; color: var(--text-3)">{{ipNote}}</p>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<sc-for list="{{inplay}}" as="c" hint-placeholder-count="4">
+<article style="padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 24px"><span style="font-size: 12px; color: var(--muted)">{{c.market}}</span><sc-if value="{{c.hasResult}}" hint-placeholder-val="{{ false }}"><span style="{{c.resultStyle}}; height: 24px; padding: 0 10px; display: flex; align-items: center; border-radius: 999px; font-size: 11px; font-weight: 700">{{c.result}}</span></sc-if></div>
+<span style="font-size: 22px; line-height: 1.05; font-weight: 800; font-stretch: 66%; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{c.pick}}</span>
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 28px; line-height: 1; font-weight: 600">{{c.vLabel}}</span><span style="{{c.trendStyle}}; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 700; white-space: nowrap">{{c.arrow}} {{c.delta}}</span></div>
+<div style="height: 6px; border-radius: 999px; background: var(--line); position: relative"><div style="position: absolute; left: 0; top: 0; bottom: 0; width: {{c.v}}%; border-radius: 999px; background: var(--accent)"></div></div>
+<span style="font-size: 11px; color: var(--muted)">{{c.sinceLabel}}</span>
+</article>
+</sc-for>
+</div>
+</div>
+
+<!-- win probability + event timeline -->
+<div style="padding: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+<div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap">
+<h2 style="margin: 0; font-size: 22px; font-weight: 800; font-stretch: 70%; text-transform: uppercase">{{modelTitle}}</h2>
+<span style="display: flex; gap: 12px; font-size: 12px; color: var(--muted)"><span style="display: flex; align-items: center; gap: 5px"><span style="width: 14px; height: 3px; border-radius: 2px; background: var(--accent)"></span>Home</span><span style="display: flex; align-items: center; gap: 5px"><span style="width: 14px; height: 3px; border-radius: 2px; background: var(--line-heavy)"></span>Draw</span><span style="display: flex; align-items: center; gap: 5px"><span style="width: 14px; height: 3px; border-radius: 2px; background: var(--away)"></span>Away</span></span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+<sc-for list="{{chart.outcomes}}" as="o" hint-placeholder-count="3">
+<div style="padding: 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); min-width: 0"><span style="{{o.dot}}; flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%"></span><span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{o.label}}</span></span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 22px; line-height: 1; font-weight: 600">{{o.nowLabel}}</span>
+<span style="font-size: 11px; color: var(--muted)">Pre-match {{o.preLabel}} · {{o.delta}}</span>
+</div>
+</sc-for>
+</div>
+<div style="position: relative; padding-top: {{chart.markerPad}}px">
+<sc-for list="{{chart.markers}}" as="k" hint-placeholder-count="3"><button onClick="{{k.pick}}" aria-label="{{k.aria}}" style="{{k.style}}; position: absolute; top: {{k.top}}px; left: {{k.left}}%; transform: translateX(-50%); z-index: 2; height: 26px; min-width: 40px; padding: 0 8px; border-radius: 999px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 700; white-space: nowrap">{{k.label}}</button></sc-for>
+<svg viewBox="0 0 600 200" preserveAspectRatio="none" role="img" aria-label="Win probability through the match, with goals marked" style="display: block; width: 100%; height: 170px; overflow: visible">
+<line x1="0" y1="50" x2="600" y2="50" style="stroke: var(--line-soft)" stroke-width="1" vector-effect="non-scaling-stroke"></line>
+<line x1="0" y1="100" x2="600" y2="100" style="stroke: var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"></line>
+<line x1="0" y1="150" x2="600" y2="150" style="stroke: var(--line-soft)" stroke-width="1" vector-effect="non-scaling-stroke"></line>
+<line x1="300" y1="0" x2="300" y2="200" style="stroke: var(--line-strong)" stroke-width="1" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"></line>
+<sc-for list="{{chart.goalLines}}" as="g" hint-placeholder-count="2"><line x1="{{g.x}}" y1="-64" x2="{{g.x}}" y2="200" style="stroke: var(--line-heavy)" stroke-width="1" stroke-dasharray="2 3" vector-effect="non-scaling-stroke"></line></sc-for>
+<polyline points="{{chart.draw}}" fill="none" style="stroke: var(--line-heavy)" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>
+<polyline points="{{chart.away}}" fill="none" style="stroke: var(--away)" stroke-width="2.5" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>
+<polyline points="{{chart.home}}" fill="none" style="stroke: var(--accent)" stroke-width="3" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>
+<line x1="{{chart.nowX}}" y1="0" x2="{{chart.nowX}}" y2="200" style="stroke: var(--accent-ink)" stroke-width="1.5" vector-effect="non-scaling-stroke"></line>
+</svg>
+<div style="margin-top: 6px; display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted)"><span>0'</span><span>HT</span><span style="color: var(--accent-ink); font-weight: 700">{{chart.nowLabel}}</span></div>
+</div>
+<div aria-label="Match events by minute" style="position: relative; height: 64px; border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft)">
+<div style="position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--line-strong)"></div>
+<div style="position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--line); border-left: 1px dashed var(--line-strong)"></div>
+<span style="position: absolute; left: 0; top: 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: var(--accent-ink)">HOME</span>
+<span style="position: absolute; left: 0; bottom: 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: var(--away-ink)">AWAY</span>
+<sc-for list="{{chart.strip}}" as="s" hint-placeholder-count="6"><button onClick="{{s.pick}}" aria-label="{{s.min}} {{s.label}} {{s.player}}" style="{{s.ring}}; position: absolute; left: {{s.left}}%; {{s.pos}}; transform: translateX(-50%); width: 28px; height: 28px; padding: 0; background: var(--surface); border: 0; display: flex; align-items: center; justify-content: center; color: var(--text)"><span style="flex-shrink: 0; width: 22px; display: flex; justify-content: center">
+<sc-if value="{{s.isGoalEv}}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-label="Goal"><circle cx="12" cy="12" r="9"></circle><path d="M12 7l4 3-1.5 5h-5L8 10z"></path></svg></sc-if>
+<sc-if value="{{s.isYellow}}" hint-placeholder-val="{{ false }}"><span aria-label="Yellow card" style="display: block; width: 11px; height: 15px; border-radius: 2px; background: #E8B931"></span></sc-if>
+<sc-if value="{{s.isRed}}" hint-placeholder-val="{{ false }}"><span aria-label="Red card" style="display: block; width: 11px; height: 15px; border-radius: 2px; background: #D64545"></span></sc-if>
+<sc-if value="{{s.isSub}}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="2.2" aria-label="Substitution"><path d="M8 19V5M4 9l4-4 4 4" style="stroke: var(--accent-ink)"></path><path d="M16 5v14M12 15l4 4 4-4" style="stroke: var(--muted)"></path></svg></sc-if>
+</span></button></sc-for>
+</div>
+<sc-if value="{{chart.hasDetail}}" hint-placeholder-val="{{ true }}">
+<div style="padding: 14px 16px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 10px"><span style="font-size: 14px; font-weight: 700">{{chart.detail.head}}</span><sc-if value="{{chart.detail.hasScore}}" hint-placeholder-val="{{ true }}"><span style="flex-shrink: 0; height: 26px; padding: 0 10px; display: flex; align-items: center; background: var(--text); color: var(--bg); border-radius: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 700">{{chart.detail.score}}</span></sc-if></div>
+<span style="font-size: 13px; color: var(--text-3)">{{chart.detail.who}}</span>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+<sc-for list="{{chart.detail.moves}}" as="mv" hint-placeholder-count="4"><div style="min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{mv.label}}</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px">{{mv.from}} → <span style="{{mv.style}}; font-weight: 700">{{mv.to}}</span></span></div></sc-for>
+</div>
+</div>
+</sc-if>
+<span style="font-size: 12px; color: var(--muted)">Tap a score marker or any event to see how the probabilities moved.</span>
+</div>
+
+<!-- tracker -->
+<div style="background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden">
+<div style="padding: 16px 12px; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--line)"><h2 style="margin: 0; font-size: 22px; font-weight: 800; font-stretch: 70%; text-transform: uppercase">Pre-match picks · live tracker</h2><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted)">{{tallyLine}}</span></div>
+<ol style="margin: 0; padding: 0; list-style: none">
+<sc-for list="{{picks}}" as="p" hint-placeholder-count="5">
+<li style="min-height: 64px; box-sizing: border-box; padding: 10px 12px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; align-items: center; border-bottom: 1px solid var(--line-soft)">
+<span style="min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: var(--muted)">{{p.market}}</span><span style="font-size: 15px; font-weight: 700">{{p.pick}}</span></span>
+<span style="grid-column: 1 / -1; order: 3; font-size: 12px; color: var(--text-3)">{{p.pctLabel}} pre-match · {{p.detail}}</span>
+<span style="{{p.style}}; justify-self: end; height: 28px; padding: 0 12px; display: flex; align-items: center; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap">{{p.state}}</span>
+</li>
+</sc-for>
+</ol>
+</div>
+</section>
+</sc-if>
+
+<!-- ================= STATS ================= -->
+<sc-if value="{{tabStats}}" hint-placeholder-val="{{ false }}">
+<section style="padding: 24px 16px 0">
+<div style="max-width: none; padding: 8px 12px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px">
+<div style="padding: 10px 0; display: flex; justify-content: space-between; font-size: 13px; font-weight: 700"><span style="color: var(--accent-ink)">{{home.name}}</span><span style="color: var(--away-ink)">{{away.name}}</span></div>
+<sc-for list="{{statRows}}" as="s" hint-placeholder-count="6">
+<div style="padding: 10px 0; border-top: 1px solid var(--line-soft); display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 600">{{s.h}}</span><span style="font-size: 13px; color: var(--text-3)">{{s.label}}</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 600">{{s.a}}</span></div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px">
+<div style="height: 8px; background: var(--line); border-radius: 999px 0 0 999px; display: flex; justify-content: flex-end"><div style="{{s.hStyle}}; height: 8px; width: {{s.hw}}%; border-radius: 999px 0 0 999px"></div></div>
+<div style="height: 8px; background: var(--line); border-radius: 0 999px 999px 0"><div style="{{s.aStyle}}; height: 8px; width: {{s.aw}}%; border-radius: 0 999px 999px 0"></div></div>
+</div>
+</div>
+</sc-for>
+</div>
+</section>
+</sc-if>
+
+<sc-if value="{{ads.on}}" hint-placeholder-val="{{ true }}">
+<div data-ad-slot="in-feed" data-ad-size="300x250" role="complementary" aria-label="Advertisement" style="padding: 28px 16px 0; display: flex; flex-direction: column; align-items: center; gap: 6px">
+<span style="font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint)">Advertisement</span>
+<div style="width: 300px; max-width: 100%; height: 250px; box-sizing: border-box; border: 1px dashed var(--line-stronger); border-radius: 6px; background: repeating-linear-gradient(135deg, transparent 0 9px, var(--hatch) 9px 10px); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted)">in-feed · 300×250</div>
+</div>
+</sc-if>
+<p style="margin: 28px 16px 0; font-size: 12px; line-height: 1.5; color: var(--muted)"><span style="font-weight: 700; color: var(--text)">18+</span> · Clock, score and events as the data provider reports them. Statistical estimates, never guaranteed outcomes. <a href="#" style="text-decoration: underline">Responsible use</a></p>
+</main>
+
+<footer style="flex-shrink: 0; margin-top: 40px; padding: 32px 16px 28px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 28px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 24px; font-weight: 800; font-stretch: 75%; text-transform: uppercase">SokaLens</span>
+<p style="margin: 0; font-size: 15px; line-height: 1.5; color: var(--text-3)">Football probabilities, explained clearly and tracked openly.</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+<nav aria-label="Explore" style="display: flex; flex-direction: column; font-size: 14px">
+<span style="padding-bottom: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.1em; color: var(--faint)">EXPLORE</span>
+<a href="{{links.TodayMobile}}" style="padding: 10px 0; color: var(--text-3)">Today’s predictions</a><a href="{{links.BestBetsMobile}}" style="padding: 10px 0; color: var(--text-3)">Best Bets</a><a href="{{links.LeaguesMobile}}" style="padding: 10px 0; color: var(--text-3)">Leagues</a><a href="{{links.PerformanceMobile}}" style="padding: 10px 0; color: var(--text-3)">Performance status</a><a href="{{links.BuilderMobile}}" style="padding: 10px 0; color: var(--text-3)">Multi-match builder</a><a href="#" style="padding: 10px 0; color: var(--accent-ink); font-weight: 600">Go Pro</a>
+</nav>
+<nav aria-label="About" style="display: flex; flex-direction: column; font-size: 14px">
+<span style="padding-bottom: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.1em; color: var(--faint)">ABOUT</span>
+<a href="#" style="padding: 10px 0; color: var(--text-3)">About us</a><a href="#" style="padding: 10px 0; color: var(--text-3)">Contact</a><a href="{{links.AccaMobile}}" style="padding: 10px 0; color: var(--text-3)">Acca predictions</a><a href="#" style="padding: 10px 0; color: var(--text-3)">Responsible use</a><a href="#" style="padding: 10px 0; color: var(--text-3)">Terms</a><a href="#" style="padding: 10px 0; color: var(--text-3)">Privacy</a><a href="#" style="padding: 10px 0; color: var(--text-3)">Cookies</a>
+</nav>
+</div>
+<div style="padding-top: 18px; border-top: 1px solid var(--line); font-size: 12px; line-height: 1.55; color: var(--muted)"><span style="margin-right: 6px; padding: 2px 6px; border: 1.5px solid var(--text); border-radius: 5px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; color: var(--text)">18+</span>© 2026 SokaLens. Predictions are statistical estimates, not guaranteed outcomes. SokaLens is not a bookmaker and accepts no stakes. Bet responsibly.</div>
+</footer>
+<sc-if value="{{ads.on}}" hint-placeholder-val="{{ true }}">
+<div data-ad-slot="adhesion" data-ad-size="320x50" role="complementary" aria-label="Advertisement" style="flex-shrink: 0; position: sticky; bottom: 68px; z-index: 4; height: 60px; box-sizing: border-box; padding: 5px 40px; background: var(--bar); border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: center">
+<div style="width: 320px; max-width: 100%; height: 50px; box-sizing: border-box; border: 1px dashed var(--line-stronger); border-radius: 4px; background: repeating-linear-gradient(135deg, transparent 0 9px, var(--hatch) 9px 10px); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted)">adhesion · 320×50</div>
+<button aria-label="Close advertisement" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: transparent; color: var(--muted); border: 1px solid var(--line-strong); border-radius: 50%; font-size: 14px; line-height: 1">×</button>
+</div>
+</sc-if>
+<nav aria-label="App" style="flex-shrink: 0; position: sticky; bottom: 0; height: 68px; box-sizing: border-box; padding: 0 8px; background: var(--bar); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(6, minmax(0, 1fr))">
+<a href="{{links.HomeMobile}}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; color: var(--muted)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 11l9-7 9 7v9H3z"></path></svg>Home</a>
+<a href="{{links.TodayMobile}}" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 700; color: var(--accent-ink)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="3"></circle></svg>Predictions</a>
+<a href="{{links.InPlayMobile}}" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 700; color: var(--accent-ink)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3" style="fill: var(--accent)"></circle><path d="M6.3 6.3a8 8 0 0 0 0 11.4M17.7 6.3a8 8 0 0 1 0 11.4"></path></svg>In-play</a>
+<a href="{{links.AccaMobile}}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; color: var(--muted)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 4h16v6a2 2 0 0 0 0 4v6H4v-6a2 2 0 0 0 0-4z"></path></svg>ACCAs</a>
+<a href="{{links.BuilderMobile}}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; color: var(--muted)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Builder</a>
+<a href="#" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; color: var(--muted)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg>Sign in</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"ads":{"editor":"enum","options":["filled","empty"],"default":"filled","section":"Ads"},"theme":{"editor":"enum","options":["dark","light"],"default":"dark","section":"Look"},"status":{"editor":"enum","options":["prematch","live","finished"],"default":"live","section":"Match"},"startTab":{"editor":"enum","options":["summary","inplay","stats"],"default":"summary","section":"Match"},"accent":{"editor":"color","default":"#C8F169","options":["#C8F169","#5EE6C1","#FFB547","#F2F2EC"],"section":"Look"},"$preview":{"width":390,"height":3916}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { themeOverride: null, tab: null, selEvent: null };
+  }
+  renderVals() {
+    // ===== THEME — one token set shared by every SokaLens artboard =====
+    const THEMES = {
+      dark:  { bg: '#0E1411', surface: '#131B16', 'surface-2': '#16201A', 'surface-3': '#1C2620', 'surface-sunk': '#0F1712', bar: '#0B100D', hatch: '#18221C',
+               line: '#243029', 'line-soft': '#1F2A23', 'line-strong': '#2E3B34', 'line-stronger': '#3B4741', 'line-heavy': '#4A5750', tick: '#5A675F', deco: '#1E2922',
+               text: '#EEF2EC', 'text-2': '#DCE4DD', 'text-3': '#C9D2CB', 'text-4': '#B8C3BB', muted: '#A7B3AB', faint: '#8A968E' },
+      light: { bg: '#F8F9F7', surface: '#FFFFFF', 'surface-2': '#F0F7E8', 'surface-3': '#F1F3F0', 'surface-sunk': '#F4F6F3', bar: '#FFFFFF', hatch: '#E6E9E4',
+               line: '#E1E5DF', 'line-soft': '#ECEFEA', 'line-strong': '#D1D7CF', 'line-stronger': '#BDC4BB', 'line-heavy': '#9AA39A', tick: '#7F8A80', deco: '#EBEEE9',
+               text: '#111812', 'text-2': '#1D271F', 'text-3': '#364238', 'text-4': '#445047', muted: '#56635A', faint: '#66736A' }
+    };
+    const themeName = (this.state && this.state.themeOverride) || this.props.theme || 'dark';
+    const isDark = themeName !== 'light';
+    const tokens = THEMES[isDark ? 'dark' : 'light'];
+    // Light theme gets its own deeper greens — bright lime is only 1.3:1 on white.
+    const LIGHT_GREENS = { '#C8F169': { fill: '#4C9F16', ink: '#2F6B0A' } };
+    const accentRaw = this.props.accent ?? '#C8F169';
+    const awayRaw = this.props.awayColor ?? '#8FB8FF';
+    const lg = LIGHT_GREENS[String(accentRaw).toUpperCase()];
+    const accentFill = isDark ? accentRaw : (lg ? lg.fill : accentRaw);
+    const accentInk = isDark ? accentRaw : (lg ? lg.ink : 'color-mix(in oklab, ' + accentRaw + ' 42%, #0E1411)');
+    const awayFill = isDark ? awayRaw : (String(awayRaw).toUpperCase() === '#8FB8FF' ? '#3D7BE0' : awayRaw);
+    const awayInk = isDark ? awayRaw : (String(awayRaw).toUpperCase() === '#8FB8FF' ? '#1F5BBF' : 'color-mix(in oklab, ' + awayRaw + ' 55%, #0E1411)');
+    const rootVars = Object.keys(tokens).map((k) => '--' + k + ': ' + tokens[k]).join('; ')
+      + '; --accent: ' + accentFill + '; --accent-ink: ' + accentInk
+      + '; --away: ' + awayFill + '; --away-ink: ' + awayInk
+      + '; --on-accent: #0E1411'
+      + '; color-scheme: ' + (isDark ? 'dark' : 'light');
+    const themeSuffix = isDark ? '' : 'Light';
+    const THEME_VALS = {
+      ads: { on: (this.props.ads || 'filled') !== 'empty' },
+      themeClass: isDark ? 'sl-dark' : 'sl-light', rootVars, isDark,
+      themeLabel: isDark ? 'Switch to light theme' : 'Switch to dark theme',
+      toggleTheme: () => this.setState({ themeOverride: isDark ? 'light' : 'dark' }),
+      links: { Acca: 'Acca' + themeSuffix + '.dc.html', AccaTablet: 'AccaTablet' + themeSuffix + '.dc.html', AccaMobile: 'AccaMobile' + themeSuffix + '.dc.html', AccaDetail: 'AccaDetail' + themeSuffix + '.dc.html', AccaDetailTablet: 'AccaDetailTablet' + themeSuffix + '.dc.html', AccaDetailMobile: 'AccaDetailMobile' + themeSuffix + '.dc.html', Home: 'Home' + themeSuffix + '.dc.html', HomeTablet: 'HomeTablet' + themeSuffix + '.dc.html', HomeMobile: 'HomeMobile' + themeSuffix + '.dc.html', Today: 'Today' + themeSuffix + '.dc.html', TodayTablet: 'TodayTablet' + themeSuffix + '.dc.html', TodayMobile: 'TodayMobile' + themeSuffix + '.dc.html', Builder: 'Builder' + themeSuffix + '.dc.html', BuilderTablet: 'BuilderTablet' + themeSuffix + '.dc.html', BuilderMobile: 'BuilderMobile' + themeSuffix + '.dc.html', InPlay: 'InPlay' + themeSuffix + '.dc.html', InPlayTablet: 'InPlayTablet' + themeSuffix + '.dc.html', InPlayMobile: 'InPlayMobile' + themeSuffix + '.dc.html', BestBets: 'BestBets' + themeSuffix + '.dc.html', BestBetsTablet: 'BestBetsTablet' + themeSuffix + '.dc.html', BestBetsMobile: 'BestBetsMobile' + themeSuffix + '.dc.html', Leagues: 'Leagues' + themeSuffix + '.dc.html', LeaguesTablet: 'LeaguesTablet' + themeSuffix + '.dc.html', LeaguesMobile: 'LeaguesMobile' + themeSuffix + '.dc.html', League: 'League' + themeSuffix + '.dc.html', LeagueTablet: 'LeagueTablet' + themeSuffix + '.dc.html', LeagueMobile: 'LeagueMobile' + themeSuffix + '.dc.html', LeagueEPL: 'LeagueEPL' + themeSuffix + '.dc.html', LeagueEPLTablet: 'LeagueEPLTablet' + themeSuffix + '.dc.html', LeagueEPLMobile: 'LeagueEPLMobile' + themeSuffix + '.dc.html', Team: 'Team' + themeSuffix + '.dc.html', TeamTablet: 'TeamTablet' + themeSuffix + '.dc.html', TeamMobile: 'TeamMobile' + themeSuffix + '.dc.html', Performance: 'Performance' + themeSuffix + '.dc.html', PerformanceTablet: 'PerformanceTablet' + themeSuffix + '.dc.html', PerformanceMobile: 'PerformanceMobile' + themeSuffix + '.dc.html', PList: 'PList' + themeSuffix + '.dc.html', PListTablet: 'PListTablet' + themeSuffix + '.dc.html', PListMobile: 'PListMobile' + themeSuffix + '.dc.html', Weekend: 'Weekend' + themeSuffix + '.dc.html', WeekendTablet: 'WeekendTablet' + themeSuffix + '.dc.html', WeekendMobile: 'WeekendMobile' + themeSuffix + '.dc.html', MarketO25: 'MarketO25' + themeSuffix + '.dc.html', MarketO25Tablet: 'MarketO25Tablet' + themeSuffix + '.dc.html', MarketO25Mobile: 'MarketO25Mobile' + themeSuffix + '.dc.html', MarketBTTS: 'MarketBTTS' + themeSuffix + '.dc.html', MarketBTTSTablet: 'MarketBTTSTablet' + themeSuffix + '.dc.html', MarketBTTSMobile: 'MarketBTTSMobile' + themeSuffix + '.dc.html', MarketMR: 'MarketMR' + themeSuffix + '.dc.html', MarketMRTablet: 'MarketMRTablet' + themeSuffix + '.dc.html', MarketMRMobile: 'MarketMRMobile' + themeSuffix + '.dc.html', AccaMR: 'AccaMR' + themeSuffix + '.dc.html', AccaMRTablet: 'AccaMRTablet' + themeSuffix + '.dc.html', AccaMRMobile: 'AccaMRMobile' + themeSuffix + '.dc.html', AccaO25: 'AccaO25' + themeSuffix + '.dc.html', AccaO25Tablet: 'AccaO25Tablet' + themeSuffix + '.dc.html', AccaO25Mobile: 'AccaO25Mobile' + themeSuffix + '.dc.html', AccaBTTS: 'AccaBTTS' + themeSuffix + '.dc.html', AccaBTTSTablet: 'AccaBTTSTablet' + themeSuffix + '.dc.html', AccaBTTSMobile: 'AccaBTTSMobile' + themeSuffix + '.dc.html', AccaCorners: 'AccaCorners' + themeSuffix + '.dc.html', AccaCornersTablet: 'AccaCornersTablet' + themeSuffix + '.dc.html', AccaCornersMobile: 'AccaCornersMobile' + themeSuffix + '.dc.html', AccaCards: 'AccaCards' + themeSuffix + '.dc.html', AccaCardsTablet: 'AccaCardsTablet' + themeSuffix + '.dc.html', AccaCardsMobile: 'AccaCardsMobile' + themeSuffix + '.dc.html', LiveMatch: 'LiveMatch' + themeSuffix + '.dc.html', LiveMatchTablet: 'LiveMatchTablet' + themeSuffix + '.dc.html', LiveMatchMobile: 'LiveMatchMobile' + themeSuffix + '.dc.html', Main: 'Main' + themeSuffix + '.dc.html', Mobile: 'Mobile' + themeSuffix + '.dc.html', BuilderGen: 'BuilderGenerate' + themeSuffix + '.dc.html', BuilderGenTablet: 'BuilderTabletGenerate' + themeSuffix + '.dc.html', BuilderGenMobile: 'BuilderMobileGenerate' + themeSuffix + '.dc.html', LiveMatchFinished: 'LiveMatchFinished' + themeSuffix + '.dc.html', LiveMatchFinishedTablet: 'LiveMatchTabletFinished' + themeSuffix + '.dc.html', LiveMatchFinishedMobile: 'LiveMatchMobileFinished' + themeSuffix + '.dc.html' }
+    };
+    // ===== end theme =====
+
+
+    // ===== LIVE MATCH DATA (sample for design) =====
+    // events: minute, side, type (goal | pen | own | yellow | red | second | sub)
+    // snapshots: the in-play model's output over time — one row per re-price (on every event + on a timer)
+    //   m = minute, h/d/a = 1X2 %, o35 = Over 3.5 goals %, ng = next goal [home, none, away] %
+    const MATCH = {
+      league: 'Primera División', round: 'Round 12', venue: 'Estadio Norte', kickoff: 'Tue 29 Sep · 19:00 UTC',
+      home: { name: 'Club Atlético Norte', initials: 'AN' },
+      away: { name: 'Deportivo Sur', initials: 'DS' },
+      liveMinute: 67,
+      events: [
+        { m: 12, side: 'home', type: 'goal', player: 'M. Ortega', extra: 'Assist: L. Vidal' },
+        { m: 27, side: 'away', type: 'yellow', player: 'R. Campos', extra: 'Foul' },
+        { m: 38, side: 'home', type: 'yellow', player: 'D. Ruiz', extra: 'Dissent' },
+        { m: 52, side: 'away', type: 'pen', player: 'S. Molina', extra: 'Penalty' },
+        { m: 58, side: 'home', type: 'sub', player: 'F. Paz', extra: 'Off: L. Vidal' },
+        { m: 63, side: 'home', type: 'goal', player: 'M. Ortega', extra: 'Header · Assist: F. Paz' },
+        { m: 66, side: 'away', type: 'yellow', player: 'J. Herrera', extra: 'Foul' },
+        { m: 74, side: 'away', type: 'sub', player: 'T. Luna', extra: 'Off: S. Molina' },
+        { m: 81, side: 'away', type: 'second', player: 'J. Herrera', extra: 'Second yellow' },
+        { m: 88, side: 'home', type: 'goal', player: 'F. Paz', extra: 'Assist: M. Ortega' }
+      ],
+      stats: {
+        live: { Possession: [54, 46], 'Total shots': [12, 8], 'Shots on target': [5, 3], Corners: [5, 2], Fouls: [11, 14], Offsides: [2, 1], 'Yellow cards': [1, 2], 'Red cards': [0, 0] },
+        ft:   { Possession: [57, 43], 'Total shots': [17, 10], 'Shots on target': [8, 3], Corners: [6, 2], Fouls: [13, 18], Offsides: [3, 1], 'Yellow cards': [1, 2], 'Red cards': [0, 1] }
+      },
+      picks: [
+        { code: 'MR', market: 'Match Result', pick: 'Home', pct: 48 },
+        { code: 'DC', market: 'Double Chance', pick: 'Home or Draw', pct: 74 },
+        { code: 'BTTS', market: 'Both Teams to Score', pick: 'Yes', pct: 55 },
+        { code: 'O25', market: 'Total Goals', pick: 'Over 2.5', pct: 52 },
+        { code: 'HT', market: 'Half-Time Result', pick: 'Home', pct: 38 },
+        { code: 'CARDS', market: 'Total Cards', pick: 'Over 3.5', pct: 58 },
+        { code: 'CORN', market: 'Total Corners', pick: 'Over 8.5', pct: 51 }
+      ],
+      snapshots: [
+        { m: 0, h: 48, d: 27, a: 25, o35: 24, ng: [52, 10, 38] },
+        { m: 11, h: 47, d: 28, a: 25, o35: 22, ng: [51, 11, 38] },
+        { m: 12, h: 63, d: 22, a: 15, o35: 34, ng: [48, 14, 38] },
+        { m: 30, h: 61, d: 23, a: 16, o35: 30, ng: [47, 17, 36] },
+        { m: 45, h: 64, d: 23, a: 13, o35: 27, ng: [46, 22, 32] },
+        { m: 51, h: 62, d: 24, a: 14, o35: 25, ng: [46, 24, 30] },
+        { m: 52, h: 44, d: 33, a: 23, o35: 36, ng: [45, 21, 34] },
+        { m: 62, h: 42, d: 35, a: 23, o35: 31, ng: [44, 26, 30] },
+        { m: 63, h: 68, d: 21, a: 11, o35: 52, ng: [52, 22, 26] },
+        { m: 67, h: 71, d: 20, a: 9, o35: 49, ng: [54, 22, 24] },
+        { m: 75, h: 76, d: 17, a: 7, o35: 44, ng: [50, 30, 20] },
+        { m: 81, h: 85, d: 11, a: 4, o35: 48, ng: [58, 26, 16] },
+        { m: 87, h: 88, d: 9, a: 3, o35: 40, ng: [52, 36, 12] },
+        { m: 88, h: 96, d: 3, a: 1, o35: 100, ng: [40, 50, 10] },
+        { m: 90, h: 99, d: 1, a: 0, o35: 100, ng: [25, 70, 5] }
+      ]
+    };
+    // ===== end live data =====
+
+    const P = this.props;
+    const st = this.state;
+    const finished = (P.status || 'live') === 'finished';
+    const pre = P.status === 'prematch';
+    const nowMin = pre ? 0 : finished ? 90 : MATCH.liveMinute;
+    const evs = MATCH.events.filter((e) => e.m <= nowMin);
+    const isGoal = (e) => e.type === 'goal' || e.type === 'pen' || e.type === 'own';
+    const score = (upTo) => evs.filter((e) => isGoal(e) && e.m <= upTo).reduce((s, e) => {
+      const scorer = e.type === 'own' ? (e.side === 'home' ? 'away' : 'home') : e.side; s[scorer === 'home' ? 0 : 1]++; return s; }, [0, 0]);
+    const sc = score(nowMin), ht = score(45);
+    const stats = pre ? Object.fromEntries(Object.keys(MATCH.stats.live).map((k) => [k, k === 'Possession' ? [50, 50] : [0, 0]])) : finished ? MATCH.stats.ft : MATCH.stats.live;
+    const cards = evs.filter((e) => e.type === 'yellow' || e.type === 'red' || e.type === 'second').length;
+    const corners = stats.Corners[0] + stats.Corners[1];
+    const goals = sc[0] + sc[1];
+    const H = MATCH.home.name, A = MATCH.away.name;
+
+    // ---- pre-match pick tracker (published before kick-off, never changed)
+    const track = {
+      MR: () => sc[0] > sc[1] ? (finished ? ['won', 'Finished ' + sc[0] + '–' + sc[1]] : ['on', 'Leading ' + sc[0] + '–' + sc[1]]) : (finished ? ['lost', 'Finished ' + sc[0] + '–' + sc[1]] : ['risk', sc[0] === sc[1] ? 'Level ' + sc[0] + '–' + sc[1] : 'Trailing ' + sc[0] + '–' + sc[1]]),
+      DC: () => sc[0] >= sc[1] ? (finished ? ['won', 'Finished ' + sc[0] + '–' + sc[1]] : ['on', 'Not behind at ' + sc[0] + '–' + sc[1]]) : (finished ? ['lost', 'Finished ' + sc[0] + '–' + sc[1]] : ['risk', 'Trailing ' + sc[0] + '–' + sc[1]]),
+      BTTS: () => { const both = evs.filter(isGoal).find((e) => { const s = score(e.m); return s[0] > 0 && s[1] > 0; });
+        return both ? ['won', 'Both scored by ' + both.m + "'"] : finished ? ['lost', 'Finished ' + sc[0] + '–' + sc[1]] : ['risk', (sc[0] ? 'Away' : sc[1] ? 'Home' : 'Both teams') + ' still to score']; },
+      O25: () => goals >= 3 ? ['won', goals + ' goals scored'] : finished ? ['lost', 'Only ' + goals + ' goals'] : [goals === 2 ? 'on' : 'risk', 'Needs ' + (3 - goals) + ' more goal' + (3 - goals === 1 ? '' : 's')],
+      HT: () => nowMin < 45 ? (ht[0] > ht[1] ? ['on', 'Leading at ' + ht[0] + '–' + ht[1]] : ['risk', ht[0] + '–' + ht[1] + ' so far']) : ht[0] > ht[1] ? ['won', 'Half-time ' + ht[0] + '–' + ht[1]] : ['lost', 'Half-time ' + ht[0] + '–' + ht[1]],
+      CARDS: () => cards >= 4 ? ['won', cards + ' cards shown'] : finished ? ['lost', 'Only ' + cards + ' cards'] : [cards === 3 ? 'on' : 'risk', 'Needs ' + (4 - cards) + ' more card' + (4 - cards === 1 ? '' : 's')],
+      CORN: () => corners >= 9 ? ['won', corners + ' corners'] : finished ? ['lost', 'Only ' + corners + ' corners'] : [corners >= 7 ? 'on' : 'risk', corners + ' so far · needs ' + (9 - corners) + ' more']
+    };
+    const LABEL = { won: 'Won', lost: 'Lost', on: 'On track', risk: 'At risk', pending: 'Not started' };
+    const chip = {
+      won: 'background: var(--accent); color: var(--on-accent); border: 1px solid var(--accent)',
+      on: 'background: transparent; color: var(--accent-ink); border: 1.5px solid var(--accent-ink)',
+      risk: 'background: transparent; color: var(--text-3); border: 1.5px dashed var(--line-heavy)',
+      lost: 'background: var(--surface-3); color: var(--muted); border: 1px solid var(--line-strong); text-decoration: line-through',
+      pending: 'background: transparent; color: var(--muted); border: 1px solid var(--line-strong)'
+    };
+    const trk = (p) => pre ? ['pending', 'Tracking starts at kick-off'] : track[p.code]();
+    const picks = MATCH.picks.map((p) => { const [s, detail] = trk(p); return { ...p, pctLabel: p.pct + '%', state: LABEL[s], detail, style: chip[s] }; });
+    const tally = { won: 0, lost: 0, on: 0, risk: 0, pending: 0 };
+    MATCH.picks.forEach((p) => { tally[trk(p)[0]]++; });
+    const sbPicks = (pre ? ['pending'] : finished ? ['won', 'lost'] : ['won', 'on', 'risk', 'lost']).filter((k) => tally[k] || k === 'pending').map((k) => ({ n: tally[k], label: LABEL[k], style: chip[k].replace('text-decoration: line-through', '') }));
+
+    // ---- summary timeline
+    const EV = { goal: 'Goal', pen: 'Penalty goal', own: 'Own goal', yellow: 'Yellow card', red: 'Red card', second: 'Second yellow · red card', sub: 'Substitution' };
+    const running = [0, 0];
+    const rows = evs.map((e, i) => {
+      if (isGoal(e)) { const s = e.type === 'own' ? (e.side === 'home' ? 1 : 0) : (e.side === 'home' ? 0 : 1); running[s]++; }
+      return { ...e, idx: i, min: e.m + "'", isHome: e.side === 'home', isAway: e.side === 'away', label: EV[e.type],
+        isGoalEv: isGoal(e), isYellow: e.type === 'yellow', isRed: e.type === 'red' || e.type === 'second', isSub: e.type === 'sub',
+        scoreAfter: isGoal(e) ? running[0] + ' – ' + running[1] : '', scoreAfterTight: isGoal(e) ? running[0] + '–' + running[1] : '' };
+    });
+    const halves = [
+      { title: '1st half', score: ht[0] + ' – ' + ht[1], rows: rows.filter((r) => r.m <= 45) },
+      { title: '2nd half', score: (sc[0] - ht[0]) + ' – ' + (sc[1] - ht[1]), rows: rows.filter((r) => r.m > 45) }
+    ].filter((h, i) => i === 0 || nowMin > 45).map((h) => ({ ...h, empty: h.rows.length === 0 }));
+
+    // ---- stats
+    const statRows = Object.keys(stats).map((k) => {
+      const [h, a] = stats[k]; const t = h + a || 1; const pc = k === 'Possession';
+      return { label: k, h: pc ? h + '%' : String(h), a: pc ? a + '%' : String(a), hw: Math.round(h / t * 100), aw: Math.round(a / t * 100),
+        hStyle: h >= a ? 'background: var(--accent)' : 'background: var(--line-heavy)', aStyle: a >= h ? 'background: var(--away)' : 'background: var(--line-heavy)' };
+    });
+
+    // ---- in-play model
+    const snaps = MATCH.snapshots.filter((s) => s.m <= nowMin);
+    const cur = snaps[snaps.length - 1], first = MATCH.snapshots[0];
+    const before = (m) => { let b = snaps[0]; snaps.forEach((s) => { if (s.m < m) b = s; }); return b; };
+    const at = (m) => snaps.find((s) => s.m >= m) || cur;
+    const lastGoal = evs.filter(isGoal).slice(-1)[0];
+    const lastEvent = evs.filter((e) => isGoal(e) || e.type === 'red' || e.type === 'second').slice(-1)[0];
+    const since = lastEvent ? before(lastEvent.m) : first;
+    const sinceLabel = lastEvent ? 'since ' + lastEvent.m + "' " + (isGoal(lastEvent) ? 'goal' : 'red card') : 'since kick-off';
+    const dlt = (n, o) => (n - o > 0 ? '+' : '') + (n - o) + ' pts';
+    const dir = (n, o) => n > o ? 'up' : n < o ? 'down' : 'flat';
+    const trendStyle = (n, o) => n > o ? 'color: var(--accent-ink)' : n < o ? 'color: var(--text-3)' : 'color: var(--muted)';
+    const mrPick = cur.h >= cur.d && cur.h >= cur.a ? ['Home win', 'h'] : cur.a >= cur.d ? ['Away win', 'a'] : ['Draw', 'd'];
+    const o35pick = cur.o35 >= 50 ? ['Over 3.5 goals', cur.o35, since.o35] : ['Under 3.5 goals', 100 - cur.o35, 100 - since.o35];
+    const settle = (ok) => finished ? (ok ? 'Won' : 'Lost') : '';
+    const ipCards = [
+      { market: 'Match Result', pick: mrPick[0], v: cur[mrPick[1]], was: since[mrPick[1]], result: settle((mrPick[1] === 'h' && sc[0] > sc[1]) || (mrPick[1] === 'a' && sc[1] > sc[0]) || (mrPick[1] === 'd' && sc[0] === sc[1])) },
+      { market: 'Double Chance', pick: cur.h + cur.d >= cur.a + cur.d ? 'Home or Draw' : 'Draw or Away', v: Math.max(cur.h + cur.d, cur.a + cur.d), was: Math.max(since.h + since.d, since.a + since.d), result: settle(sc[0] >= sc[1]) },
+      { market: 'Total Goals', pick: o35pick[0], v: o35pick[1], was: o35pick[2], result: settle(o35pick[0].startsWith('Over') ? goals >= 4 : goals <= 3) }
+    ];
+    if (!finished) ipCards.push({ market: 'Next Goal', pick: cur.ng[0] >= cur.ng[2] && cur.ng[0] >= cur.ng[1] ? H : cur.ng[2] >= cur.ng[1] ? A : 'No more goals', v: Math.max(...cur.ng), was: Math.max(...since.ng), result: '' });
+    const inplay = ipCards.map((c) => ({ ...c, vLabel: c.v + '%', delta: dlt(c.v, c.was), dir: dir(c.v, c.was), trendStyle: trendStyle(c.v, c.was),
+      arrow: c.v > c.was ? '▲' : c.v < c.was ? '▼' : '•', hasResult: !!c.result, isWon: c.result === 'Won',
+      resultStyle: c.result === 'Won' ? chip.won : chip.lost, sinceLabel }));
+
+    // chart geometry: viewBox 600 x 200, x = minute, y = probability
+    const X = (m) => Math.round(m / 90 * 600), Y = (v) => Math.round(200 - v * 2);
+    const step = (key) => { const out = []; snaps.forEach((s, i) => { if (i && evs.some((e) => (isGoal(e) || e.type === 'red' || e.type === 'second') && e.m === s.m)) out.push(X(s.m) + ',' + Y(snaps[i - 1][key])); out.push(X(s.m) + ',' + Y(s[key])); }); return out.join(' '); };
+    const keyEvents = rows.filter((r) => r.isGoalEv || r.isRed);
+    const selIdx = st.selEvent != null && rows[st.selEvent] ? st.selEvent : (keyEvents.length ? keyEvents[keyEvents.length - 1].idx : null);
+    let prevLeft = -99, prevRow = 1;
+    const markers = keyEvents.map((r) => {
+      const on = r.idx === selIdx;
+      const left = Math.min(95, Math.max(5, r.m / 90 * 100));
+      const row = left - prevLeft < 12 && prevRow === 0 ? 1 : 0; prevLeft = left; prevRow = row;
+      return { left: left.toFixed(2), top: row * 30, label: r.isGoalEv ? r.scoreAfterTight : 'RED', aria: r.m + "' " + r.label + ', ' + r.player,
+        style: on ? 'background: var(--text); color: var(--bg); border: 1.5px solid var(--text)'
+          : r.isGoalEv ? (r.isHome ? 'background: var(--surface); color: var(--accent-ink); border: 1.5px solid var(--accent-ink)' : 'background: var(--surface); color: var(--away-ink); border: 1.5px solid var(--away-ink)')
+          : 'background: #D64545; color: #FFFFFF; border: 1.5px solid #D64545',
+        pick: () => this.setState({ selEvent: r.idx }) };
+    });
+    const strip = rows.map((r) => ({ ...r, left: (r.m / 90 * 100).toFixed(2), pick: () => this.setState({ selEvent: r.idx }),
+      pos: r.isHome ? 'top: 2px' : 'bottom: 2px', ring: r.idx === selIdx ? 'box-shadow: 0 0 0 2px var(--text); border-radius: 4px' : '' }));
+    let detail = null;
+    if (selIdx != null) {
+      const r = rows[selIdx]; const b = before(r.m), a2 = at(r.m);
+      const moved = (k, lab) => ({ label: lab, from: b[k] + '%', to: a2[k] + '%', delta: dlt(a2[k], b[k]), style: trendStyle(a2[k], b[k]) });
+      detail = { head: r.min + ' · ' + r.label + ' · ' + (r.isHome ? H : A), who: r.player + (r.extra ? ' · ' + r.extra : ''), score: r.isGoalEv ? r.scoreAfter : '',
+        hasScore: r.isGoalEv, moves: [moved('h', H + ' win'), moved('d', 'Draw'), moved('a', A + ' win'), moved('o35', 'Over 3.5 goals')] };
+    }
+    const chart = { home: step('h'), draw: step('d'), away: step('a'), nowX: X(nowMin), nowLeft: (nowMin / 90 * 100).toFixed(2),
+      goalLines: keyEvents.map((r) => ({ x: X(r.m) })), markers, markerPad: markers.some((k) => k.top) ? 64 : 34, strip, hasDetail: !!detail, detail: detail || { moves: [] },
+      nowLabel: pre ? 'KO' : finished ? 'FT' : nowMin + "'",
+      outcomes: [
+        { label: H, now: cur.h, pre: first.h, dot: 'background: var(--accent)' },
+        { label: 'Draw', now: cur.d, pre: first.d, dot: 'background: var(--line-heavy)' },
+        { label: A, now: cur.a, pre: first.a, dot: 'background: var(--away)' }
+      ].map((o) => ({ ...o, nowLabel: o.now + '%', preLabel: o.pre + '%', delta: dlt(o.now, o.pre) }))
+    };
+
+    const TABS = [['summary', 'Summary'], ['inplay', 'In-play predictions'], ['stats', 'Stats']];
+    const tab = st.tab || P.startTab || 'summary';
+    const LIVE_VALS = {
+      m: MATCH, home: MATCH.home, away: MATCH.away,
+      isLive: !finished && !pre, isFinished: finished, isPre: pre, hasScore: !pre,
+      koTime: '19:00', sbPicks, sbPicksAria: sbPicks.map((q) => q.n + ' ' + q.label).join(', '),
+      statusLabel: pre ? 'Kick-off in 2h 14m' : finished ? 'FT · Full time' : 'Live · ' + nowMin + "'",
+      clock: finished ? 'FT' : nowMin + "'",
+      scoreH: sc[0], scoreA: sc[1], htLabel: pre ? 'Tue 29 Sep · UTC' : 'HT ' + ht[0] + '–' + ht[1],
+      scorersHome: evs.filter((e) => isGoal(e) && e.side === 'home').map((e) => e.player + ' ' + e.m + "'" + (e.type === 'pen' ? ' (P)' : '')).join(', '),
+      scorersAway: evs.filter((e) => isGoal(e) && e.side === 'away').map((e) => e.player + ' ' + e.m + "'" + (e.type === 'pen' ? ' (P)' : '')).join(', '),
+      tabs: TABS.map(([k, l]) => ({ label: l, selected: tab === k ? 'true' : 'false',
+        style: tab === k ? 'color: var(--text); box-shadow: inset 0 -3px 0 var(--accent-ink)' : 'color: var(--muted); box-shadow: none',
+        pick: () => this.setState({ tab: k }) })),
+      goInplay: () => this.setState({ tab: 'inplay' }),
+      tabSummary: tab === 'summary', tabInplay: tab === 'inplay', tabStats: tab === 'stats',
+      halves, statRows, picks, chart, inplay,
+      tallyLine: pre ? MATCH.picks.length + ' picks published · tracking starts at kick-off' : tally.won + ' won · ' + tally.on + ' on track · ' + tally.risk + ' at risk · ' + tally.lost + ' lost',
+      ipBadge: pre ? 'Opening read · live from kick-off' : finished ? 'Final in-play read · FT' : 'Live · updated ' + nowMin + "'",
+      ipTitle: pre ? 'In-play predictions · opening read' : finished ? 'In-play predictions · final read' : 'In-play predictions',
+      ipNote: pre ? 'These start from the pre-match model at kick-off, then re-price after every goal, card and on a timer.' : finished ? 'How our in-play predictions stood at the final whistle.' : 'Re-priced after every goal, card and on a timer. Pre-match picks further down are never changed — they are only tracked.',
+      modelTitle: pre ? 'Win probability · kick-off' : finished ? 'How the match swung' : 'Win probability · ' + nowMin + "'"
+    };
+
+    return {
+      ...THEME_VALS, isLight: !isDark,
+      ...LIVE_VALS
+    };
+  }
+}
+</script>
+</body>
+</html>

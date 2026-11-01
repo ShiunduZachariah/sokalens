@@ -1,0 +1,41 @@
+# SokaLens Prometheus configuration.
+#
+# Scrape targets:
+#   - Prometheus itself (self-monitoring)
+#   - node-exporter (host CPU/mem/disk/network)
+#   - cAdvisor (per-container CPU/mem/network/disk)
+#   - worker (quota planner + provider request accounting gauges)
+#
+# The Go API also exposes a Prometheus text endpoint at
+# /v1/admin/observability/metrics, but it is admin-gated (requires an admin
+# session + the read_analytics permission), so it is intentionally NOT scraped
+# here. Host and container metrics come from node-exporter and cAdvisor, which
+# are unauthenticated but only reachable inside the Docker network.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: node-exporter
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]
+
+  # Worker quota planner: projected demand vs remaining provider quota,
+  # per-reason request accounting, queue depth, and throttle state.
+  - job_name: worker
+    static_configs:
+      - targets: ["worker:9091"]
+
+  - job_name: ops-controller
+    static_configs:
+      - targets: ["ops-controller:8090"]

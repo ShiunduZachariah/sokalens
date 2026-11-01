@@ -1,0 +1,35 @@
+name: VPS PostgreSQL memory report
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    environment: production
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          # workflow_dispatch permits choosing a ref. Always source the
+          # diagnostic from the protected default branch instead.
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Configure SSH to the VPS
+        uses: ./.github/actions/vps-ssh
+        with:
+          private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          known-hosts: ${{ secrets.VPS_KNOWN_HOSTS }}
+          host: ${{ secrets.VPS_HOST }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          user: ${{ secrets.VPS_SSH_USER }}
+
+      - name: Run read-only PostgreSQL memory report
+        run: |
+          scp infra/deploy/postgres-memory-report.sh vps:/tmp/postgres-memory-report.sh
+          ssh vps 'bash /tmp/postgres-memory-report.sh'

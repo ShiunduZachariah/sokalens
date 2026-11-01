@@ -1,0 +1,15 @@
+DROP TRIGGER IF EXISTS entitlement_reconciliation_effects_immutable ON entitlement_reconciliation_effects;
+DROP TRIGGER IF EXISTS entitlement_reconciliation_corrections_immutable ON entitlement_reconciliation_corrections;
+DROP TRIGGER IF EXISTS entitlement_reconciliation_items_immutable ON entitlement_reconciliation_items;
+DROP TRIGGER IF EXISTS entitlement_reconciliation_runs_immutable ON entitlement_reconciliation_runs;
+DROP FUNCTION IF EXISTS reject_entitlement_reconciliation_mutation();
+
+DROP TABLE IF EXISTS entitlement_grant_freezes;
+DROP TABLE IF EXISTS entitlement_reconciliation_effects;
+DROP TABLE IF EXISTS entitlement_reconciliation_corrections;
+DROP TABLE IF EXISTS entitlement_reconciliation_items;
+DROP TABLE IF EXISTS entitlement_reconciliation_runs;
+
+ALTER TABLE user_entitlement_grants
+  DROP COLUMN IF EXISTS reconciliation_revision,
+  DROP COLUMN IF EXISTS reconciliation_verified_at;

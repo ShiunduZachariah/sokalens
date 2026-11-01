@@ -1,0 +1,31 @@
+{
+  "as_of_timestamp": "2026-07-01T12:00:00+00:00",
+  "config_sha256": "f3bbfa7771a87d9c2e17c3c4004b9087489c51db5f3f447452a7e7c5e8690924",
+  "format_version": 1,
+  "input_sha256": "8be1de3d8f19d8f849fc34121b3003356b70b23f7242a5ab23fd816939708f2f",
+  "output": {
+    "acca": {
+      "combined_fair_odds": 4.25170068,
+      "combined_fair_probability": 0.2352,
+      "legs": [
+        "201:1x2:home",
+        "202:total_goals:over_2.5",
+        "203:1x2:away"
+      ],
+      "target_met": true
+    },
+    "backtest": {
+      "accuracy_by_tier": {
+        "low": 0.0,
+        "medium": 0.66666667,
+        "none": 0.0,
+        "strong": 1.0
+      },
+      "confidence_ordering_holds": true,
+      "correct_predictions": 4,
+      "overall_accuracy": 0.66666667,
+      "total_predictions": 6
+    }
+  },
+  "output_sha256": "ea20aab8b35da2456102b69c7155759eb3287f4c01615bd85059a509430094c7"
+}

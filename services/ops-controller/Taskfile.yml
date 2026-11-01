@@ -1,0 +1,36 @@
+version: "3"
+
+tasks:
+  test:
+    desc: Run ops-controller unit tests
+    cmds:
+      - go test ./...
+  test:integration:
+    desc: >-
+      Run the Telegram bridge database integration tests against a live Postgres.
+      Requires migration 000057_ops_telegram_bridge. Set OPS_TEST_DATABASE_URL,
+      or let this task build it from the repo-root .env (never committed).
+    # dotenv, not a hardcoded password: the credential stays in the gitignored
+    # .env and never appears in a tracked file.
+    dotenv: ["../../.env"]
+    cmds:
+      - |
+        if [ -z "$OPS_TEST_DATABASE_URL" ]; then
+          if [ -z "$POSTGRES_PASSWORD" ]; then
+            echo "set OPS_TEST_DATABASE_URL, or POSTGRES_PASSWORD in the repo-root .env" >&2
+            exit 1
+          fi
+          OPS_TEST_DATABASE_URL="postgres://sports:${POSTGRES_PASSWORD}@127.0.0.1:5433/sports_prediction?sslmode=disable"
+        fi
+        export OPS_TEST_DATABASE_URL
+        go test -tags=integration -count=1 ./internal/telegram/ -run Integration -v
+  build:
+    desc: Build the observe-only ops-controller
+    cmds:
+      - go build ./cmd/ops-controller
+  check:
+    desc: Format, vet, and test the service
+    cmds:
+      - gofmt -w cmd internal
+      - go vet ./...
+      - go test ./...

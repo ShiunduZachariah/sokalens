@@ -1,0 +1,22 @@
+{
+  "get": "teams",
+  "parameters": {},
+  "errors": [],
+  "results": 1,
+  "paging": {
+    "current": 1,
+    "total": 1
+  },
+  "response": [
+    {
+      "team": {
+        "name": "Manchester United",
+        "code": "MUN",
+        "country": "England"
+      },
+      "venue": {
+        "name": "Old Trafford"
+      }
+    }
+  ]
+}

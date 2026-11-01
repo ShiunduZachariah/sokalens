@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 80" role="img" aria-labelledby="title desc">
+  <title id="title">SokaLens dark-background logo</title>
+  <desc id="desc">The SokaLens insight lens mark and light wordmark on a graphite background.</desc>
+  <rect width="360" height="80" rx="12" fill="#26323F"/>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="34" cy="34" r="23" fill="#162B2B" stroke="#54D6A3" stroke-width="5"/>
+    <path d="M51 51l16 16" stroke="#FAFCFE" stroke-width="7"/>
+    <path d="M24 44V35M34 44V24M44 44V30" stroke="#5B8DEF" stroke-width="5"/>
+  </g>
+  <text x="86" y="50" fill="#FAFCFE" font-family="Inter, Geist, Arial, sans-serif" font-size="38" font-weight="760">SokaLens</text>
+  <path d="M87 61h68" stroke="#54D6A3" stroke-width="4" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,65 @@
+/* SokaLens design tokens: one set, two themes.
+   Switch with <html data-theme="dark|light">. Every page uses only these variables for colour. */
+:root,
+:root[data-theme="dark"] {
+  --bg: #0E1411;
+  --surface: #131B16;
+  --surface-2: #16201A;
+  --surface-3: #1C2620;
+  --surface-sunk: #0F1712;
+  --bar: #0B100D;
+  --hatch: #18221C;
+  --line: #243029;
+  --line-soft: #1F2A23;
+  --line-strong: #2E3B34;
+  --line-stronger: #3B4741;
+  --line-heavy: #4A5750;
+  --tick: #5A675F;
+  --deco: #1E2922;
+  --text: #EEF2EC;
+  --text-2: #DCE4DD;
+  --text-3: #C9D2CB;
+  --text-4: #B8C3BB;
+  --muted: #A7B3AB;
+  --faint: #8A968E;
+  --accent: #C8F169;
+  --accent-ink: #C8F169;
+  --away: #8FB8FF;
+  --away-ink: #8FB8FF;
+  --on-accent: #0E1411;
+  --fav: #FF7A8A;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --bg: #F8F9F7;
+  --surface: #FFFFFF;
+  --surface-2: #F0F7E8;
+  --surface-3: #F1F3F0;
+  --surface-sunk: #F4F6F3;
+  --bar: #FFFFFF;
+  --hatch: #E6E9E4;
+  --line: #E1E5DF;
+  --line-soft: #ECEFEA;
+  --line-strong: #D1D7CF;
+  --line-stronger: #BDC4BB;
+  --line-heavy: #9AA39A;
+  --tick: #7F8A80;
+  --deco: #EBEEE9;
+  --text: #111812;
+  --text-2: #1D271F;
+  --text-3: #364238;
+  --text-4: #445047;
+  --muted: #56635A;
+  --faint: #66736A;
+  --accent: #4C9F16;
+  --accent-ink: #2F6B0A;
+  --away: #3D7BE0;
+  --away-ink: #1F5BBF;
+  --on-accent: #0E1411;
+  --fav: #D23B54;
+  color-scheme: light;
+}
+
+/* fixed event colours (same in both themes) */
+:root { --card-yellow: #E8B931; --card-red: #D64545; }

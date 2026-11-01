@@ -1,0 +1,10 @@
+DROP TABLE IF EXISTS api_predictions;
+DROP TABLE IF EXISTS league_coverage;
+DROP TABLE IF EXISTS referee_stats;
+DROP TABLE IF EXISTS odds;
+DROP TABLE IF EXISTS player_availability;
+DROP TABLE IF EXISTS standings;
+DROP TABLE IF EXISTS head_to_head;
+DROP TABLE IF EXISTS team_season_stats;
+DROP TABLE IF EXISTS fixture_statistics;
+DROP TABLE IF EXISTS fixtures;

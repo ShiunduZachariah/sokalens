@@ -1,0 +1,116 @@
+# gitleaks false positives reviewed 2026-09-02 as part of the first
+# full-history secret scan. Each entry below
+# was manually verified as NOT a real credential before being added here;
+# do not add new entries without the same review.
+#
+# BEFORE ADDING AN ENTRY: prefer changing the value so it stops matching.
+# A fingerprint suppresses one finding in one commit, so a placeholder that
+# trips a rule keeps failing secret-scan for every NEW file that copies it,
+# and each one needs another entry here. That is how the two
+# .env.prod.example lines below came to exist, and why a third was nearly
+# needed on 2026-09-16 when .env.qa.example inherited the same literal.
+#
+# Placeholder convention for env templates: low-entropy prose such as
+# `set-me-see-comment-above`, with a comment saying how to generate the real
+# value. Never a token-shaped literal like REPLACE_WITH_64_HEX_CHARS, which
+# scores 3.70 entropy and matches generic-api-key. Comments are not scanned.
+
+# Public IndexNow ownership-verification token. IndexNow/Bing require this
+# value to be served publicly at https://sokalens.com/<key>.txt (see the
+# "Verify public deployment" step in .github/workflows/ci.yml) -- it is a
+# verification token, not a secret, by protocol design.
+03f59d3c55e6e13cc88afb1693e077d8bd154322:apps/web/scripts/indexnow-submit.mjs:generic-api-key:3
+
+# infra/deploy/.env.prod.example is a documented placeholder template
+# ("NEVER commit real secrets. All values here are placeholders."). These
+# two lines are literal placeholder text (REPLACE_WITH_64_HEX_CHARS), not
+# real secrets; gitleaks' entropy heuristic misfires on the placeholder text.
+05bd9f1266fb00dd629e97c80d7d1f8f13e87e1d:infra/deploy/.env.prod.example:generic-api-key:6
+05bd9f1266fb00dd629e97c80d7d1f8f13e87e1d:infra/deploy/.env.prod.example:generic-api-key:63
+
+# Fake fixture secrets used only in Go unit tests, never real credentials.
+# Public deterministic cursor fixture (repeated hexadecimal digits), not an API key.
+dd54ddff9e9c329e42021318d2ce8ad38493b891:services/api/internal/acca/query_validation_test.go:generic-api-key:11
+3b0788b62df890cff578fb616e7f4ba05089f5c2:services/ops-controller/internal/config/config_test.go:generic-api-key:51
+3b0788b62df890cff578fb616e7f4ba05089f5c2:services/ops-controller/internal/config/config_test.go:generic-api-key:119
+89749e23a78ac762090fb2d2783e413939de28bd:services/ops-controller/internal/alerts/alerts_test.go:generic-api-key:11
+89749e23a78ac762090fb2d2783e413939de28bd:services/ops-controller/internal/httpserver/server_test.go:generic-api-key:32
+89749e23a78ac762090fb2d2783e413939de28bd:services/ops-controller/internal/httpserver/server_test.go:generic-api-key:73
+89749e23a78ac762090fb2d2783e413939de28bd:services/ops-controller/internal/httpserver/server_test.go:generic-api-key:104
+89749e23a78ac762090fb2d2783e413939de28bd:services/ops-controller/internal/httpserver/server_test.go:generic-api-key:127
+
+# Placeholder APP_SECRET in the isolated QA environment template. The value
+# explicitly instructs operators to replace it and is not used by any runtime.
+3c6fcf09e05efdb918e7df90242e66e44b40c48d:infra/deploy/.env.qa.example:generic-api-key:19
+
+# ACCA market key in a tracker_state serialisation test, commit e3063dbc.
+#
+# `total_corners_8.5` is a market key -- the kind the engine publishes
+# predictions against -- not a credential. The generic-api-key rule matched it
+# on shape alone: the struct field is named MarketKey, so an inline assignment
+# reads as `...Key: "<high-entropy value>"`. Entropy is why this one tripped and
+# `MarketKey: "total_goals_match_1.5"` two tests above it did not.
+#
+# Per the note at the top of this file, the value's SHAPE was changed at head
+# rather than only suppressed: the literal is now a `cornersMarket` constant,
+# so no new file copying this test pattern trips the rule again. This entry
+# covers the historical commit, whose diff is published on qa and main and
+# cannot be edited without rewriting it.
+e3063dbcfc15e5f0b768ca1d556bde9f0bc20832:services/api/internal/httpserver/tracker_state_response_test.go:generic-api-key:59
+
+# Adsterra zone ids, on two commits of the CLOSED pull request #250.
+#
+# What the rule saw: `key` (and `key:`) immediately beside a 32-character hex
+# string, which is the generic-api-key shape. What it actually is: an Adsterra
+# zone id, a public identifier that ships in the page source and is useless
+# without the account it belongs to -- the same category as the AdSense
+# publisher id already in `apps/web/app/site.ts` and in `public/ads.txt`.
+#
+# Per the note at the top of this file, the SHAPE was fixed at head first and
+# these entries cover only history: the stored field is now `zone_id`, with no
+# keyword beside the value, and the test fixtures name their zones as
+# constants. A file copying that pattern tomorrow cannot trip the rule.
+#
+# These two commits were abandoned, not merged. The branch was deleted and the
+# pull request closed -- and the commits are still scanned, because GitHub
+# keeps `refs/pull/250/head` for ever and the self-hosted runner's clone has
+# it. Deleting a branch does not unpublish its commits, which is the thing
+# worth remembering here: once a shape like this is pushed, a fingerprint is
+# the only way back, so fix it before the push.
+821fa2394c797f932d9faa8830efd3caee6da6c5:apps/web/app/lib/adDelivery.test.mjs:generic-api-key:103
+821fa2394c797f932d9faa8830efd3caee6da6c5:apps/web/app/lib/adDelivery.test.mjs:generic-api-key:45
+821fa2394c797f932d9faa8830efd3caee6da6c5:apps/web/app/lib/adDelivery.test.mjs:generic-api-key:46
+821fa2394c797f932d9faa8830efd3caee6da6c5:apps/web/app/lib/adDelivery.test.mjs:generic-api-key:47
+821fa2394c797f932d9faa8830efd3caee6da6c5:apps/web/app/lib/adDelivery.test.mjs:generic-api-key:54
+821fa2394c797f932d9faa8830efd3caee6da6c5:apps/web/app/lib/adDelivery.test.mjs:generic-api-key:82
+821fa2394c797f932d9faa8830efd3caee6da6c5:apps/web/app/lib/adDelivery.test.mjs:generic-api-key:89
+821fa2394c797f932d9faa8830efd3caee6da6c5:infra/db/migrations/000083_adsterra_zones.up.sql:generic-api-key:27
+821fa2394c797f932d9faa8830efd3caee6da6c5:infra/db/migrations/000083_adsterra_zones.up.sql:generic-api-key:28
+821fa2394c797f932d9faa8830efd3caee6da6c5:infra/db/migrations/000083_adsterra_zones.up.sql:generic-api-key:29
+821fa2394c797f932d9faa8830efd3caee6da6c5:infra/db/migrations/000083_adsterra_zones.up.sql:generic-api-key:31
+821fa2394c797f932d9faa8830efd3caee6da6c5:infra/db/migrations/000083_adsterra_zones.up.sql:generic-api-key:33
+821fa2394c797f932d9faa8830efd3caee6da6c5:infra/db/migrations/000083_adsterra_zones.up.sql:generic-api-key:34
+821fa2394c797f932d9faa8830efd3caee6da6c5:infra/db/migrations/000083_adsterra_zones.up.sql:generic-api-key:36
+821fa2394c797f932d9faa8830efd3caee6da6c5:infra/db/migrations/000083_adsterra_zones.up.sql:generic-api-key:38
+c7e8350c8ee10c97b75b397148ddbc477f70250a:infra/db/migrations/000083_adsterra_zones.up.sql:generic-api-key:53
+c7e8350c8ee10c97b75b397148ddbc477f70250a:infra/db/migrations/000083_adsterra_zones.up.sql:generic-api-key:61
+
+# Third-party skill documentation, added 2026-10-06 with the UI skills that
+# used for the design-parity work. The match is a mock
+# bearer value assigned to a local variable in a prose example of stubbing an
+# auth flow: a sample string in documentation, not a credential. Read before
+# allowlisting.
+#
+# The value is deliberately NOT quoted here. The first version of this comment
+# reproduced it, and the scanner then flagged .gitleaksignore itself -- an
+# allowlist entry that creates the finding it is allowing.
+#
+# Pinned by fingerprint rather than by path, so the allowance covers that one
+# line in that one commit. A real secret added to the same file later still
+# fails the scan.
+4c7b1898586162ef6a2a2a22c4293ef153d09b0a:.agents/skills/playwright-best-practices/advanced/authentication-flows.md:generic-api-key:54
+#
+# And the commit that first carried that comment. The history is immutable and
+# gitleaks scans all of it, so the superseded wording has to be allowed too --
+# rewriting published history to tidy a comment would be the worse trade.
+33a4b0540cf4cb02ddf1dea740f856887b070b8a:.gitleaksignore:generic-api-key:100
