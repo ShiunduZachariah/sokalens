@@ -110,6 +110,65 @@ test('backend checkpoint survives failed frontend activation', () => {
   assert.match(result.stdout, /backend-ready:1/);
 });
 
+test('a completed deploy records its commit where the release swap cannot reach it', () => {
+  const result = spawnSync('bash', ['-c', `${definitions}
+trap - EXIT
+scratch=$(mktemp -d)
+trap 'rm -rf "$scratch"' EXIT
+LAST_DEPLOYED_MARKER="$scratch/last-deployed-sha"
+RELEASE_SHA=completed-release
+record_last_deployed
+printf 'marker:%s\\n' "$(cat "$LAST_DEPLOYED_MARKER")"
+ls -A "$scratch"
+`], { encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^marker:completed-release$/m);
+  assert.doesNotMatch(result.stdout, /last-deployed-sha\./, 'left a temporary file behind');
+  assert.match(source, /^LKG_ROOT="\/home\/deploy\/sokalens-lkg"$/m);
+  assert.match(source, /^LAST_DEPLOYED_MARKER="\$LKG_ROOT\/last-deployed-sha"$/m);
+});
+
+test('neither rollback moves the last deployed commit', () => {
+  const rollbacks = {
+    'full rollback': `BACKEND_READY=0
+ACTIVATED_SERVICES=' api'
+LKG_MANIFEST=''
+mkdir -p "$OLD_DIR"
+printf '%s\\n' 'API_BIND_ADDRESS=127.0.0.1' > "$OLD_DIR/.env.prod"`,
+    'frontend rollback': `BACKEND_READY=1
+BACKEND_SERVICES=' api'
+FRONTEND_SERVICES=' web'
+ACTIVATED_SERVICES=' api web'
+LKG_MANIFEST="$DEPLOY_DIR/manifest"
+printf '%s\\n' 'image|web|web-current|web-lkg|web-id' > "$LKG_MANIFEST"`,
+  };
+  for (const [name, setup] of Object.entries(rollbacks)) {
+    const result = spawnSync('bash', ['-c', `${definitions}
+trap - EXIT
+scratch=$(mktemp -d)
+DEPLOY_DIR="$scratch/current"
+OLD_DIR="$scratch/old"
+LAST_DEPLOYED_MARKER="$scratch/last-deployed-sha"
+mkdir -p "$DEPLOY_DIR"
+printf '%s\\n' 'API_BIND_ADDRESS=127.0.0.1' > "$DEPLOY_DIR/.env.prod"
+printf '%s\\n' last-good-release > "$LAST_DEPLOYED_MARKER"
+RELEASE_SHA="failed-release-$$"
+LKG_BACKEND_SHA=old-backend
+LKG_FRONTEND_SHA=old-frontend
+${setup}
+trap 'rm -rf "$scratch" "/tmp/sokalens-failed-$RELEASE_SHA"; cleanup_secret_files' EXIT
+docker() { :; }
+compose() { :; }
+restore_caddy_config() { :; }
+wait_for_release_health() { :; }
+rollback_release
+printf 'marker:%s\\n' "$(cat "$LAST_DEPLOYED_MARKER")"
+`], { encoding: 'utf8' });
+    assert.equal(result.status, 0, `${name}: ${result.stderr}`);
+    assert.match(result.stdout, /^marker:last-good-release$/m, name);
+  }
+});
+
 test('frontend failure rolls back only frontend and records split release identities', () => {
   const result = spawnSync('bash', ['-c', `${definitions}
 trap - EXIT

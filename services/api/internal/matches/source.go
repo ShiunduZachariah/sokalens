@@ -161,6 +161,7 @@ SELECT
   ep.public_id AS prediction_id,
   ep.prediction AS prediction_selection,
   ep.confidence * 100 AS prediction_confidence,
+  ep.probability AS prediction_probability,
   (
     SELECT COUNT(*)
     FROM engine_predictions versioned
@@ -412,6 +413,7 @@ SELECT
   ep.public_id AS prediction_id,
   ep.prediction AS prediction_selection,
   ep.confidence * 100 AS prediction_confidence,
+  ep.probability AS prediction_probability,
   (
     SELECT COUNT(*)
     FROM engine_predictions versioned
@@ -660,6 +662,7 @@ SELECT
   ep.market,
   ep.prediction,
   COALESCE(ep.confidence, 0) * 100,
+  COALESCE(ep.probability, 0),
   ep.public_id,
   ep.generated_at,
   CASE
@@ -720,7 +723,7 @@ ORDER BY ep.market ASC`, matchID)
 	for rows.Next() {
 		var prediction httpserver.MatchPredictionSummary
 		var publishedAt any
-		if err := rows.Scan(&prediction.MarketKey, &prediction.Selection, &prediction.Confidence, &prediction.ID, &publishedAt, &prediction.Outcome, &prediction.Actual, &prediction.VoidReason, &prediction.TrackerState); err != nil {
+		if err := rows.Scan(&prediction.MarketKey, &prediction.Selection, &prediction.Confidence, &prediction.Probability, &prediction.ID, &publishedAt, &prediction.Outcome, &prediction.Actual, &prediction.VoidReason, &prediction.TrackerState); err != nil {
 			return nil, err
 		}
 		if parsed, err := parseTimestamp(publishedAt); err == nil {
@@ -818,6 +821,7 @@ func scanMatchSummary(scanner interface {
 	var predictionID sql.NullInt64
 	var predictionSelection sql.NullString
 	var predictionConfidence sql.NullFloat64
+	var predictionProbability sql.NullFloat64
 	var predictionVersion sql.NullInt64
 	var predictionPublishedAt any
 	var predictionUpdatedAt any
@@ -857,6 +861,7 @@ func scanMatchSummary(scanner interface {
 		&predictionID,
 		&predictionSelection,
 		&predictionConfidence,
+		&predictionProbability,
 		&predictionVersion,
 		&predictionPublishedAt,
 		&predictionUpdatedAt,
@@ -935,6 +940,7 @@ func scanMatchSummary(scanner interface {
 			MarketKey:        "1x2",
 			Selection:        predictionSelection.String,
 			Confidence:       predictionConfidence.Float64,
+			Probability:      predictionProbability.Float64,
 			PublishedVersion: int(predictionVersion.Int64),
 			PublishedAt:      publishedAt,
 			UpdatedAt:        updatedAt,

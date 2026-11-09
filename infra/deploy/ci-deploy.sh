@@ -1,5 +1,5 @@
 #!/bin/bash
-# CI-driven production deploy with restore-verified backup and health-gated LKG rollback.
+# CI-driven production deploy with a pre-migration dump and health-gated LKG rollback.
 set -euo pipefail
 umask 022
 
@@ -13,6 +13,9 @@ DEPLOY_DIR="/home/deploy/sokalens"
 OLD_DIR="/home/deploy/sokalens-old"
 NEW_DIR="/tmp/sokalens-new"
 LKG_ROOT="/home/deploy/sokalens-lkg"
+# ci.yml's detect job reads this to choose gates and services. See
+# record_last_deployed for why it sits outside the swapped release directory.
+LAST_DEPLOYED_MARKER="$LKG_ROOT/last-deployed-sha"
 LKG_TAG=""
 LKG_MANIFEST=""
 ENV_UPDATE_TEMPORARY=""
@@ -160,6 +163,21 @@ record_release_state() {
   printf '%s\n' "$global_sha" > "$DEPLOY_DIR/.release-sha" || return 1
   chmod 644 "$DEPLOY_DIR/.release-backend-sha" "$DEPLOY_DIR/.release-frontend-sha" \
     "$DEPLOY_DIR/.release-source-sha" "$DEPLOY_DIR/.release-sha"
+}
+
+# The commit production is known to match, and the base of the next deploy's
+# diff. The per-component markers above cannot do this job: they only advance for
+# the components a release rebuilt, and a frontend rollback writes them too.
+#
+# Only a completed deploy writes this, so a failed, rolled-back or killed one
+# leaves it on the last good commit and the next push ships that work as well.
+# It lives outside DEPLOY_DIR because that directory is swapped mid-deploy. The
+# rename means a kill cannot leave half a SHA behind.
+record_last_deployed() {
+  local temporary="$LAST_DEPLOYED_MARKER.$$"
+  printf '%s\n' "$RELEASE_SHA" > "$temporary" &&
+    chmod 644 "$temporary" &&
+    mv "$temporary" "$LAST_DEPLOYED_MARKER"
 }
 
 rollback_release() {
@@ -397,11 +415,23 @@ docker container prune -f >/dev/null 2>&1 || true
 # apply a few lines below. If the database cannot be reached the check fails
 # open and takes the snapshot: a needless dump is recoverable, a missing one is
 # not.
+#
+# A migration that only adds has a natural undo, so it needs no snapshot either:
+# new tables, columns, indexes and triggers, and seed rows that cannot overwrite,
+# leave every existing row as it was, and the previous release keeps working beside
+# them. That rule is an allow-list.
+# Anything it does not recognise takes the snapshot, so a function body, a data
+# change or a mistake here costs minutes, never a recovery point.
 BACKUP_DIR=/home/deploy/backups/sokalens
 BACKUP_MAX_AGE_DAYS="${BACKUP_MAX_AGE_DAYS:-7}"
 BACKUP_POSTGRES_CONTAINER="${POSTGRES_CONTAINER:-sports-prediction-platform-postgres-1}"
 BACKUP_DB_USER="${POSTGRES_USER:-sports}"
 BACKUP_DB_NAME="${POSTGRES_DB:-sports_prediction}"
+# False when schema_migrations could not be read, so "nothing named" proves nothing.
+pending_are_readable() {
+  docker exec "$BACKUP_POSTGRES_CONTAINER" psql -X -U "$BACKUP_DB_USER" -d "$BACKUP_DB_NAME" \
+    -At -c 'SELECT 1 FROM schema_migrations LIMIT 1' >/dev/null 2>&1
+}
 pending_migration_count() {
   local applied name count=0
   applied="$(docker exec "$BACKUP_POSTGRES_CONTAINER" psql -X -U "$BACKUP_DB_USER" -d "$BACKUP_DB_NAME" \
@@ -409,16 +439,51 @@ pending_migration_count() {
   for migration in "$NEW_DIR"/infra/db/migrations/*.up.sql; do
     [ -e "$migration" ] || continue
     name="$(basename "$migration" .up.sql)"
-    printf '%s\n' "$applied" | grep -qxF "$name" || count=$((count + 1))
+    printf '%s\n' "$applied" | grep -qxF "$name" || {
+      count=$((count + 1))
+      migration_only_adds "$migration" || BACKUP_NON_ADDITIVE="$BACKUP_NON_ADDITIVE $name"
+    }
   done
   echo "$count"
 }
-BACKUP_PENDING_MIGRATIONS="$(pending_migration_count)"
-if [ "$BACKUP_PENDING_MIGRATIONS" -gt 0 ]; then
-  echo "backup: $BACKUP_PENDING_MIGRATIONS pending migration(s), taking a pre-migration recovery point"
-  BACKUP_DIR="$BACKUP_DIR" bash "$NEW_DIR/infra/deploy/backup.sh"
-else
+# Succeeds only when every statement in the file is on the allow-list.
+migration_only_adds() {
+  ! grep -q '/\*' "$1" || return 1
+  sed -e 's/--.*$//' "$1" | tr '\n' ' ' | tr ';' '\n' | tr '[:upper:]' '[:lower:]' | awk '
+    # The clauses of a foreign key are not statements, and most new tables have one.
+    { gsub(/on[[:space:]]+(delete|update)[[:space:]]/, " ") }
+    { gsub(/(before|after)[[:space:]]+(insert|update|delete)([[:space:]]+or[[:space:]]+(insert|update|delete))*[[:space:]]+on[[:space:]]/, " on ") }
+    /^[[:space:]]*$/ { next }
+    / drop | rename | alter column | set data type | truncate | delete | update / { refused = 1 }
+    /^[[:space:]]*(begin|commit)[[:space:]]*$/ { next }
+    /^[[:space:]]*create[[:space:]]+table[[:space:]]/ { next }
+    /^[[:space:]]*create[[:space:]]+(unique[[:space:]]+)?index[[:space:]]/ { next }
+    /^[[:space:]]*alter[[:space:]]+table[[:space:]]+(if[[:space:]]+exists[[:space:]]+)?[^[:space:]]+[[:space:]]+add[[:space:]]+column[[:space:]]/ { next }
+    /^[[:space:]]*comment[[:space:]]+on[[:space:]]/ { next }
+    /^[[:space:]]*create[[:space:]]+trigger[[:space:]]/ { next }
+    /^[[:space:]]*insert[[:space:]]+into[[:space:]].*on[[:space:]]+conflict.*do[[:space:]]+nothing[[:space:]]*$/ { next }
+    { refused = 1 }
+    END { exit refused }
+  '
+}
+# Assigned here because the count runs in a subshell. A failed read reports one
+# pending migration with nothing to name, which takes the snapshot below.
+BACKUP_NON_ADDITIVE=""
+BACKUP_PENDING_REPORT="$(pending_migration_count; printf 'non-additive:%s\n' "$BACKUP_NON_ADDITIVE")"
+BACKUP_PENDING_MIGRATIONS="$(printf '%s\n' "$BACKUP_PENDING_REPORT" | head -1)"
+BACKUP_NON_ADDITIVE="$(printf '%s\n' "$BACKUP_PENDING_REPORT" | sed -n 's/^non-additive://p')"
+if [ "$BACKUP_PENDING_MIGRATIONS" -eq 0 ]; then
   echo "backup: skipped, no pending migrations in this release"
+elif [ -z "$BACKUP_NON_ADDITIVE" ] && [ -f "$NEW_DIR/infra/deploy/backup.sh" ] && pending_are_readable; then
+  echo "backup: skipped, $BACKUP_PENDING_MIGRATIONS pending migration(s) only add tables, columns or indexes"
+else
+  echo "backup: pending migrations that change existing data or structure:${BACKUP_NON_ADDITIVE:- unknown}"
+  echo "backup: $BACKUP_PENDING_MIGRATIONS pending migration(s), taking a pre-migration recovery point"
+  # The restore check runs in ci.yml's verify-recovery-point job, after this script,
+  # unless the previous recovery point never passed one. If this release has to be
+  # undone before that job finishes, the dump is unproven, and the previous one is
+  # still on disk beside it.
+  BACKUP_DIR="$BACKUP_DIR" bash "$NEW_DIR/infra/deploy/backup.sh" dump
 fi
 # Expire the snapshot on age as well as on replacement.
 #
@@ -431,7 +496,7 @@ fi
 # Runs on every deploy, including ones that took no snapshot, so the expiry does
 # not depend on migration cadence. Matches only this filename pattern, so it
 # cannot reach PostgreSQL volumes or unrelated backups.
-find "$BACKUP_DIR" -maxdepth 1 -type f \( -name 'sokalens-*.dump' -o -name 'sokalens-*.dump.sha256' \) \
+find "$BACKUP_DIR" -maxdepth 1 -type f \( -name 'sokalens-*.dump' -o -name 'sokalens-*.dump.sha256' -o -name 'sokalens-*.dump.facts' \) \
   -mtime "+$BACKUP_MAX_AGE_DAYS" -print -delete 2>/dev/null || true
 capture_lkg
 
@@ -463,6 +528,20 @@ frontend_sha="$LKG_FRONTEND_SHA"
 [ -z "$FRONTEND_SERVICES" ] || frontend_sha="$RELEASE_SHA"
 record_release_state "$backend_sha" "$frontend_sha"
 DEPLOY_SUCCEEDED=1
+# After the success flag, so failing to write this cannot roll back a healthy
+# release. A stale marker only makes the next deploy wider, never narrower.
+record_last_deployed || echo "WARNING: could not record the deployed commit; the next deploy will cover this release again" >&2
+
+# Shadow challengers (architecture v2 Models B and C) publish nothing, so they
+# are never a release gate. One live pass here puts their first run on the new
+# code in this log, where it can be read without a shell on the host; the
+# worker repeats it after every upcoming-prediction run from now on. A failure
+# is reported and the release stands.
+echo "== shadow challengers =="
+if ! compose exec -T worker python -m prediction_engine.cli run-challengers --origin live --min-interval-minutes 0; then
+  echo "WARNING: shadow challenger pass failed; the release is unaffected" >&2
+fi
+compose exec -T worker python -m prediction_engine.cli challenger-report --no-write || true
 
 # Post-success GC never touches images in use, named volumes, or the verified
 # dump. It runs only here, after a green deploy, so reclaiming space can never

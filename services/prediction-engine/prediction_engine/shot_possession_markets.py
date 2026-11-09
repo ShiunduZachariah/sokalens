@@ -6,6 +6,19 @@ import math
 from prediction_engine.rate_markets import OverUnderLine, poisson_probability
 
 
+# Precision of the Beta on the home share. An actual share landed a standard
+# deviation of 9.5 points from the expected one, on 700 fixtures in 55 leagues:
+# m(1-m)/sd^2 - 1 at m=0.5. See docs/prediction-engine/possession-market.md.
+_POSSESSION_SHARE_PRECISION = 26.0
+
+# Expected shares in the evidence ran from 33.5 to 64.5. Past that there is
+# nothing to say the curve still holds, so the mean stops at the edge rather than
+# publishing an extrapolated near-certainty.
+_POSSESSION_EVIDENCE_RANGE = (33.0, 67.0)
+
+_BETA_MASS_STEPS = 400
+
+
 @dataclass(frozen=True)
 class ShotMarketResult:
     market_key: str
@@ -44,34 +57,54 @@ def shots_on_target_market(
     )
 
 
+def expected_home_possession_share(home_average: float, away_average: float) -> float:
+    """The home side's expected share, from what both teams usually hold.
+
+    Possession is one number split between two sides, so a 60% side meeting a
+    60% side is an even game. Reading the home average alone correlated with the
+    actual share at 0.22 on held-out fixtures; reading both, at 0.49.
+    """
+    return min(max((home_average + (100.0 - away_average)) / 2.0, 0.0), 100.0)
+
+
 def possession_market(
     *,
     expected_home_possession_pct: float,
     bands: tuple[tuple[int, int], ...] = ((0, 49), (50, 50), (51, 100)),
 ) -> PossessionMarketResult:
+    """A probability for each possession outcome, from a Beta on the home share.
+
+    Architecture v2 8.4.6: possession is a bounded proportion and is never a
+    count, so this is a Beta rather than the Poisson it replaced. Its mean is the
+    expected share and its precision is measured; see
+    docs/prediction-engine/possession-market.md.
+
+    The provider reports whole percentages, so "level" is the mass that rounds
+    to 50 and a band covers the half-point either side of its limits.
+    """
     _validate_non_negative(expected_home_possession_pct, "expected_home_possession_pct")
+    low, high = _POSSESSION_EVIDENCE_RANGE
+    mean = min(max(expected_home_possession_pct, low), high) / 100.0
+    alpha, beta = mean * _POSSESSION_SHARE_PRECISION, (1.0 - mean) * _POSSESSION_SHARE_PRECISION
+
     band_probabilities: dict[str, float] = {}
     for lower, upper in bands:
         if lower < 0 or upper < lower:
             raise ValueError("possession bands must be non-negative ordered ranges")
-        band_probabilities[f"{lower}-{upper}"] = _poisson_range_probability(
-            expected_home_possession_pct,
-            lower,
-            upper,
+        band_probabilities[f"{lower}-{upper}"] = _beta_mass(
+            alpha,
+            beta,
+            max(lower - 0.5, 0.0) / 100.0,
+            min(upper + 0.5, 100.0) / 100.0,
         )
 
-    if expected_home_possession_pct > 50:
-        side_probabilities = {"home_more": 1.0, "level": 0.0, "away_more": 0.0}
-    elif expected_home_possession_pct < 50:
-        side_probabilities = {"home_more": 0.0, "level": 0.0, "away_more": 1.0}
-    else:
-        side_probabilities = {"home_more": 0.0, "level": 1.0, "away_more": 0.0}
-
+    away_more = _beta_mass(alpha, beta, 0.0, 0.495)
+    level = _beta_mass(alpha, beta, 0.495, 0.505)
     return PossessionMarketResult(
         expected_home_possession_pct=expected_home_possession_pct,
         band_probabilities=band_probabilities,
-        side_probabilities=side_probabilities,
-        method="possession_pct_poisson",
+        side_probabilities={"home_more": 1.0 - away_more - level, "level": level, "away_more": away_more},
+        method="possession_share_beta",
     )
 
 
@@ -105,10 +138,21 @@ def _derive_over_under_lines(lambda_value: float, lines: tuple[float, ...]) -> d
     return derived
 
 
-def _poisson_range_probability(lambda_value: float, lower: int, upper: int) -> float:
-    if upper >= 100:
-        return 1 - sum(poisson_probability(lambda_value, count) for count in range(lower))
-    return sum(poisson_probability(lambda_value, count) for count in range(lower, upper + 1))
+def _beta_mass(alpha: float, beta: float, lower: float, upper: float) -> float:
+    """The Beta(alpha, beta) probability of [lower, upper], by midpoint rule.
+
+    Both shapes are well above 1 inside the evidence range, so the density is
+    smooth and vanishes at the ends, and this runs once per fixture.
+    """
+    if upper <= lower:
+        return 0.0
+    log_norm = math.lgamma(alpha + beta) - math.lgamma(alpha) - math.lgamma(beta)
+    width = (upper - lower) / _BETA_MASS_STEPS
+    total = 0.0
+    for step in range(_BETA_MASS_STEPS):
+        point = lower + (step + 0.5) * width
+        total += math.exp(log_norm + (alpha - 1.0) * math.log(point) + (beta - 1.0) * math.log1p(-point))
+    return total * width
 
 
 def _validate_non_negative(value: float, name: str) -> None:

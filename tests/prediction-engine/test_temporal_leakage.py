@@ -184,6 +184,21 @@ class PointInTimeFixtureDatabase:
                 and teams_overlap(row, int(params["home_team_id"]), int(params["away_team_id"]))
             ]
             return Rows(sorted(rows, key=lambda row: row["kickoff_at"], reverse=True)[:80])
+        if "f.league_id = ANY(%(league_ids)s)" in sql:
+            assert isinstance(as_of, datetime)
+            rows = [
+                row
+                for row in self.fixtures
+                if row["league_id"] in params["league_ids"]
+                and row["season_id"] == params["season_id"]
+                and row["kickoff_at"] < params["target_kickoff_at"]
+                and row["kickoff_at"] < as_of
+                and row["updated_at"] <= params["target_kickoff_at"]
+                and row["updated_at"] <= as_of
+                and row["home_goals_ft"] is not None
+                and row["away_goals_ft"] is not None
+            ]
+            return Rows(sorted(rows, key=lambda row: row["kickoff_at"], reverse=True))
         if "FROM fixtures AS f" in sql and "WHERE f.id = %(fixture_id)s" in sql:
             return Rows([next(row for row in self.fixtures if row["id"] == params["fixture_id"])])
         if "FROM fixture_statistics" in sql:
@@ -231,6 +246,11 @@ class PointInTimeFixtureDatabase:
                     and (row["scope"] == "market" or row["scope_id"] == params["league_id"])
                 ]
             )
+        if "FROM challenger_market_predictions" in sql:
+            # The cut-off itself is checked against real rows in test_challengers_sql.
+            assert "forecast.as_of_timestamp <= %(as_of_timestamp)s" in sql
+            assert "forecast.origin = 'live'" in sql
+            return Rows([])
         raise AssertionError(f"temporal fixture did not recognize SQL: {sql}")
 
 

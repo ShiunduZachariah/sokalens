@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   }
   if (!params.has("limit")) params.set("limit", "10");
   try {
-    const upstream = await fetchPredictionApi(`/v1/accas?${params}`, { revalidate: 15 });
+    const upstream = await fetchPredictionApi(`/v1/accas?${params}`, { revalidate: 15, staleWhileRevalidate: 30 });
     return new NextResponse(await upstream.text(), { status: upstream.status, headers: { "Content-Type": "application/json", "Cache-Control": "public, s-maxage=15, stale-while-revalidate=30" } });
   } catch {
     return NextResponse.json({ error: "ACCA feed temporarily unavailable" }, { status: 502 });

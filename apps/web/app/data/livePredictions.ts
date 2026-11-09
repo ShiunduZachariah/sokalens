@@ -248,6 +248,7 @@ export async function fetchTodayPredictions(limit = 6): Promise<LivePrediction[]
   const params = new URLSearchParams({ limit: String(boundedLimit) });
   const response = await fetchPredictionApi(`/v1/predictions/today?${params.toString()}`, {
     revalidate: 15,
+    staleWhileRevalidate: 30,
   });
   if (!response.ok) {
     throw new Error(`Prediction feed request failed with status ${response.status}`);
@@ -379,6 +380,7 @@ export async function fetchTodayPredictionsWithProvider(
     // one-minute shared cache avoids a seven-day ACCA/Builder refresh stampede
     // while keeping newly published selections reasonably fresh.
     revalidate: 60,
+    staleWhileRevalidate: 60,
   });
   if (!response.ok) {
     throw new Error(`Prediction feed request failed with status ${response.status}`);

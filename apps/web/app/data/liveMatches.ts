@@ -53,6 +53,8 @@ export type LiveMatchPrediction = {
   marketKey: string;
   selection: string;
   confidence: number;
+  /** The engine's probability, 0 to 1. Zero when the API sent none, as on provider rows. */
+  probability: number;
   publishedVersion: number;
   publishedAt: string;
   outcome: string;
@@ -197,6 +199,7 @@ function toPrediction(value: unknown): LiveMatchPrediction | null {
     marketKey: String(candidate.market_key ?? ""),
     selection: String(candidate.selection ?? ""),
     confidence: Number(candidate.confidence),
+    probability: Number(candidate.probability ?? 0),
     publishedVersion: Number(candidate.published_version),
     publishedAt: String(candidate.published_at ?? ""),
     outcome: String(candidate.outcome ?? "pending"),
@@ -309,6 +312,7 @@ export async function fetchMatches(options: FetchMatchesOptions = {}): Promise<L
 
   const response = await fetchPredictionApi(`/v1/matches/today?${params.toString()}`, {
     revalidate: 15,
+    staleWhileRevalidate: 30,
   });
   if (!response.ok) {
     throw new Error(`Match feed request failed with status ${response.status}`);
@@ -332,7 +336,7 @@ export async function fetchAllMatches(options: FetchMatchesOptions = {}): Promis
     params.set("page", String(page));
     if (options.includeUnavailable) params.set("include_unavailable", "true");
     for (const status of options.statuses ?? []) params.append("status", status);
-    const response = await fetchPredictionApi(`/v1/matches/today?${params.toString()}`, { revalidate: 15 });
+    const response = await fetchPredictionApi(`/v1/matches/today?${params.toString()}`, { revalidate: 15, staleWhileRevalidate: 30 });
     if (!response.ok) throw new Error(`Match feed request failed with status ${response.status}`);
     return (await response.json()) as TodayMatchesResponse;
   };
@@ -358,7 +362,7 @@ export async function fetchMatchCount(options: FetchMatchesOptions = {}): Promis
   params.set("timezone", options.timezone ?? defaultTimezone);
   if (options.includeUnavailable) params.set("include_unavailable", "true");
   for (const status of options.statuses ?? []) params.append("status", status);
-  const response = await fetchPredictionApi(`/v1/matches/today?${params}`, { revalidate: 15 });
+  const response = await fetchPredictionApi(`/v1/matches/today?${params}`, { revalidate: 15, staleWhileRevalidate: 30 });
   if (!response.ok) throw new Error(`Match count request failed with status ${response.status}`);
   const payload = (await response.json()) as TodayMatchesResponse;
   return Math.max(0, Number(payload.total) || 0);
@@ -376,6 +380,7 @@ const fetchMatchByIdCached = cache(async (id: number): Promise<LiveMatch | null>
   const { fetchPredictionApi } = await import("./apiClient");
   const response = await fetchPredictionApi(`/v1/matches/${id}`, {
     revalidate: 15,
+    staleWhileRevalidate: 30,
   });
   if (response.status === 404) {
     return null;

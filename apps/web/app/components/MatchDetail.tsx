@@ -352,7 +352,7 @@ export async function MatchDetail({ match }: { match: LiveMatch }) {
                 <AddToSlipButton
                   className="mp-btn mp-btn--primary"
                   target={{
-                    confidence: prediction.confidence,
+                    probability: prediction.probability,
                     kickoffAt: match.kickoffAt,
                     marketKey: prediction.marketKey,
                     matchId: match.id,
@@ -402,7 +402,7 @@ export async function MatchDetail({ match }: { match: LiveMatch }) {
               <span className="mp-section__aside">
                 {providerFallback
                   ? `${pluralize(match.predictions.length, "provider estimate")} · pre-match only`
-                  : `${pluralize(match.predictions.length, "prediction")} · confidence = model probability`}
+                  : `${pluralize(match.predictions.length, "prediction")} · % is confidence, not win chance`}
               </span>
             ) : null}
           </div>

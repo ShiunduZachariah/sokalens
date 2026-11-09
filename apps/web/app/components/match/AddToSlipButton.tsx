@@ -6,6 +6,7 @@ import {
   BUILDER_EVENT_NAME,
   addBuilderLegs,
   builderLegId,
+  fairOdds,
   hasBuilderLegStarted,
   readBuilderSelection,
   writeBuilderSelection,
@@ -30,8 +31,8 @@ export type AddToSlipTarget = {
   homeTeamLogo?: string;
   awayTeamLogo?: string;
   predictionId: number;
-  /** Model probability as a percentage, used to derive the fair price. */
-  confidence: number;
+  /** The engine's probability, 0 to 1, used to derive the fair price. */
+  probability: number;
   selection: string;
 };
 
@@ -44,8 +45,7 @@ type Props = {
 };
 
 function toBuilderLeg(target: AddToSlipTarget): BuilderLeg {
-  const probability = target.confidence / 100;
-  const odds = probability > 0 && probability < 1 ? 1 / probability : null;
+  const odds = fairOdds(target.probability);
   return {
     id: builderLegId(target.predictionId, target.matchId, target.marketKey, target.selection),
     predictionId: target.predictionId,

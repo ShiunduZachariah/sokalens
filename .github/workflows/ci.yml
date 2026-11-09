@@ -36,28 +36,80 @@ jobs:
     timeout-minutes: 5
     outputs:
       runner: ${{ steps.runner.outputs.name }}
-      api: ${{ steps.filter.outputs.api }}
-      security: ${{ steps.filter.outputs.security }}
-      worker: ${{ steps.filter.outputs.worker }}
-      ops: ${{ steps.filter.outputs.ops }}
-      tooling: ${{ steps.filter.outputs.tooling }}
-      web: ${{ steps.filter.outputs.web }}
-      seo: ${{ steps.filter.outputs.seo }}
-      admin: ${{ steps.filter.outputs.admin }}
-      mobile: ${{ steps.filter.outputs.mobile }}
-      contracts: ${{ steps.filter.outputs.contracts }}
-      infra: ${{ steps.filter.outputs.infra }}
-      proxy: ${{ steps.filter.outputs.proxy }}
-      docs: ${{ steps.filter.outputs.docs }}
+      deploy_baseline: ${{ steps.baseline.outputs.base }}
+      # When the baseline is unknown nothing can be proven unchanged, so every
+      # surface counts as changed: all gates run and the deploy rebuilds fully.
+      api: ${{ steps.baseline.outputs.full == 'true' || steps.filter.outputs.api }}
+      security: ${{ steps.baseline.outputs.full == 'true' || steps.filter.outputs.security }}
+      worker: ${{ steps.baseline.outputs.full == 'true' || steps.filter.outputs.worker }}
+      ops: ${{ steps.baseline.outputs.full == 'true' || steps.filter.outputs.ops }}
+      tooling: ${{ steps.baseline.outputs.full == 'true' || steps.filter.outputs.tooling }}
+      web: ${{ steps.baseline.outputs.full == 'true' || steps.filter.outputs.web }}
+      seo: ${{ steps.baseline.outputs.full == 'true' || steps.filter.outputs.seo }}
+      admin: ${{ steps.baseline.outputs.full == 'true' || steps.filter.outputs.admin }}
+      mobile: ${{ steps.baseline.outputs.full == 'true' || steps.filter.outputs.mobile }}
+      contracts: ${{ steps.baseline.outputs.full == 'true' || steps.filter.outputs.contracts }}
+      infra: ${{ steps.baseline.outputs.full == 'true' || steps.filter.outputs.infra }}
+      proxy: ${{ steps.baseline.outputs.full == 'true' || steps.filter.outputs.proxy }}
+      docs: ${{ steps.baseline.outputs.full == 'true' || steps.filter.outputs.docs }}
     steps:
       - id: runner
         env:
           RUNNER: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.CI_RUNNER || 'ubuntu-latest' }}
         run: echo "name=$RUNNER" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
+      # A main push is compared with what production last ran, not only with the
+      # previous push. Otherwise a follow-up to a failed or killed deploy looks
+      # narrow, and the failed commit's changes run neither their gates nor their
+      # rebuild. A superseded queued run is covered the same way.
+      - name: Configure SSH to read the production baseline
+        id: baseline-ssh
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        uses: ./.github/actions/vps-ssh
+        with:
+          private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          known-hosts: ${{ secrets.VPS_KNOWN_HOSTS }}
+          host: ${{ secrets.VPS_HOST }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          user: ${{ secrets.VPS_SSH_USER }}
+      - name: Resolve the production baseline
+        id: baseline
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          SSH_OUTCOME: ${{ steps.baseline-ssh.outcome }}
+        run: |
+          # Written by record_last_deployed in infra/deploy/ci-deploy.sh.
+          MARKER=/home/deploy/sokalens-lkg/last-deployed-sha
+          base=""
+          if [ "$SSH_OUTCOME" != "success" ]; then
+            reason="SSH to production could not be configured"
+          elif ! recorded="$(ssh -o ConnectTimeout=20 -o BatchMode=yes vps "cat '$MARKER' 2>/dev/null || true")"; then
+            reason="production could not be reached"
+          elif [ -z "$recorded" ]; then
+            reason="production has no recorded deploy yet"
+          elif ! [[ "$recorded" =~ ^[0-9a-f]{40}$ ]]; then
+            reason="the recorded deploy is not a commit SHA"
+          elif ! git fetch --depth=1 --no-tags origin "$recorded"; then
+            reason="the recorded deploy $recorded is not in this repository"
+          else
+            base="$recorded"
+          fi
+          # The next action is third-party and has no use for the deploy key.
+          rm -rf "${RUNNER_TEMP:?}/vps-ssh"
+          if [ -n "$base" ]; then
+            echo "Comparing with the last successful production deploy: $base"
+            echo "base=$base" >> "$GITHUB_OUTPUT"
+            echo "full=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::$reason; running every gate and rebuilding every service"
+            echo "full=true" >> "$GITHUB_OUTPUT"
+          fi
       - uses: dorny/paths-filter@v4
         id: filter
         with:
+          # Empty except on main pushes, which leaves the action's own default.
+          base: ${{ steps.baseline.outputs.base }}
           predicate-quantifier: some-with-excludes
           filters: |
             api:
@@ -597,14 +649,19 @@ jobs:
           done
           echo "All gates green: $RESULTS"
 
-  # Production deployment: runs ONLY on green main pushes that touch deployable
-  # surfaces. All deployments go through this CI job (never direct SSH deploys).
+  # Production deployment: runs ONLY on green main pushes whose tree differs from
+  # the last successful deploy on a deployable surface, as worked out in detect.
+  # All deployments go through this CI job (never direct SSH deploys).
   # The VPS_SSH_PRIVATE_KEY secret holds the `deploy` user's SSH key; the job
   # ships the source tarball + ci-deploy.sh and runs them on the VPS.
   deploy:
     runs-on: ${{ vars.DEPLOY_RUNNER || 'ubuntu-latest' }}
-    # Longest observed deploy is ~18 minutes; this only stops a hung one.
-    timeout-minutes: 60
+    # This only stops a hung deploy. A release with a risky migration dumps first,
+    # 20 to 31 minutes, slowest with evening matches live. If the last dump never
+    # passed verify-recovery-point, it also runs the restore check here, another 24
+    # to over 29. Killing it there costs the whole deploy and leaves the restore
+    # running on the host, so leave room to finish.
+    timeout-minutes: 120
     environment: production
     needs: [detect, api, security-invariants, seo-invariants, security-audit, security-audit-go, secret-scan, worker, ops-tooling, web, mobile, contracts, infra-docs]
     # always() so GitHub does not auto-skip this job when path-filtered gates
@@ -616,13 +673,11 @@ jobs:
       github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
-        with:
-          # HEAD^ is the previous main revision for a merge/squash push.
-          fetch-depth: 2
 
       - name: Verify all gates green and a deployable surface changed
         id: gates
         env:
+          DEPLOY_BASELINE: ${{ needs.detect.outputs.deploy_baseline }}
           DETECT: ${{ needs.detect.result }}
           API: ${{ needs.api.result }}
           SECURITY: ${{ needs.security-invariants.result }}
@@ -667,6 +722,13 @@ jobs:
           [ "$SURFACE_WORKER" = "true" ] && SERVICES="$SERVICES worker"
           [ "$SURFACE_WEB" = "true" ] && SERVICES="$SERVICES web"
           [ "$SURFACE_ADMIN" = "true" ] && SERVICES="$SERVICES admin"
+          # Same comparison detect made. With no baseline there is no list, and
+          # the surfaces detect forced on select the full set below.
+          CHANGED=""
+          if [ -n "$DEPLOY_BASELINE" ]; then
+            git fetch --depth=1 --no-tags origin "$DEPLOY_BASELINE"
+            CHANGED="$(git diff --no-renames --name-only "$DEPLOY_BASELINE" HEAD)"
+          fi
           # A Go toolchain release must still run every affected test gate, but
           # it does not need to restart web, admin, or observability. Keep this
           # narrow only when *every* changed path belongs to that release.
@@ -678,7 +740,7 @@ jobs:
               go.work|packages/ai-contract/go.mod|services/api/go.mod|services/api/Dockerfile|services/worker/go.mod|services/worker/Dockerfile|services/ops-controller/go.mod|services/ops-controller/Dockerfile|tools/release-manifest/go.mod) GO_TOOLCHAIN_CHANGED=true ;;
               *) GO_TOOLCHAIN_ONLY=false ;;
             esac
-          done < <(git diff --name-only HEAD^ HEAD)
+          done < <(printf '%s\n' "$CHANGED")
           if [ "$GO_TOOLCHAIN_ONLY" = "true" ] && [ "$GO_TOOLCHAIN_CHANGED" = "true" ]; then
             SERVICES="api worker ops-controller"
           elif [ "$SURFACE_INFRA" = "true" ]; then
@@ -766,3 +828,41 @@ jobs:
         run: |
           ssh vps \
             'docker run --rm --network host -v /home/deploy/sokalens/apps/web/scripts:/audit:ro sports-prediction-platform-web node /audit/search-index-audit.mjs'
+
+  # Proves the dump the deploy took by restoring it into a throwaway database. It
+  # was the second half of the deploy's recovery point, 20 of the 66 minutes on the
+  # server, and the site does not need to wait for it. Its own job keeps a failure
+  # visible: the run goes red and the log can be read without a shell on the host.
+  # A failure rolls nothing back. It keeps the previous dump and makes the next
+  # deploy with a risky migration prove its dump before migrating.
+  #
+  # always() because a deploy that failed after dumping needs the answer most. With
+  # nothing waiting, which is most deploys, this takes seconds.
+  verify-recovery-point:
+    runs-on: ${{ vars.DEPLOY_RUNNER || 'ubuntu-latest' }}
+    # A restore check has taken over 29 minutes with evening matches live.
+    timeout-minutes: 90
+    environment: production
+    needs: [deploy]
+    if: >-
+      always() &&
+      needs.deploy.result != 'skipped' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure SSH to the VPS
+        uses: ./.github/actions/vps-ssh
+        with:
+          private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          known-hosts: ${{ secrets.VPS_KNOWN_HOSTS }}
+          host: ${{ secrets.VPS_HOST }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          user: ${{ secrets.VPS_SSH_USER }}
+
+      - name: Restore the recovery point into a throwaway database
+        run: |
+          SCRIPT_REMOTE="/tmp/backup-${GITHUB_RUN_ID}.sh"
+          scp infra/deploy/backup.sh "vps:$SCRIPT_REMOTE"
+          ssh vps "set -e; trap 'rm -f $SCRIPT_REMOTE' EXIT; bash $SCRIPT_REMOTE verify-pending"

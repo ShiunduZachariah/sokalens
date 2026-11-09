@@ -39,14 +39,15 @@ func TestJobHandlerBuildsScopeCommandFromExistingPredictionJobPayload(t *testing
 		"--scope", "upcoming",
 		"--limit", "25",
 	}
-	if exec.command.Name != "python3" {
-		t.Fatalf("command name = %q, want python3", exec.command.Name)
+	champion := exec.commands[0]
+	if champion.Name != "python3" {
+		t.Fatalf("command name = %q, want python3", champion.Name)
 	}
-	if !reflect.DeepEqual(exec.command.Args, wantArgs) {
-		t.Fatalf("command args = %#v, want %#v", exec.command.Args, wantArgs)
+	if !reflect.DeepEqual(champion.Args, wantArgs) {
+		t.Fatalf("command args = %#v, want %#v", champion.Args, wantArgs)
 	}
-	if exec.command.Dir != "services/prediction-engine" {
-		t.Fatalf("command dir = %q, want services/prediction-engine", exec.command.Dir)
+	if champion.Dir != "services/prediction-engine" {
+		t.Fatalf("command dir = %q, want services/prediction-engine", champion.Dir)
 	}
 	if !containsEnv(exec.command.Env, "DATABASE_URL=postgres://example") {
 		t.Fatalf("command env missing DATABASE_URL: %#v", exec.command.Env)
@@ -114,8 +115,8 @@ func TestSettlementJobHandlerAlwaysRunsTheExpirySweepAfterSettling(t *testing.T)
 	// backstop. Four commands, and the ORDER is the assertion: a fixture whose
 	// result landed this cycle must be graded before anything considers it
 	// expired, and a reversal must be re-settled before the recount that
-	// clears its needs_recount flag.
-	wantOrder := []string{"settle-scope", "resettle-retracted", "recount-reversed", "void-expired"}
+	// clears its needs_recount flag. The optional shadow settlement comes last.
+	wantOrder := []string{"settle-scope", "resettle-retracted", "recount-reversed", "void-expired", "settle-challengers"}
 	if len(exec.commands) != len(wantOrder) {
 		t.Fatalf("commands = %d, want %d (%v)", len(exec.commands), len(wantOrder), wantOrder)
 	}
@@ -188,9 +189,12 @@ func TestSettlementExpirySweepCanBeSkippedForOneRun(t *testing.T) {
 		t.Fatalf("Run returned error: %v", err)
 	}
 
-	if len(exec.commands) != 1 {
-		t.Fatalf("commands = %d, want 1", len(exec.commands))
+	// Only the optional shadow settlement rides along; the skip flags are
+	// about the integrity sweeps, not the challengers.
+	if len(exec.commands) != 2 || !exec.commands[1].Optional {
+		t.Fatalf("commands = %#v, want settle-scope and the optional settle-challengers", exec.commands)
 	}
+	commandNamed(t, exec.commands[1:], "settle-challengers")
 }
 
 // The provider-correction passes run on every ordinary settlement cycle.
@@ -308,8 +312,8 @@ func TestAccuracySnapshotJobHandlerBuildsSnapshotCommandWithoutScope(t *testing.
 	}
 
 	wantArgs := []string{"-m", "prediction_engine.cli", "snapshot-accuracy"}
-	if !reflect.DeepEqual(exec.command.Args, wantArgs) {
-		t.Fatalf("command args = %#v, want %#v", exec.command.Args, wantArgs)
+	if !reflect.DeepEqual(exec.commands[0].Args, wantArgs) {
+		t.Fatalf("command args = %#v, want %#v", exec.commands[0].Args, wantArgs)
 	}
 }
 
@@ -398,9 +402,10 @@ func TestJobHandlerParsesSurfacesAndLogsSuccessfulGenerationSummary(t *testing.T
 }` + "\n")},
 	}
 	handler := NewJobHandler(Config{
-		Command: "python",
-		Module:  "prediction_engine.cli",
-		Logger:  slog.New(slog.NewJSONHandler(&logs, nil)),
+		Command:             "python",
+		Module:              "prediction_engine.cli",
+		Logger:              slog.New(slog.NewJSONHandler(&logs, nil)),
+		ChallengersDisabled: true,
 	}, exec)
 
 	summaries, err := handler.RunWithSummaries(
@@ -465,6 +470,94 @@ func TestJobHandlerRejectsPayloadWithoutScopeOrFixtureIDs(t *testing.T) {
 	if exec.called {
 		t.Fatal("executor was called for invalid payload")
 	}
+}
+
+// The shadow challengers ride the job that owns their stage, run last, and
+// never fail it: they publish nothing, so a fault in one must not retry or
+// block the champion.
+func TestChallengerCommandsRideTheirJobsAsOptionalLastSteps(t *testing.T) {
+	cfg := Config{Command: "python", Module: "prediction_engine.cli"}
+	cases := []struct {
+		name    string
+		handler func(Config, Executor) JobHandler
+		payload string
+		verb    string
+	}{
+		{"upcoming generation", NewJobHandler, `{"scope":"upcoming"}`, "run-challengers"},
+		{"settlement", NewSettlementJobHandler, `{"scope":"finished"}`, "settle-challengers"},
+		{"accuracy snapshot", NewAccuracySnapshotJobHandler, `{}`, "challenger-report"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			exec := &fakeExecutor{}
+			if err := tc.handler(cfg, exec).Run(context.Background(), jobs.Job{Payload: []byte(tc.payload)}); err != nil {
+				t.Fatalf("Run returned error: %v", err)
+			}
+			last := exec.commands[len(exec.commands)-1]
+			if !last.Optional || last.Args[len(last.Args)-1] != tc.verb {
+				t.Fatalf("last command = %#v, want optional %s", last, tc.verb)
+			}
+			for _, command := range exec.commands[:len(exec.commands)-1] {
+				if command.Optional {
+					t.Fatalf("champion command marked optional: %#v", command)
+				}
+			}
+		})
+	}
+}
+
+func TestChallengersDoNotRideReplayOrNamedFixtureRuns(t *testing.T) {
+	cfg := Config{Command: "python", Module: "prediction_engine.cli"}
+	for _, payload := range []string{`{"scope":"historical"}`, `{"fixture_ids":[42]}`} {
+		exec := &fakeExecutor{}
+		if err := NewJobHandler(cfg, exec).Run(context.Background(), jobs.Job{Payload: []byte(payload)}); err != nil {
+			t.Fatalf("Run returned error: %v", err)
+		}
+		for _, command := range exec.commands {
+			if command.Optional {
+				t.Fatalf("payload %s ran a challenger command: %#v", payload, command)
+			}
+		}
+	}
+}
+
+func TestChallengersCanBeSwitchedOffByEnvironment(t *testing.T) {
+	cfg := LoadConfig(map[string]string{"PREDICTION_ENGINE_CHALLENGERS_ENABLED": "false"})
+	exec := &fakeExecutor{}
+	if err := NewJobHandler(cfg, exec).Run(context.Background(), jobs.Job{Payload: []byte(`{"scope":"upcoming"}`)}); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if len(exec.commands) != 1 {
+		t.Fatalf("commands = %d, want only the champion run", len(exec.commands))
+	}
+	if LoadConfig(map[string]string{}).ChallengersDisabled {
+		t.Fatal("challengers must be on by default")
+	}
+}
+
+func TestOptionalChallengerFailureDoesNotFailTheJob(t *testing.T) {
+	exec := &failingVerbExecutor{verb: "run-challengers"}
+	handler := NewJobHandler(Config{Command: "python", Module: "prediction_engine.cli"}, exec)
+	summaries, err := handler.RunWithSummaries(context.Background(), jobs.Job{Payload: []byte(`{"scope":"upcoming"}`)})
+	if err != nil {
+		t.Fatalf("Run returned error for a failing optional command: %v", err)
+	}
+	if len(summaries) != 1 || exec.calls != 2 {
+		t.Fatalf("summaries = %d, calls = %d; want the champion summary from two calls", len(summaries), exec.calls)
+	}
+}
+
+type failingVerbExecutor struct {
+	verb  string
+	calls int
+}
+
+func (f *failingVerbExecutor) Run(_ context.Context, command Command) (Result, error) {
+	f.calls++
+	if command.Args[len(command.Args)-1] == f.verb {
+		return Result{Output: []byte("Traceback: boom")}, errors.New("exit status 1")
+	}
+	return Result{Output: []byte(`{"scope":"upcoming","fixtures_processed":1}`)}, nil
 }
 
 type fakeExecutor struct {

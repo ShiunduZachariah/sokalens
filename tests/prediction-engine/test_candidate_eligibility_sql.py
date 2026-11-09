@@ -61,7 +61,16 @@ CREATE TABLE engine_predictions (
   id BIGSERIAL PRIMARY KEY,
   fixture_id BIGINT NOT NULL,
   generated_at TIMESTAMPTZ NOT NULL,
+  last_evaluated_at TIMESTAMPTZ NOT NULL DEFAULT '-infinity',
   superseded_at TIMESTAMPTZ
+);
+-- Empty here: the re-run a new forecast causes is tested in test_challengers_sql.
+CREATE TABLE model_registry (id UUID PRIMARY KEY, model_key TEXT NOT NULL);
+CREATE TABLE challenger_market_predictions (
+  fixture_id BIGINT NOT NULL,
+  model_registry_id UUID NOT NULL,
+  origin TEXT NOT NULL,
+  as_of_timestamp TIMESTAMPTZ NOT NULL
 );
 """
 

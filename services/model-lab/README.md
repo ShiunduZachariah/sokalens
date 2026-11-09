@@ -43,6 +43,42 @@ It also includes `one_x_two_benchmarks` with:
 
 Treat logistic regression here as an experimental benchmark model. Until it outperforms `odds_favorite_accuracy`, odds-favorite remains the stronger 1X2 baseline.
 
+## Elo Walk-Forward
+
+`model_lab.elo_walk_forward` scores the Elo challenger (`prediction_engine.elo`)
+against the live engine's Model A, its v1 blend, the published champion and
+simple baselines. Every model is scored on the same holdout fixtures, and Elo's
+parameters are tuned only on the years before the holdout:
+
+```powershell
+task model:elo-walk-forward
+task model:elo-walk-forward HOLDOUT_FROM=2023-07-01 -- --no-champion
+```
+
+It needs both `services/model-lab` and `services/prediction-engine` on
+`PYTHONPATH`; the task sets that. The full corpus takes several minutes; `--no-champion` is much faster.
+Results and caveats: `docs/prediction-engine/elo-challenger.md`.
+
+## Model C Training
+
+`model_lab.model_c_train` trains architecture v2 Model C, a LightGBM
+gradient-boosted tree model over `prediction_engine.form_features`, and exports
+it to `services/prediction-engine/prediction_engine/artifacts/model_c_1x2.json`,
+which the engine evaluates with the standard library. Training uses three
+time-ordered windows (training, validation, holdout), chooses hyperparameters
+on validation only, and refuses to export unless the stdlib evaluator
+reproduces LightGBM's probabilities:
+
+```powershell
+python -m venv .venv-train
+.venv-train\Scripts\pip install -r services/model-lab/requirements-train.txt
+task model:c-train CODE_COMMIT=$(git rev-parse --short HEAD)
+```
+
+LightGBM and NumPy are training-only dependencies; the serving engine never
+imports them (ADR 0002). The run takes a few minutes on the full corpus.
+Results and caveats: `docs/prediction-engine/challengers.md`.
+
 ## Current Local Corpus Accuracy Snapshot
 
 Last verified: 2026-07-05 with `task prediction-engine:local-training-report`.

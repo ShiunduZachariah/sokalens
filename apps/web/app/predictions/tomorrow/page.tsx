@@ -64,7 +64,7 @@ export default async function TomorrowPredictionsPage() {
       },
       {
         question: "What does the confidence figure mean?",
-        answer: "Confidence is the model's estimated probability for the named selection, not a guarantee or a verified success rate. Compare the exact market and its price; a higher probability alone does not establish betting value. The results page explains the reported record and its coverage.",
+        answer: "Confidence is a score for how well supported the named selection is, built from data completeness, sample size, model agreement and similar checks. It is not the chance the selection wins, a guarantee or a verified success rate. Compare the exact market and its price; a higher score alone does not establish betting value. The results page explains the reported record and its coverage.",
       },
       {
         question: "Does SokaLens take bets?",
@@ -134,7 +134,7 @@ export default async function TomorrowPredictionsPage() {
           <dt>When are tomorrow&apos;s football predictions published?</dt>
           <dd>This page covers {dateLabel} in {timezone}. Model selections appear after publication when the available history and quality checks support a fixture. Coverage may change before kickoff, and not every scheduled match has a model prediction.</dd>
           <dt>What does the confidence figure mean?</dt>
-          <dd>Confidence is the model&apos;s estimated probability for the named selection, not a guarantee or a verified success rate. Compare the exact market and its price; a higher probability alone does not establish betting value. The <Link href={localePath("/results", locale)}>results page</Link> explains the reported record and its coverage.</dd>
+          <dd>Confidence is a score for how well supported the named selection is, built from data completeness, sample size, model agreement and similar checks. It is not the chance the selection wins, a guarantee or a verified success rate. Compare the exact market and its price; a higher score alone does not establish betting value. The <Link href={localePath("/results", locale)}>results page</Link> explains the reported record and its coverage.</dd>
           <dt>Does SokaLens take bets?</dt>
           <dd>No. SokaLens is not a bookmaker and accepts no stakes. It publishes model output and its own settled accuracy record.</dd>
         </dl>

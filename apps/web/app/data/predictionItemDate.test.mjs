@@ -19,7 +19,7 @@ const source = await readFile(
   path.join(import.meta.dirname, "predictionItems.ts"),
   "utf8",
 );
-const fn = source.match(/function viewerDate\([\s\S]*?\n}/);
+const fn = source.match(/const viewerDateFormats[\s\S]*?function viewerDate\([\s\S]*?\n}/);
 assert.ok(fn, "viewerDate not found -- renamed or inlined?");
 
 const viewerDate = new Function(

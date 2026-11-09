@@ -48,6 +48,8 @@ export type PredictionListShellProps = {
   leadContent?: ReactNode;
   /** The date strip, for the pages that carry one. */
   dateStrip?: ReactNode;
+  /** The strip has moved Today's URL to another day, so its pill is not current. */
+  subnavNoCurrent?: boolean;
   /** Shown in place of the feed when `items` is empty. */
   emptyState: ReactNode;
   /**
@@ -69,6 +71,7 @@ export function PredictionListShell({
   locale,
   marketCountStat,
   stats,
+  subnavNoCurrent,
   summary,
   title,
 }: PredictionListShellProps) {
@@ -100,7 +103,7 @@ export function PredictionListShell({
         */}
         <AdSlot format="top" placement="page-top" />
 
-        <PredictionSubnav />
+        <PredictionSubnav noCurrent={subnavNoCurrent} />
 
         <PageHeader
           accent={accent}

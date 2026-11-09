@@ -13,6 +13,24 @@ import { DEFAULT_VIEWER_TIMEZONE } from "../lib/viewerTimezone";
 
 type Locale = Parameters<typeof predictionLabel>[0];
 
+// Building a formatter costs far more than using one, and this runs per row: on
+// a 1,600-row Saturday it was 120ms of the page's server time, for one zone.
+const viewerDateFormats = new Map<string, Intl.DateTimeFormat>();
+
+function viewerDateFormat(timezone: string) {
+  let format = viewerDateFormats.get(timezone);
+  if (!format) {
+    format = new Intl.DateTimeFormat("en", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    viewerDateFormats.set(timezone, format);
+  }
+  return format;
+}
+
 /**
  * The calendar date a kick-off falls on, in the viewer's zone.
  *
@@ -29,12 +47,7 @@ function viewerDate(kickoffAt: string | null | undefined, timezone: string): str
   if (!kickoffAt) return undefined;
   const instant = new Date(kickoffAt);
   if (Number.isNaN(instant.getTime())) return undefined;
-  const parts = new Intl.DateTimeFormat("en", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(instant);
+  const parts = viewerDateFormat(timezone).formatToParts(instant);
   const part = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((item) => item.type === type)?.value ?? "";
   const [year, month, day] = [part("year"), part("month"), part("day")];

@@ -23,6 +23,7 @@ import {
   builderLegId,
   decodeBuilderSelection,
   encodeBuilderSelection,
+  fairOdds,
   formatOdds,
   hasBuilderLegStarted,
   pruneBuilderSelection,
@@ -37,10 +38,8 @@ function candidateOdds(prediction: LivePrediction, market: LivePredictionMarket)
   if (market.marketKey === prediction.marketKey && market.selection === prediction.selection && prediction.selectionOdds) {
     return { odds: prediction.selectionOdds, oddsType: "market" as const };
   }
-  if (market.probability > 0 && market.probability < 1) {
-    return { odds: 1 / market.probability, oddsType: "fair" as const };
-  }
-  return { odds: null, oddsType: "unavailable" as const };
+  const fair = fairOdds(market.probability);
+  return fair === null ? { odds: null, oddsType: "unavailable" as const } : { odds: fair, oddsType: "fair" as const };
 }
 
 function toLeg(candidate: BuilderCandidate): BuilderLeg {

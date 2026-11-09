@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+import random
 import unittest
 
 from prediction_engine.config import BlendWeights, ProbabilityClamp, default_config, load_config
-from prediction_engine.ensemble import blend_probability, blend_tier_a_markets
+from prediction_engine.ensemble import blend_probability, blend_tier_a_markets, bounded_distribution
+from prediction_engine.model_a import ModelAInputs, run_model_a
 from prediction_engine.model_b import ModelBConfig, ModelBInputs, run_model_b
+from prediction_engine.pipeline import _published_result_markets
+
+
+SAFE_RANGE = ProbabilityClamp(minimum=0.01, maximum=0.99)
 
 
 class ApproxAssertions:
@@ -91,6 +97,108 @@ class ModelBEnsembleTests(ApproxAssertions, unittest.TestCase):
 
         self.assertFloatApprox(sum(markets["match_result"].values()), 1.0)
         self.assertDictApprox(markets["match_result"], expected)
+
+    def test_extreme_mismatch_without_odds_is_a_distribution_inside_the_clamp(self) -> None:
+        # The form delta takes the away outcome below zero; clamping it back up
+        # after renormalising used to publish a total above one.
+        model_a = run_model_a(ModelAInputs(home_lambda=4.0, away_lambda=0.15))
+        deltas = run_model_b(
+            ModelBInputs(
+                home_recent_ppg=3.0,
+                away_recent_ppg=0.0,
+                home_btts_rate=0.2,
+                away_btts_rate=0.2,
+                model_a_btts_yes=0.1,
+                home_over_2_5_rate=0.8,
+                away_over_2_5_rate=0.8,
+                model_a_over_2_5=0.8,
+            )
+        ).market_deltas
+
+        result = blend_tier_a_markets(model_a.markets, deltas, default_config())["match_result"]
+
+        self.assertAlmostEqual(sum(result.values()), 1.0, delta=1e-9)
+        self.assertTrue(all(0.01 <= value <= 0.99 for value in result.values()))
+        self.assertEqual(result["away"], 0.01)
+        self.assertGreater(result["home"], result["draw"])
+
+    def test_bounded_distribution_only_scales_what_is_already_inside_the_clamp(self) -> None:
+        probabilities = {"home": 0.5045, "draw": 0.25, "away": 0.25}
+        total = sum(probabilities.values())
+
+        self.assertEqual(
+            bounded_distribution(probabilities, SAFE_RANGE),
+            {outcome: value / total for outcome, value in probabilities.items()},
+        )
+
+    def test_bounded_distribution_shares_what_remains_in_proportion(self) -> None:
+        result = bounded_distribution({"home": 0.983, "draw": 0.044, "away": -0.027}, SAFE_RANGE)
+
+        self.assertDictApprox(result, {"home": 0.99 * 0.983 / 1.027, "draw": 0.99 * 0.044 / 1.027, "away": 0.01})
+        self.assertEqual(list(result), ["home", "draw", "away"])
+
+    def test_bounded_distribution_pins_every_small_outcome(self) -> None:
+        # Pinning the 0.995 to the maximum as well would leave a total of 1.01.
+        self.assertDictApprox(
+            bounded_distribution({"home": 0.995, "draw": 0.004, "away": 0.001}, SAFE_RANGE),
+            {"home": 0.98, "draw": 0.01, "away": 0.01},
+        )
+
+    def test_bounded_distribution_pins_the_top_when_that_is_the_side_overshot(self) -> None:
+        self.assertDictApprox(
+            bounded_distribution(
+                {"home": 0.99, "draw": 0.005, "away": 0.005},
+                ProbabilityClamp(minimum=0.01, maximum=0.4),
+            ),
+            {"home": 0.4, "draw": 0.3, "away": 0.3},
+        )
+
+    def test_bounded_distribution_holds_for_any_input(self) -> None:
+        generator = random.Random(20261104)
+        checked = 0
+        for _ in range(2000):
+            clamp = ProbabilityClamp(minimum=generator.uniform(0.001, 0.3), maximum=generator.uniform(0.4, 0.999))
+            probabilities = {
+                outcome: generator.choice((generator.uniform(-0.1, 1.0), generator.uniform(0.0, 0.01), 0.0))
+                for outcome in ("home", "draw", "away")
+            }
+            if max(probabilities.values()) <= 0:
+                continue
+            checked += 1
+            result = bounded_distribution(probabilities, clamp)
+            self.assertAlmostEqual(sum(result.values()), 1.0, delta=1e-9, msg=str(probabilities))
+            for value in result.values():
+                self.assertGreaterEqual(value, clamp.minimum - 1e-12)
+                self.assertLessEqual(value, clamp.maximum + 1e-12)
+        self.assertGreater(checked, 1000)
+
+    def test_bounded_distribution_refuses_what_no_distribution_can_satisfy(self) -> None:
+        with self.assertRaises(ValueError):
+            bounded_distribution({"home": 0.5, "away": 0.5}, ProbabilityClamp(minimum=0.6, maximum=0.9))
+        with self.assertRaises(ValueError):
+            bounded_distribution({"home": -0.1, "draw": 0.0, "away": 0.0}, SAFE_RANGE)
+
+    def test_market_anchor_keeps_the_result_and_its_dependents_consistent(self) -> None:
+        # A one-sided bookmaker line takes the small outcomes under the minimum.
+        markets = {
+            "match_result": {"home": 0.98, "draw": 0.01, "away": 0.01},
+            # Deliberately wrong, so these can only pass if they are rederived.
+            "double_chance": {"home_or_draw": 0.5, "draw_or_away": 0.5, "home_or_away": 0.5},
+            "draw_no_bet": {"home": 0.5, "away": 0.5},
+        }
+
+        anchored = _published_result_markets(
+            markets,
+            {"home": 0.998, "draw": 0.0015, "away": 0.0005},
+            SAFE_RANGE,
+        )
+
+        result = anchored["match_result"]
+        self.assertAlmostEqual(sum(result.values()), 1.0, delta=1e-9)
+        self.assertTrue(all(0.01 <= value <= 0.99 for value in result.values()))
+        self.assertFloatApprox(anchored["double_chance"]["home_or_draw"], result["home"] + result["draw"])
+        self.assertFloatApprox(anchored["double_chance"]["draw_or_away"], result["draw"] + result["away"])
+        self.assertAlmostEqual(sum(anchored["draw_no_bet"].values()), 1.0, delta=1e-9)
 
     def test_ensemble_clamps_extreme_outputs_to_configured_safe_range(self) -> None:
         markets = blend_tier_a_markets(

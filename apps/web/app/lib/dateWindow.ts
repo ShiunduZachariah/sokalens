@@ -41,6 +41,25 @@ export function resolveSelectedDay(selection: DaySelection, now: Date, timezone:
   }
 }
 
+/**
+ * "Saturday 7 November", for a heading. Null when `isoDate` is not a calendar
+ * date: `?date=` comes straight from the URL.
+ *
+ * Formatted in UTC because the value already names the day in the viewer's
+ * zone, and `en-GB` because the design is day-first.
+ */
+export function formatLongDayLabel(isoDate: string, locale: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return null;
+  const anchored = new Date(`${isoDate}T12:00:00Z`);
+  if (Number.isNaN(anchored.getTime())) return null;
+  return new Intl.DateTimeFormat(locale === "en" ? "en-GB" : locale, {
+    day: "numeric",
+    month: "long",
+    timeZone: "UTC",
+    weekday: "long",
+  }).format(anchored);
+}
+
 export function formatDayTabLabel(isoDate: string, now: Date, timezone: string) {
   const center = startOfLocalDay(now, timezone);
   const target = startOfLocalDay(new Date(`${isoDate}T00:00:00Z`), timezone);

@@ -43,6 +43,15 @@ const NOT_STARTED_STATUSES = new Set([
   "", "scheduled", "upcoming", "not_started", "not started", "ns", "tbd",
 ]);
 
+/**
+ * The fair price of a selection, from the engine's probability. Never pass the
+ * confidence score here: it is a composite, not a chance, and pricing from it made
+ * one selection show two different fair prices depending on where it was added.
+ */
+export function fairOdds(probability: number): number | null {
+  return probability > 0 && probability < 1 ? 1 / probability : null;
+}
+
 export function builderLegId(predictionId: number, matchId: number, marketKey: string, selection: string) {
   return `${predictionId}:${matchId}:${marketKey}:${selection}`;
 }

@@ -8048,6 +8048,37 @@ a.mp-team--away:hover .mp-team__name { color: var(--sl-away-ink); }
   gap: 8px;
   grid-template-columns: repeat(8, minmax(0, 1fr));
   padding-top: 24px;
+  position: relative;
+}
+
+/* A day is still loading: DateTabs sets data-pending for the whole wait. The
+   dim is delayed so a quick day does not flicker. */
+.td-strip[data-pending="true"]::after {
+  animation: td-strip-loading 1.1s ease-in-out infinite;
+  background: var(--sl-accent);
+  border-radius: 2px;
+  bottom: -6px;
+  content: "";
+  height: 2px;
+  left: 0;
+  position: absolute;
+  right: 0;
+  transform-origin: left;
+}
+
+.td-strip[data-pending="true"] ~ .td-body,
+.date-tabs[data-pending="true"] ~ .section {
+  opacity: 0.45;
+  transition: opacity 150ms ease 100ms;
+}
+
+@keyframes td-strip-loading {
+  0% { transform: scaleX(0); }
+  100% { transform: scaleX(1); opacity: 0.2; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .td-strip[data-pending="true"]::after { animation: none; }
 }
 
 .td-day {

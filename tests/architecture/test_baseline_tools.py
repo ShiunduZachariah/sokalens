@@ -35,7 +35,7 @@ class RepositoryBaselineTests(unittest.TestCase):
         self.assertEqual(first["schema"]["latest_migration"], max(versions))
         self.assertEqual(first["schema"]["migration_count"], len(versions))
         self.assertIn("engine_predictions", first["schema"]["declared_tables"])
-        self.assertEqual(first["prediction_engine"]["default_model_version"], "python-engine-v1")
+        self.assertEqual(first["prediction_engine"]["default_model_version"], "python-engine-v3")
 
 
 class V1BenchmarkTests(unittest.TestCase):

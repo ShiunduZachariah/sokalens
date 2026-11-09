@@ -29,8 +29,9 @@ export default function AboutPage() {
           </p>
           <h2>Reading a prediction</h2>
           <p>
-            Confidence is a model estimate, not a promise. A high-confidence selection can
-            lose, and a successful prediction does not establish that the model is reliable.
+            Confidence is a score for how well supported a selection is, built from data
+            completeness, sample size, model agreement and similar checks. It is not the chance
+            the selection wins, and not a promise. A high-confidence selection can lose, and a successful prediction does not establish that the model is reliable.
             Compare the selected market and goal line, the available match context and a
             sufficiently large record of settled results. Missing information and delayed
             provider updates can limit what we can show.

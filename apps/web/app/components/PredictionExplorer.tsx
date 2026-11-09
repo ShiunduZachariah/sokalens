@@ -462,7 +462,9 @@ export function PredictionExplorer({
           />
         </label>
 
-        {dates.length > 0 ? (
+        {/* One day has nothing to filter, and "All dates" beside a selected day
+            reads as a contradiction. */}
+        {dates.length > 1 ? (
           <label className="ac-field">
             Date
             <select onChange={(event) => setDate(event.target.value)} value={date}>

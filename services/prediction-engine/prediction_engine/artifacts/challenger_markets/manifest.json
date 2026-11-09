@@ -1,0 +1,440 @@
+{
+ "code_commit": "086452f6",
+ "count_targets": [
+  "home_corners",
+  "away_corners",
+  "total_cards",
+  "total_fouls",
+  "total_shots",
+  "shots_on_target"
+ ],
+ "count_training": {
+  "away_corners": {
+   "chosen": {
+    "min_data_in_leaf": 400,
+    "num_leaves": 7
+   },
+   "dispersion": 0.08145,
+   "rounds": 508,
+   "rows": 99728
+  },
+  "home_corners": {
+   "chosen": {
+    "min_data_in_leaf": 1500,
+    "num_leaves": 31
+   },
+   "dispersion": 0.07581,
+   "rounds": 151,
+   "rows": 99728
+  },
+  "shots_on_target": {
+   "chosen": {
+    "min_data_in_leaf": 1500,
+    "num_leaves": 31
+   },
+   "dispersion": 0.01311,
+   "rounds": 327,
+   "rows": 99182
+  },
+  "total_cards": {
+   "chosen": {
+    "min_data_in_leaf": 400,
+    "num_leaves": 7
+   },
+   "dispersion": 0.04295,
+   "rounds": 739,
+   "rows": 103385
+  },
+  "total_fouls": {
+   "chosen": {
+    "min_data_in_leaf": 400,
+    "num_leaves": 7
+   },
+   "dispersion": 0.00633,
+   "rounds": 701,
+   "rows": 98004
+  },
+  "total_shots": {
+   "chosen": {
+    "min_data_in_leaf": 1500,
+    "num_leaves": 15
+   },
+   "dispersion": 0.00966,
+   "rounds": 626,
+   "rows": 100100
+  }
+ },
+ "dispersions": {
+  "away_corners": 0.08145,
+  "home_corners": 0.07581,
+  "shots_on_target": 0.01311,
+  "total_cards": 0.04295,
+  "total_fouls": 0.00633,
+  "total_shots": 0.00966
+ },
+ "elo_goal_map": {
+  "away": [
+   -0.8762716312904212,
+   -0.8823795389004865,
+   0.04907312923872279,
+   1.1159657085686119
+  ],
+  "half_time_away_share": 0.4357081088272467,
+  "half_time_home_share": 0.4415447423749316,
+  "home": [
+   -0.5311027329914675,
+   0.8736494043954505,
+   0.02099049737736397,
+   0.8291004118142831
+  ],
+  "rows": 253345,
+  "terms": [
+   "1",
+   "gap",
+   "gap_squared",
+   "log_league_goals"
+  ]
+ },
+ "feature_version": "form-features-v1+stat-features-v1",
+ "goal_training": {
+  "away": {
+   "chosen": {
+    "min_data_in_leaf": 1500,
+    "num_leaves": 31
+   },
+   "rounds": 304,
+   "rows": 253345,
+   "trials": [
+    {
+     "min_data_in_leaf": 400,
+     "num_leaves": 7,
+     "rounds": 857,
+     "validation_poisson": 0.9509765200112145
+    },
+    {
+     "min_data_in_leaf": 400,
+     "num_leaves": 15,
+     "rounds": 657,
+     "validation_poisson": 0.9509830410738707
+    },
+    {
+     "min_data_in_leaf": 1500,
+     "num_leaves": 15,
+     "rounds": 467,
+     "validation_poisson": 0.9509078709045206
+    },
+    {
+     "min_data_in_leaf": 1500,
+     "num_leaves": 31,
+     "rounds": 289,
+     "validation_poisson": 0.9506157694530468
+    }
+   ]
+  },
+  "half_time_away": {
+   "chosen": {
+    "min_data_in_leaf": 1500,
+    "num_leaves": 15
+   },
+   "rounds": 502,
+   "rows": 185878,
+   "trials": [
+    {
+     "min_data_in_leaf": 400,
+     "num_leaves": 7,
+     "rounds": 715,
+     "validation_poisson": 0.8505369751926936
+    },
+    {
+     "min_data_in_leaf": 400,
+     "num_leaves": 15,
+     "rounds": 383,
+     "validation_poisson": 0.8506763857445387
+    },
+    {
+     "min_data_in_leaf": 1500,
+     "num_leaves": 15,
+     "rounds": 481,
+     "validation_poisson": 0.8503329903844574
+    },
+    {
+     "min_data_in_leaf": 1500,
+     "num_leaves": 31,
+     "rounds": 275,
+     "validation_poisson": 0.8504643150805702
+    }
+   ]
+  },
+  "half_time_home": {
+   "chosen": {
+    "min_data_in_leaf": 400,
+    "num_leaves": 15
+   },
+   "rounds": 329,
+   "rows": 185879,
+   "trials": [
+    {
+     "min_data_in_leaf": 400,
+     "num_leaves": 7,
+     "rounds": 379,
+     "validation_poisson": 0.9115052122709643
+    },
+    {
+     "min_data_in_leaf": 400,
+     "num_leaves": 15,
+     "rounds": 315,
+     "validation_poisson": 0.9112934290000383
+    },
+    {
+     "min_data_in_leaf": 1500,
+     "num_leaves": 15,
+     "rounds": 316,
+     "validation_poisson": 0.911337114681717
+    },
+    {
+     "min_data_in_leaf": 1500,
+     "num_leaves": 31,
+     "rounds": 194,
+     "validation_poisson": 0.9114625522690334
+    }
+   ]
+  },
+  "home": {
+   "chosen": {
+    "min_data_in_leaf": 400,
+    "num_leaves": 7
+   },
+   "rounds": 1474,
+   "rows": 253345,
+   "trials": [
+    {
+     "min_data_in_leaf": 400,
+     "num_leaves": 7,
+     "rounds": 1400,
+     "validation_poisson": 0.86660470589171
+    },
+    {
+     "min_data_in_leaf": 400,
+     "num_leaves": 15,
+     "rounds": 595,
+     "validation_poisson": 0.8667704234742002
+    },
+    {
+     "min_data_in_leaf": 1500,
+     "num_leaves": 15,
+     "rounds": 645,
+     "validation_poisson": 0.8666216690427864
+    },
+    {
+     "min_data_in_leaf": 1500,
+     "num_leaves": 31,
+     "rounds": 437,
+     "validation_poisson": 0.8667763331071568
+    }
+   ]
+  }
+ },
+ "hyperparameters": {
+  "count_models": {
+   "away_corners": {
+    "chosen": {
+     "min_data_in_leaf": 400,
+     "num_leaves": 7
+    },
+    "dispersion": 0.08145,
+    "rounds": 508,
+    "rows": 99728
+   },
+   "home_corners": {
+    "chosen": {
+     "min_data_in_leaf": 1500,
+     "num_leaves": 31
+    },
+    "dispersion": 0.07581,
+    "rounds": 151,
+    "rows": 99728
+   },
+   "shots_on_target": {
+    "chosen": {
+     "min_data_in_leaf": 1500,
+     "num_leaves": 31
+    },
+    "dispersion": 0.01311,
+    "rounds": 327,
+    "rows": 99182
+   },
+   "total_cards": {
+    "chosen": {
+     "min_data_in_leaf": 400,
+     "num_leaves": 7
+    },
+    "dispersion": 0.04295,
+    "rounds": 739,
+    "rows": 103385
+   },
+   "total_fouls": {
+    "chosen": {
+     "min_data_in_leaf": 400,
+     "num_leaves": 7
+    },
+    "dispersion": 0.00633,
+    "rounds": 701,
+    "rows": 98004
+   },
+   "total_shots": {
+    "chosen": {
+     "min_data_in_leaf": 1500,
+     "num_leaves": 15
+    },
+    "dispersion": 0.00966,
+    "rounds": 626,
+    "rows": 100100
+   }
+  },
+  "goal_models": {
+   "away": {
+    "chosen": {
+     "min_data_in_leaf": 1500,
+     "num_leaves": 31
+    },
+    "rounds": 304,
+    "rows": 253345,
+    "trials": [
+     {
+      "min_data_in_leaf": 400,
+      "num_leaves": 7,
+      "rounds": 857,
+      "validation_poisson": 0.9509765200112145
+     },
+     {
+      "min_data_in_leaf": 400,
+      "num_leaves": 15,
+      "rounds": 657,
+      "validation_poisson": 0.9509830410738707
+     },
+     {
+      "min_data_in_leaf": 1500,
+      "num_leaves": 15,
+      "rounds": 467,
+      "validation_poisson": 0.9509078709045206
+     },
+     {
+      "min_data_in_leaf": 1500,
+      "num_leaves": 31,
+      "rounds": 289,
+      "validation_poisson": 0.9506157694530468
+     }
+    ]
+   },
+   "half_time_away": {
+    "chosen": {
+     "min_data_in_leaf": 1500,
+     "num_leaves": 15
+    },
+    "rounds": 502,
+    "rows": 185878,
+    "trials": [
+     {
+      "min_data_in_leaf": 400,
+      "num_leaves": 7,
+      "rounds": 715,
+      "validation_poisson": 0.8505369751926936
+     },
+     {
+      "min_data_in_leaf": 400,
+      "num_leaves": 15,
+      "rounds": 383,
+      "validation_poisson": 0.8506763857445387
+     },
+     {
+      "min_data_in_leaf": 1500,
+      "num_leaves": 15,
+      "rounds": 481,
+      "validation_poisson": 0.8503329903844574
+     },
+     {
+      "min_data_in_leaf": 1500,
+      "num_leaves": 31,
+      "rounds": 275,
+      "validation_poisson": 0.8504643150805702
+     }
+    ]
+   },
+   "half_time_home": {
+    "chosen": {
+     "min_data_in_leaf": 400,
+     "num_leaves": 15
+    },
+    "rounds": 329,
+    "rows": 185879,
+    "trials": [
+     {
+      "min_data_in_leaf": 400,
+      "num_leaves": 7,
+      "rounds": 379,
+      "validation_poisson": 0.9115052122709643
+     },
+     {
+      "min_data_in_leaf": 400,
+      "num_leaves": 15,
+      "rounds": 315,
+      "validation_poisson": 0.9112934290000383
+     },
+     {
+      "min_data_in_leaf": 1500,
+      "num_leaves": 15,
+      "rounds": 316,
+      "validation_poisson": 0.911337114681717
+     },
+     {
+      "min_data_in_leaf": 1500,
+      "num_leaves": 31,
+      "rounds": 194,
+      "validation_poisson": 0.9114625522690334
+     }
+    ]
+   },
+   "home": {
+    "chosen": {
+     "min_data_in_leaf": 400,
+     "num_leaves": 7
+    },
+    "rounds": 1474,
+    "rows": 253345,
+    "trials": [
+     {
+      "min_data_in_leaf": 400,
+      "num_leaves": 7,
+      "rounds": 1400,
+      "validation_poisson": 0.86660470589171
+     },
+     {
+      "min_data_in_leaf": 400,
+      "num_leaves": 15,
+      "rounds": 595,
+      "validation_poisson": 0.8667704234742002
+     },
+     {
+      "min_data_in_leaf": 1500,
+      "num_leaves": 15,
+      "rounds": 645,
+      "validation_poisson": 0.8666216690427864
+     },
+     {
+      "min_data_in_leaf": 1500,
+      "num_leaves": 31,
+      "rounds": 437,
+      "validation_poisson": 0.8667763331071568
+     }
+    ]
+   }
+  },
+  "objective": "poisson"
+ },
+ "training_dataset_hash": "3a1e943dd548897f848dfa282aef20dadf3b85128a38bf454951af76b3aac3e8",
+ "training_end": "2022-07-01T00:00:00+00:00",
+ "validation_window": {
+  "from": "2021-07-01T00:00:00+00:00",
+  "until": "2022-07-01T00:00:00+00:00"
+ }
+}

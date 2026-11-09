@@ -75,6 +75,9 @@ func TestSourceListMatchesFiltersByDateTimezoneAndStatus(t *testing.T) {
 	if match.PredictionState != "published" || match.Prediction == nil {
 		t.Fatalf("prediction state = %q prediction = %+v, want published prediction", match.PredictionState, match.Prediction)
 	}
+	if match.Prediction.Probability <= 0 || match.Prediction.Probability >= 1 {
+		t.Fatalf("prediction probability = %v, want the stored 0 to 1 value", match.Prediction.Probability)
+	}
 	if len(match.Odds) != 3 {
 		t.Fatalf("odds = %+v, want 3 prices", match.Odds)
 	}

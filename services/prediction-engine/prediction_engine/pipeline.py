@@ -6,7 +6,7 @@ from typing import Protocol
 
 from prediction_engine.combination_markets import MarketLeg, joint_probability
 from prediction_engine.confidence import ConfidenceInput, ConfidenceScorer
-from prediction_engine.ensemble import blend_tier_a_markets
+from prediction_engine.ensemble import blend_tier_a_markets, bounded_distribution
 from prediction_engine.features import (
     DEFAULT_HOME_ADVANTAGE,
     FeatureAssembler,
@@ -31,8 +31,9 @@ from prediction_engine.persistence import (
 )
 from prediction_engine.rate_markets import RateMarketResult, TeamRateMarketResult, combined_total_market, team_total_market
 from prediction_engine.ranking import ExplanationInput, RankingInput, assign_best_bet_flags, explain_prediction, rank_score
-from prediction_engine.config import default_config
-from prediction_engine.shot_possession_markets import PossessionMarketResult, ShotMarketResult, possession_market, shots_on_target_market, tier_market_eligibility
+from prediction_engine.config import ProbabilityClamp, default_config
+from prediction_engine.promoted_markets import ModelForecasts, published_count_candidates, published_goal_markets
+from prediction_engine.shot_possession_markets import PossessionMarketResult, ShotMarketResult, expected_home_possession_share, possession_market, shots_on_target_market, tier_market_eligibility
 
 
 @dataclass(frozen=True)
@@ -49,7 +50,14 @@ class FixtureEngineInput:
     market_accuracy: dict[str, float] = field(default_factory=dict)
     league_accuracy: float | None = None
     lifecycle_stage: PredictionLifecycleStage = PredictionLifecycleStage.PRE_MATCH
-    model_version: str = "python-engine-v1"
+    model_version: str = "python-engine-v3"
+    # Every finished fixture of the two teams' own leagues, for the team-strength
+    # fit. None fits on history alone, which is only sound for a test's small
+    # league: see _team_strength_table.
+    league_history: list[FixtureRecord] | None = None
+    # The newest stored Model B and C forecasts for this fixture. None publishes the
+    # champion alone: see promoted_markets.
+    model_forecasts: ModelForecasts | None = None
 
 
 class FixtureInputRepository(Protocol):
@@ -145,7 +153,7 @@ def fixture_expected_goals(inputs: FixtureEngineInput) -> PreMatchRates:
     config = default_config()
     strength_table = compute_league_strength(inputs.history)
     home_advantage = measure_home_advantage(inputs.history, inputs.target_fixture.league_id)
-    team_table = compute_team_strength(inputs.history, home_advantage=home_advantage)
+    team_table = _team_strength_table(inputs, home_advantage)
     features = FeatureAssembler(
         form_windows=config.form.lookback_windows,
         decay_rate=config.form.decay_rate,
@@ -202,11 +210,21 @@ def _count_means(statistics: dict[str, float | None]) -> dict[str, float]:
     return means
 
 
-def run_fixture_engine(inputs: FixtureEngineInput) -> list[EnginePrediction]:
-    config = default_config()
+@dataclass(frozen=True)
+class _TierAOutcome:
+    features: object
+    gate: object
+    home_lambda: float
+    away_lambda: float
+    model_a: object
+    tier_a_markets: dict[str, object]
+
+
+def _tier_a_outcome(inputs: FixtureEngineInput, config: object) -> _TierAOutcome | None:
+    """Features, gate and the published Tier A markets; None when the gate skips."""
     strength_table = compute_league_strength(inputs.history)
     home_advantage = measure_home_advantage(inputs.history, inputs.target_fixture.league_id)
-    team_table = compute_team_strength(inputs.history, home_advantage=home_advantage)
+    team_table = _team_strength_table(inputs, home_advantage)
     features = FeatureAssembler(
         form_windows=config.form.lookback_windows,
         decay_rate=config.form.decay_rate,
@@ -232,7 +250,7 @@ def run_fixture_engine(inputs: FixtureEngineInput) -> list[EnginePrediction]:
     )
     gate = MatchQualityGate(config).evaluate(gate_input)
     if gate.outcome is GateOutcome.SKIP:
-        return []
+        return None
 
     home_lambda, away_lambda = _expected_goals(features)
     model_a = run_model_a(ModelAInputs(home_lambda=home_lambda, away_lambda=away_lambda))
@@ -247,10 +265,66 @@ def run_fixture_engine(inputs: FixtureEngineInput) -> list[EnginePrediction]:
     # A settled bookmaker 1X2 line is the strongest public estimate available;
     # it used to reach only the quality gate and the confidence score, never
     # the published probability.
-    tier_a_markets = _anchor_one_x_two_to_market(
+    tier_a_markets = _published_result_markets(
         tier_a_markets,
         features.odds_implied_1x2 if not inputs.odds_provisional else {},
+        config.probability_clamp,
     )
+    return _TierAOutcome(
+        features=features,
+        gate=gate,
+        home_lambda=home_lambda,
+        away_lambda=away_lambda,
+        model_a=model_a,
+        tier_a_markets=tier_a_markets,
+    )
+
+
+def champion_match_result(inputs: FixtureEngineInput) -> dict[str, float] | None:
+    """The champion's full 1X2 distribution, or None when its gate skips the fixture.
+
+    `run_fixture_engine` publishes only the most likely selection of each
+    market, so the stored row cannot be scored by log loss. The shadow
+    comparison (`challengers`) needs all three outcomes from the same code at
+    the same as-of time, and gets them here rather than from a copy of the
+    pipeline that could drift from it.
+    """
+    outcome = _tier_a_outcome(inputs, default_config())
+    if outcome is None:
+        return None
+    return {key: float(value) for key, value in outcome.tier_a_markets["match_result"].items()}
+
+
+def champion_market_document(inputs: FixtureEngineInput) -> dict[str, dict[str, float]] | None:
+    """The champion's forecast for every shadow-scored market, or None when its gate skips.
+
+    Goal markets are the published blend, with the 1X2 anchored, and the combination
+    markets read Model A's score matrix, as `run_fixture_engine` does. Counts are the
+    rolling averages it would publish from.
+    """
+    from prediction_engine.challenger_markets import champion_count_document, goal_document
+
+    outcome = _tier_a_outcome(inputs, default_config())
+    if outcome is None:
+        return None
+    return {
+        **goal_document(outcome.tier_a_markets, outcome.model_a.score_matrix),
+        **champion_count_document(outcome.features.statistics, outcome.features.statistic_sample_sizes),
+    }
+
+
+def run_fixture_engine(inputs: FixtureEngineInput) -> list[EnginePrediction]:
+    config = default_config()
+    outcome = _tier_a_outcome(inputs, config)
+    if outcome is None:
+        return []
+    features = outcome.features
+    gate = outcome.gate
+    home_lambda, away_lambda = outcome.home_lambda, outcome.away_lambda
+    model_a = outcome.model_a
+    published = published_goal_markets(outcome.tier_a_markets, model_a.score_matrix, inputs.model_forecasts)
+    tier_a_markets = published.markets
+    score_matrix = published.score_matrix
     market_candidates: list[tuple[str, str, float]] = []
     if MarketTier.A in gate.allowed_market_tiers:
         market_candidates.extend(_model_a_prediction_candidates(tier_a_markets))
@@ -259,10 +333,12 @@ def run_fixture_engine(inputs: FixtureEngineInput) -> list[EnginePrediction]:
     if MarketTier.C in gate.allowed_market_tiers:
         market_candidates.extend(_tier_c_prediction_candidates(features, inputs.coverage))
     if MarketTier.D in gate.allowed_market_tiers:
-        market_candidates.extend(_tier_d_prediction_candidates(tier_a_markets, model_a.score_matrix))
+        market_candidates.extend(_tier_d_prediction_candidates(tier_a_markets, score_matrix))
+    market_candidates, count_sources = published_count_candidates(market_candidates, inputs.model_forecasts)
+    probability_sources = {**published.sources, **count_sources}
     market_candidates = _score_consistent_candidates(
         market_candidates,
-        alternatives=_score_candidate_alternatives(tier_a_markets, model_a.score_matrix),
+        alternatives=_score_candidate_alternatives(tier_a_markets, score_matrix),
     )
     features_used = {
         "feature_vector": {
@@ -277,6 +353,7 @@ def run_fixture_engine(inputs: FixtureEngineInput) -> list[EnginePrediction]:
         "as_of_timestamp": features.as_of_timestamp.isoformat(),
         "kickoff_at": inputs.target_fixture.kickoff_at.isoformat(),
         "league_id": inputs.target_fixture.league_id,
+        "model_forecasts": dict(inputs.model_forecasts.provenance or {}) if inputs.model_forecasts else {},
     }
     predictions: list[EnginePrediction] = []
     for market, selection, raw_probability in market_candidates:
@@ -317,6 +394,7 @@ def run_fixture_engine(inputs: FixtureEngineInput) -> list[EnginePrediction]:
             "market_accuracy": market_accuracy,
             "league_accuracy": league_accuracy,
             "historical_accuracy": historical_accuracy,
+            "probability_source": probability_sources.get(market, "champion"),
         }
         explanation = explain_prediction(
             ExplanationInput(
@@ -488,7 +566,10 @@ def _selection_matches_score(market: str, selection: str, home: int, away: int) 
     if market == "btts":
         return selection == btts
     if market == "team_to_score_first":
-        return total == 0 if selection == "no_goal" else total > 0
+        if selection == "no_goals":
+            return total == 0
+        # A side can only have scored first in a score where it scored at all.
+        return home > 0 if selection == "home" else away > 0
     if market == "odd_even_total_goals":
         return selection == ("even" if total % 2 == 0 else "odd")
     if market == "correct_score":
@@ -633,7 +714,10 @@ def _tier_c_prediction_candidates(
         required_metrics=("home_possession", "away_possession"),
     ):
         possession = possession_market(
-            expected_home_possession_pct=_statistic_value(statistics, "home_possession")
+            expected_home_possession_pct=expected_home_possession_share(
+                _statistic_value(statistics, "home_possession"),
+                _statistic_value(statistics, "away_possession"),
+            )
         )
         candidates.append(_top_possession_market_selection(possession))
     return candidates
@@ -741,12 +825,26 @@ def _expected_goals(features: FeatureVector) -> tuple[float, float]:
     away_attack, away_defence = _side_rates(features, "away", baseline)
     home_advantage = features.home_advantage or DEFAULT_HOME_ADVANTAGE
 
-    home_lambda = (home_attack * away_defence / baseline) * home_advantage
-    away_lambda = (away_attack * home_defence / baseline) / home_advantage
+    goal_rate = _fitted_goal_rate(features) or baseline
+    home_lambda = (home_attack * away_defence / goal_rate) * home_advantage
+    away_lambda = (away_attack * home_defence / goal_rate) / home_advantage
     return (
         _clamp_probability(home_lambda, _MIN_EXPECTED_GOALS, _MAX_EXPECTED_GOALS),
         _clamp_probability(away_lambda, _MIN_EXPECTED_GOALS, _MAX_EXPECTED_GOALS),
     )
+
+
+def _fitted_goal_rate(features: FeatureVector) -> float | None:
+    """The goal rate both ratings were fitted against, when both sides have one.
+
+    Attack and defence are stated relative to this rate, so it is what the product
+    has to be divided by. The competition baseline is a poor stand-in: it comes
+    from the two teams' fixtures this season, a handful of matches early on, and
+    dividing by a small noisy number pushes the expected goals up.
+    """
+    home_rate = float(features.team_strength.get("home_league_goal_rate", 0.0))
+    away_rate = float(features.team_strength.get("away_league_goal_rate", 0.0))
+    return (home_rate + away_rate) / 2 if home_rate > 0 and away_rate > 0 else None
 
 
 def _side_rates(features: FeatureVector, side: str, baseline: float) -> tuple[float, float]:
@@ -815,6 +913,20 @@ def _team_strength_ratings(table: TeamStrengthTable, fixture: FixtureRecord) -> 
     }
 
 
+def _team_strength_table(inputs: FixtureEngineInput, home_advantage: float) -> TeamStrengthTable:
+    """Team ratings, fitted on the whole league rather than the two teams' fixtures.
+
+    history holds only matches involving the two teams, so each opponent is seen
+    only against them. An opponent's defence rating then absorbs the goals the
+    target scored against it, which leaves the target's attack rating unidentified:
+    twenty identical teams fitted this way spread from 0.48 to 1.78 at the decay
+    and shrinkage then in use. That spread made the expected goals overshoot in
+    both directions.
+    """
+    history = inputs.league_history if inputs.league_history is not None else inputs.history
+    return compute_team_strength(history, home_advantage=home_advantage)
+
+
 def _league_strength_scales(table: LeagueStrengthTable, fixture: FixtureRecord) -> dict[str, float]:
     home = table.for_team(fixture.home_team_id)
     away = table.for_team(fixture.away_team_id)
@@ -852,15 +964,43 @@ def _scaled_points(recent: dict[str, float], attack_scale: float) -> float:
     return _clamp_probability(float(recent["points_per_match_5"]) * attack_scale, 0.0, 3.0)
 
 
+def _published_result_markets(
+    markets: dict[str, object],
+    odds_implied: dict[str, float],
+    clamp: ProbabilityClamp,
+) -> dict[str, object]:
+    """The final 1X2, and the two markets that only restate it."""
+    return _with_dependent_result_markets(_anchor_one_x_two_to_market(markets, odds_implied, clamp))
+
+
+def _with_dependent_result_markets(markets: dict[str, object]) -> dict[str, object]:
+    """Double chance and draw no bet from the final 1X2, with or without odds.
+
+    This used to happen only inside the anchor, so a fixture with no real odds
+    published a 1X2 carrying the form adjustment beside these two as raw Model A.
+    When they disagreed on the favourite, the score consistency gate moved draw no
+    bet to the 1X2's side but kept the raw probability: a two-way pick below 50%.
+    """
+    match_result = markets["match_result"]
+    home, draw, away = (float(match_result[outcome]) for outcome in ("home", "draw", "away"))
+    decisive = home + away
+    return {
+        **markets,
+        "double_chance": {
+            "home_or_draw": home + draw,
+            "draw_or_away": draw + away,
+            "home_or_away": decisive,
+        },
+        "draw_no_bet": {"home": home / decisive, "away": away / decisive},
+    }
+
+
 def _anchor_one_x_two_to_market(
     markets: dict[str, object],
     odds_implied: dict[str, float],
+    clamp: ProbabilityClamp,
 ) -> dict[str, object]:
-    """Pull the 1X2 probabilities toward a settled bookmaker line.
-
-    The dependent markets are recomputed from the anchored result so double
-    chance and draw-no-bet cannot contradict the 1X2 pick they derive from.
-    """
+    """Pull the 1X2 probabilities toward a settled bookmaker line."""
     match_result = markets.get("match_result")
     if not odds_implied or not isinstance(match_result, dict):
         return markets
@@ -870,26 +1010,9 @@ def _anchor_one_x_two_to_market(
         + (_MARKET_ANCHOR_WEIGHT * odds_implied.get(outcome, float(probability)))
         for outcome, probability in match_result.items()
     }
-    total = sum(anchored.values())
-    if total <= 0:
+    if sum(anchored.values()) <= 0:
         return markets
-    anchored = {outcome: probability / total for outcome, probability in anchored.items()}
-
-    decisive = anchored["home"] + anchored["away"]
-    return {
-        **markets,
-        "match_result": anchored,
-        "double_chance": {
-            "home_or_draw": anchored["home"] + anchored["draw"],
-            "draw_or_away": anchored["draw"] + anchored["away"],
-            "home_or_away": decisive,
-        },
-        "draw_no_bet": (
-            {"home": anchored["home"] / decisive, "away": anchored["away"] / decisive}
-            if decisive > 0
-            else markets["draw_no_bet"]
-        ),
-    }
+    return {**markets, "match_result": bounded_distribution(anchored, clamp)}
 
 
 def _statistics_market_eligible(

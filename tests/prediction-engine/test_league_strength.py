@@ -9,6 +9,7 @@ Slovan Bratislava) plus each mechanism that fixes it.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 import unittest
 
@@ -185,6 +186,34 @@ class ExpectedGoalsTests(unittest.TestCase):
             features.home_recent["goals_for_per_match_5"],
         )
         self.assertGreater(home_lambda, away_lambda)
+
+    def test_a_noisy_competition_baseline_does_not_move_rated_sides(self) -> None:
+        features = replace(
+            assemble(cross_league_history(), target_fixture()),
+            team_strength={
+                "home_attack_rating": 1.2,
+                "home_defence_rating": 0.9,
+                "away_attack_rating": 0.8,
+                "away_defence_rating": 1.1,
+                "home_league_goal_rate": 1.4,
+                "away_league_goal_rate": 1.2,
+            },
+        )
+        thin_baseline = replace(features.league_baseline, total_goals_per_match=0.8)
+
+        self.assertEqual(
+            _expected_goals(features),
+            _expected_goals(replace(features, league_baseline=thin_baseline)),
+        )
+
+    def test_an_unrated_side_still_uses_the_competition_baseline(self) -> None:
+        features = replace(assemble(cross_league_history(), target_fixture()), team_strength={})
+        thin_baseline = replace(features.league_baseline, total_goals_per_match=0.8)
+
+        self.assertNotEqual(
+            _expected_goals(features),
+            _expected_goals(replace(features, league_baseline=thin_baseline)),
+        )
 
     def test_the_published_pick_is_a_home_win(self) -> None:
         rows = run_fixture_engine(

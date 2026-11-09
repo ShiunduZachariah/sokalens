@@ -23,6 +23,9 @@ type fakeJobStore struct {
 	failed    int64
 	renewed   int64
 	renewErr  error
+	// renewals, when set, is signalled after each recorded renewal. It needs a
+	// buffer: the send never blocks, so the lease goroutine is never held up.
+	renewals chan struct{}
 }
 
 func (f *fakeJobStore) ClaimNext(context.Context, string, string, time.Time) (jobs.Job, bool, error) {
@@ -31,6 +34,10 @@ func (f *fakeJobStore) ClaimNext(context.Context, string, string, time.Time) (jo
 
 func (f *fakeJobStore) RenewLease(_ context.Context, id int64, _ string, _ time.Time) error {
 	f.renewed = id
+	select {
+	case f.renewals <- struct{}{}:
+	default:
+	}
 	return f.renewErr
 }
 
@@ -278,7 +285,7 @@ func TestProcessorReturnsFalseWhenNoJobIsAvailable(t *testing.T) {
 }
 
 func TestProcessorRenewsLeaseWhileHandlerRuns(t *testing.T) {
-	store := &fakeJobStore{hasJob: true, job: jobs.Job{ID: 12, JobKey: CountriesJobKey(), Attempts: 1, MaxAttempts: 3}}
+	store := &fakeJobStore{hasJob: true, renewals: make(chan struct{}, 1), job: jobs.Job{ID: 12, JobKey: CountriesJobKey(), Attempts: 1, MaxAttempts: 3}}
 	handler := &blockingHandler{started: make(chan struct{}), released: make(chan struct{}), canceled: make(chan struct{})}
 	processor := NewProcessor(ProcessorOptions{
 		Jobs: store, Queue: "provider-reference", WorkerID: "worker-1",
@@ -290,8 +297,20 @@ func TestProcessorRenewsLeaseWhileHandlerRuns(t *testing.T) {
 		done <- err
 	}()
 	<-handler.started
-	time.Sleep(5 * time.Millisecond)
+	// Hold the handler open until a renewal is seen. A fixed sleep can overrun on
+	// a busy runner, leaving the stop signal and the tick both ready in
+	// maintainLease's select, which may then stop without renewing at all. The
+	// deadline only bounds the wait when renewal is genuinely broken.
+	select {
+	case <-store.renewals:
+	case <-time.After(30 * time.Second):
+		close(handler.released)
+		<-done
+		t.Fatal("no lease renewal while the handler was running")
+	}
 	close(handler.released)
+	// ProcessOnce joins the lease goroutine before returning, so reading the
+	// store's fields after this receive is race-free.
 	if err := <-done; err != nil {
 		t.Fatalf("ProcessOnce returned error: %v", err)
 	}

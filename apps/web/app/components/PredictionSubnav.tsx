@@ -35,7 +35,8 @@ const DESTINATIONS = [
   { href: "/leagues", label: "Leagues" },
 ] as const;
 
-export function PredictionSubnav() {
+/** `noCurrent`: the page shows a day no pill stands for, so none is lit. */
+export function PredictionSubnav({ noCurrent = false }: { noCurrent?: boolean }) {
   const pathname = usePathname();
   const activePath = stripLocalePrefix(pathname);
   const { locale } = useLocale();
@@ -43,7 +44,7 @@ export function PredictionSubnav() {
   return (
     <nav aria-label="Prediction pages" className="td-subnav">
       {DESTINATIONS.map((destination) => {
-        const current = activePath === destination.href;
+        const current = !noCurrent && activePath === destination.href;
         return (
           <Link
             aria-current={current ? "page" : undefined}

@@ -35,6 +35,11 @@ from prediction_engine.config import default_config
 IN_PLAY_SCOPE_CHOICES = ("in_play", "inplay")
 
 
+# Shadow challengers (architecture v2 Models B and C). Read-and-write on their
+# own tables only; see prediction_engine/challengers.py.
+CHALLENGER_COMMANDS = ("run-challengers", "settle-challengers", "challenger-report")
+
+
 ConnectFunc = Callable[[str], object]
 RunnerFunc = Callable[..., list[object]]
 
@@ -77,6 +82,15 @@ def main(
     settlement_repository = settlement_repository_override or PredictionSettlementRepository(connection)  # type: ignore[arg-type]
     accuracy_repository = AccuracySnapshotRepository(connection)  # type: ignore[arg-type]
     retention_repository = PredictionRetentionRepository(connection)  # type: ignore[arg-type]
+
+    if args.command in CHALLENGER_COMMANDS:
+        return _run_challenger_command(
+            args,
+            connection=connection,
+            input_repository=input_repository,
+            generated_at=generated_at,
+            stdout=stdout,
+        )
 
     if args.command == "preview-btts-corrections":
         report = settlement_repository.preview_btts_corrections(args.fixture_id, limit=args.limit)
@@ -579,6 +593,108 @@ def _run_in_play_scope(
     return 0
 
 
+def _run_market_step(
+    args: argparse.Namespace,
+    *,
+    connection: object,
+    input_repository: PredictionInputRepository,
+    generated_at: datetime,
+) -> dict[str, object]:
+    """The all-market shadow for this command, run after the 1X2 shadow.
+
+    A fault here is reported in the command's output and goes no further: the 1X2
+    shadow and the job that owns this command must not depend on it.
+    """
+    try:
+        from prediction_engine import challenger_markets as markets
+        from prediction_engine.pipeline import champion_market_document
+
+        repository = markets.MarketRepository(connection)
+        if args.command == "settle-challengers":
+            return markets.run_market_settlement(repository, settled_at=generated_at, limit=args.limit)
+        if args.command == "challenger-report":
+            return markets.run_market_report(
+                repository,
+                now=generated_at,
+                origin=args.origin,
+                minimum_samples=default_config().v2.promotion.minimum_shadow_settled_samples,
+                write=not args.no_write,
+            )
+
+        def champion(fixture: object, as_of: datetime) -> dict[str, dict[str, float]] | None:
+            try:
+                return champion_market_document(input_repository.load_fixture_inputs(fixture.id, as_of_timestamp=as_of))  # type: ignore[attr-defined]
+            except Exception:
+                connection.rollback()  # type: ignore[attr-defined]
+                return None
+
+        return markets.run_market_forecasts(
+            repository,
+            as_of=generated_at,
+            origin=args.origin,
+            limit=args.limit,
+            history_days=args.history_days,
+            min_interval=timedelta(minutes=args.min_interval_minutes if args.origin == markets.LIVE else 0),
+            champion=champion,
+            models=markets.load_market_models(),
+            code_commit=os.environ.get("PREDICTION_ENGINE_CODE_COMMIT", "").strip(),
+        )
+    except Exception as error:  # noqa: BLE001 - see the docstring
+        connection.rollback()  # type: ignore[attr-defined]
+        return {"error_type": type(error).__name__, "message": str(error)}
+
+
+def _run_challenger_command(
+    args: argparse.Namespace,
+    *,
+    connection: object,
+    input_repository: PredictionInputRepository,
+    generated_at: datetime,
+    stdout: TextIO,
+) -> int:
+    from prediction_engine import challengers
+    from prediction_engine.model_c import load_model
+    from prediction_engine.pipeline import champion_match_result
+
+    repository = challengers.ChallengerRepository(connection)
+    if args.command == "settle-challengers":
+        summary = challengers.run_settlement(repository, settled_at=generated_at, limit=args.limit)
+    elif args.command == "challenger-report":
+        summary = challengers.run_report(
+            repository,
+            now=generated_at,
+            origin=args.origin,
+            minimum_samples=default_config().v2.promotion.minimum_shadow_settled_samples,
+            write=not args.no_write,
+        )
+    else:
+
+        def champion(fixture: object, as_of: datetime) -> dict[str, float] | None:
+            # The champion's own pipeline at the challenger's as-of time. A
+            # fixture it cannot score is recorded unpaired, never guessed.
+            try:
+                return champion_match_result(input_repository.load_fixture_inputs(fixture.id, as_of_timestamp=as_of))  # type: ignore[attr-defined]
+            except Exception:
+                connection.rollback()  # type: ignore[attr-defined]
+                return None
+
+        summary = challengers.run_forecasts(
+            repository,
+            as_of=generated_at,
+            origin=args.origin,
+            limit=args.limit,
+            history_days=args.history_days,
+            min_interval=timedelta(minutes=args.min_interval_minutes if args.origin == challengers.LIVE else 0),
+            champion=champion,
+            model_c=load_model(),
+        )
+    summary["markets"] = _run_market_step(
+        args, connection=connection, input_repository=input_repository, generated_at=generated_at
+    )
+    print(json.dumps(summary, sort_keys=True, default=str), file=stdout)
+    return 0
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="prediction-engine")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -653,6 +769,23 @@ def _build_parser() -> argparse.ArgumentParser:
         type=_positive_int,
         default=DEFAULT_NOT_PLAYED_GRACE_HOURS,
     )
+
+    shadow = subparsers.add_parser("run-challengers", help="forecast with the zero-weight challengers (Models B and C)")
+    _add_common_options(shadow)
+    shadow.add_argument("--origin", choices=("live", "replay"), default="live")
+    # These forecasts are published now, so a fixture waits on this backlog to get them.
+    shadow.add_argument("--limit", type=_positive_int, default=500)
+    shadow.add_argument("--history-days", type=_positive_int, default=1100)
+    shadow.add_argument("--min-interval-minutes", type=int, default=30)
+
+    shadow_settle = subparsers.add_parser("settle-challengers")
+    _add_common_options(shadow_settle)
+    shadow_settle.add_argument("--limit", type=_positive_int, default=2000)
+
+    shadow_report = subparsers.add_parser("challenger-report")
+    _add_common_options(shadow_report)
+    shadow_report.add_argument("--origin", choices=("live", "replay"), default="live")
+    shadow_report.add_argument("--no-write", action="store_true", help="print the comparison without recording it")
 
     snapshot = subparsers.add_parser("snapshot-accuracy")
     _add_common_options(snapshot)

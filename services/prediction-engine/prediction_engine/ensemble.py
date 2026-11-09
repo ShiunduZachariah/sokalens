@@ -84,13 +84,47 @@ def _blend_and_renormalize_one_x_two(
         for outcome, raw_probability in raw_probabilities.items()
         if _is_number(raw_probability)
     }
-    total = sum(blended.values())
-    if total <= 0:
+    if sum(blended.values()) <= 0:
         raise ValueError("1X2 blended probabilities must have a positive total before renormalization")
-    return {
-        outcome: _clamp_probability(raw_probability / total, clamp)
-        for outcome, raw_probability in blended.items()
-    }
+    return bounded_distribution(blended, clamp)
+
+
+def bounded_distribution(probabilities: dict[str, float], clamp: ProbabilityClamp) -> dict[str, float]:
+    """Scale outcomes to sum to one with every outcome inside the clamp.
+
+    Clamping after scaling breaks the total: a form delta can push a small
+    outcome below zero, and lifting it to the minimum adds mass nothing takes
+    back (0.983 / 0.044 / 0.010 sums to 1.037). So an outcome outside the clamp
+    is pinned to the bound and the others share what remains in proportion. A
+    distribution already inside the clamp is only scaled.
+    """
+    size = len(probabilities)
+    if not size * clamp.minimum <= 1 <= size * clamp.maximum:
+        raise ValueError(f"{size} outcomes cannot sum to one inside the probability clamp")
+    free = {outcome: max(probability, 0.0) for outcome, probability in probabilities.items()}
+    if sum(free.values()) <= 0:
+        raise ValueError("probabilities must have a positive total")
+
+    pinned: dict[str, float] = {}
+    while True:
+        remaining = 1 - sum(pinned.values())
+        free_total = sum(free.values())
+        scaled = {
+            outcome: remaining * probability / free_total if free_total > 0 else remaining / len(free)
+            for outcome, probability in free.items()
+        }
+        below = [outcome for outcome, probability in scaled.items() if probability < clamp.minimum]
+        above = [outcome for outcome, probability in scaled.items() if probability > clamp.maximum]
+        if not below and not above:
+            bounded = {**pinned, **scaled}
+            return {outcome: bounded[outcome] for outcome in probabilities}
+        # Pin only the side that clamping would overshoot: pinning both at once
+        # can leave a total the outcomes still free cannot make up.
+        clamped_total = sum(_clamp_probability(probability, clamp) for probability in scaled.values())
+        outcomes, bound = (below, clamp.minimum) if clamped_total >= remaining else (above, clamp.maximum)
+        for outcome in outcomes:
+            pinned[outcome] = bound
+            del free[outcome]
 
 
 def _blend_value(raw_value: Any, delta_value: Any, weights: BlendWeights, clamp: ProbabilityClamp) -> Any:

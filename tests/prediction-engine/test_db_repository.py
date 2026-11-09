@@ -76,6 +76,7 @@ class DBRepositoryTests(unittest.TestCase):
                         {"scope": "league", "scope_id": "39", "accuracy": 0.61},
                     ]
                 ),
+                FakeCursor(many=[history_row, {**history_row, "id": 40, "home_team_id": 30, "away_team_id": 31}]),
             ]
         )
 
@@ -90,7 +91,15 @@ class DBRepositoryTests(unittest.TestCase):
         self.assertEqual(inputs.market_accuracy, {"1x2": 0.58, "total_goals": 0.64})
         self.assertEqual(inputs.league_accuracy, 0.61)
         self.assertEqual(inputs.as_of_timestamp, kickoff)
-        self.assertEqual(len(connection.executed), 6)
+        self.assertEqual(len(connection.executed), 8)
+        self.assertEqual([record.id for record in inputs.league_history], [41, 40])
+        self.assertIn("f.league_id = ANY(%(league_ids)s)", connection.executed[6][0])
+        self.assertEqual(connection.executed[6][1]["league_ids"], [39])
+        self.assertIn("f.kickoff_at < %(target_kickoff_at)s", connection.executed[6][0])
+        self.assertIn("f.kickoff_at < %(as_of_timestamp)s", connection.executed[6][0])
+        self.assertIn("f.updated_at <= %(target_kickoff_at)s", connection.executed[6][0])
+        self.assertIn("f.updated_at <= %(as_of_timestamp)s", connection.executed[6][0])
+        self.assertIn("f.season_id IN (%(season_id)s, %(season_id)s - 1)", connection.executed[6][0])
         self.assertIn("FROM fixtures AS f", connection.executed[0][0])
         self.assertIn("f.id = %(fixture_id)s", connection.executed[0][0])
         self.assertIn("f.kickoff_at < %(target_kickoff_at)s", connection.executed[1][0])
@@ -723,18 +732,20 @@ class DBRepositoryTests(unittest.TestCase):
                         }
                     ]
                 ),
+                # 1-0 with no goal events: nothing to name a first scorer from.
+                FakeCursor(many=[]),
             ]
         )
 
         results = PredictionSettlementRepository(connection).settle_fixture(42, settled_at=settled_at)
 
         self.assertEqual(results[0].status, "unsettled_data_unavailable")
-        insert_params = connection.executed[3][1]
+        insert_params = connection.executed[4][1]
         self.assertIsNone(insert_params["actual"])
         self.assertIsNone(insert_params["is_correct"])
         self.assertEqual(insert_params["settlement_status"], "unsettled_data_unavailable")
-        self.assertIn("INSERT INTO prediction_result_revisions", connection.executed[4][0])
-        fact_params = connection.executed[5][1]
+        self.assertIn("INSERT INTO prediction_result_revisions", connection.executed[5][0])
+        fact_params = connection.executed[6][1]
         self.assertEqual(fact_params["settlement_classification"], "excluded")
         self.assertEqual(fact_params["final_outcome"], "data_unavailable")
         self.assertEqual(fact_params["evaluation_eligible"], False)

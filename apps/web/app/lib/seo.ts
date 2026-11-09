@@ -70,14 +70,14 @@ export const marketSeoDefinitions: MarketSeoDefinition[] = [
     selection: "over_3.5",
     title: "Over 3.5 Goals Predictions",
     heading: "Over 3.5 goals predictions",
-    description: "High-scoring fixtures. This line clears less often than it feels like it should, so every selection here carries the model probability and the settled hit rate beside it.",
+    description: "High-scoring fixtures. This line clears less often than it feels like it should, so every selection here carries its confidence score and the settled hit rate beside it.",
   },
   {
     slug: "double-chance",
     marketKey: "double_chance",
     title: "Double Chance Predictions",
     heading: "Double chance predictions",
-    description: "Two of the three match outcomes in one selection. Lower variance than a straight result call, and priced accordingly -- the model probability is shown so the trade is visible.",
+    description: "Two of the three match outcomes in one selection. Lower variance than a straight result call, and priced accordingly. Each selection shows its confidence score, which is not its chance of winning.",
   },
   {
     slug: "half-time-full-time",

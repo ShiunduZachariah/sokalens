@@ -27,7 +27,8 @@ export function MarketReadingGuide({ slug, predictions, locale, timezone }: {
       <p>
         Open a fixture to compare the published selection with the team history, goals profile and
         available match analysis. Check the sample and missing data before comparing confidence
-        figures. A higher probability does not establish betting value without a price, and past
+        figures, which score how well supported a pick is rather than its chance of winning. A higher
+        score does not establish betting value without a price, and past
         results do not guarantee the next result.
       </p>
       <p>{fixtures === null

@@ -40,7 +40,11 @@ MIGRATIONS = ROOT / "infra" / "db" / "migrations"
 # QA recorded now-withdrawn ad migrations 000083/000084; keep 000085 unique.
 # Historical correction and reviewed aliases depend on later result/identity
 # tables, so exercise 000086/000087 as expansions in both migration directions.
-NEW_VERSIONS = ("000033", "000034", "000035", "000036", "000037", "000038", "000039", "000040", "000041", "000042", "000043", "000044", "000045", "000056", "000057", "000058", "000059", "000060", "000061", "000064", "000065", "000066", "000067", "000068", "000069", "000070", "000071", "000072", "000073", "000076", "000077", "000078", "000079", "000080", "000081", "000082", "000085", "000086", "000087")
+# Challenger predictions (000090) reference the governance registry from 000033.
+# 000091 moves the champion in that registry, so it runs after 000036 too.
+# 000092 stores all-market shadow forecasts against the same registry.
+# 000093 moves the champion to python-engine-v3 in that registry.
+NEW_VERSIONS = ("000033", "000034", "000035", "000036", "000037", "000038", "000039", "000040", "000041", "000042", "000043", "000044", "000045", "000056", "000057", "000058", "000059", "000060", "000061", "000064", "000065", "000066", "000067", "000068", "000069", "000070", "000071", "000072", "000073", "000076", "000077", "000078", "000079", "000080", "000081", "000082", "000085", "000086", "000087", "000090", "000091", "000092", "000093")
 
 
 def run(*args: str, env: dict[str, str] | None = None, capture: bool = False) -> str:
@@ -370,11 +374,59 @@ WHERE prediction_id = '{unavailable_v1_prediction_id}'::uuid
 """) != "data_unavailable:excluded:false:unsettled_data_unavailable":
                 raise AssertionError("explicit unavailable settlement was not preserved as an excluded fact")
 
+            # 000091 moves the champion to python-engine-v2. A row written by the
+            # old image during a deploy or after a rollback must still link to v1.
+            if psql(container, """
+SELECT model_key || ':' || status || ':' || count(*)
+FROM model_registry
+WHERE model_key LIKE 'python-engine-%'
+GROUP BY model_key, status
+ORDER BY model_key
+""") != "python-engine-v1:retired:11\npython-engine-v2:retired:11\npython-engine-v3:production:11":
+                raise AssertionError("000091 and 000093 did not move every market family to python-engine-v3")
+            for model_version, market, selection in (
+                ("python-engine-v1", "total_goals", "over_2.5"),
+                ("python-engine-v2", "correct_score", "1-0"),
+                ("python-engine-v3", "btts", "yes"),
+                ("legacy-v1", "total_corners", "over_9.5"),
+            ):
+                linked_version = psql(container, f"""
+WITH written AS (
+  INSERT INTO engine_predictions (
+    fixture_id, market, prediction, probability, confidence, confidence_tier,
+    is_best_bet, lifecycle_stage, data_completeness, features_used, explanation,
+    gate_tier, horizon_eligible, embargo_active, model_version,
+    max_lifecycle_probability_shift, prediction_direction_changed,
+    lifecycle_stability_score
+  )
+  SELECT fixture_id, '{market}', '{selection}', 0.55, 0.55, 'low', false,
+         'EARLY', 0.8, '{{"source":"000091-verifier"}}'::jsonb,
+         'model link', 'FULL', true, false, '{model_version}',
+         0, false, 0.5
+  FROM engine_predictions WHERE id = '{known_v1_prediction_id}'::uuid
+  RETURNING model_registry_id
+)
+SELECT COALESCE(registry.model_version, 'unlinked')
+FROM written
+LEFT JOIN model_registry registry ON registry.id = written.model_registry_id
+""").splitlines()[0]
+                if linked_version != ("unlinked" if model_version == "legacy-v1" else model_version):
+                    raise AssertionError(f"{model_version} prediction linked to {linked_version}")
+
             # The data migration itself is safe to rerun even when the migration
-            # runner has already recorded the version.
+            # runner has already recorded the version. It requires v1 as champion
+            # and fails closed otherwise, so 000091 is stepped back around it.
+            psql(container, (MIGRATIONS / "000093_champion_python_engine_v3.down.sql").read_text())
+            psql(container, (MIGRATIONS / "000091_champion_python_engine_v2.down.sql").read_text())
             psql(container, (MIGRATIONS / "000036_v1_champion_bootstrap.up.sql").read_text())
             if psql(container, "SELECT count(*) FROM model_registry WHERE status = 'production'") != "11":
                 raise AssertionError("ENG-003 rerun created duplicate production champions")
+            psql(container, (MIGRATIONS / "000091_champion_python_engine_v2.up.sql").read_text())
+            if psql(container, "SELECT count(*) FROM model_registry WHERE status = 'production' AND model_version = 'python-engine-v2'") != "11":
+                raise AssertionError("000091 up/down/up did not restore python-engine-v2 as champion")
+            psql(container, (MIGRATIONS / "000093_champion_python_engine_v3.up.sql").read_text())
+            if psql(container, "SELECT count(*) FROM model_registry WHERE status = 'production' AND model_version = 'python-engine-v3'") != "11":
+                raise AssertionError("000093 up/down/up did not restore python-engine-v3 as champion")
             if psql(container, f"SELECT count(*) FROM model_evaluation_facts WHERE prediction_id = '{known_v1_prediction_id}'::uuid") != "1":
                 raise AssertionError("ENG-003 rerun duplicated the historical evaluation fact")
             if psql(container, f"SELECT count(*) FROM model_evaluation_facts WHERE prediction_id = '{unavailable_v1_prediction_id}'::uuid") != "1":

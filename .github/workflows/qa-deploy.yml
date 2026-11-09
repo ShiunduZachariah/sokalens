@@ -16,6 +16,15 @@ on:
   # Lets the first run happen with someone watching, and a re-run without an
   # empty commit.
   workflow_dispatch:
+    inputs:
+      production_copy_test:
+        description: Test qa on a scratch copy of production's football data instead of deploying
+        type: boolean
+        default: false
+      replay_batches:
+        description: Batches of 500 finished fixtures to replay in that test
+        type: number
+        default: 4
 
 concurrency:
   # One at a time, and never cancelled midway: the script resets a live
@@ -44,6 +53,17 @@ jobs:
           user: ${{ secrets.VPS_SSH_USER }}
 
       - name: Deploy qa to the QA environment
+        if: ${{ !inputs.production_copy_test }}
         run: |
           ssh vps \
             'sudo -u dev env HOME=/home/dev bash /home/dev/sokalens/scripts/qa/deploy.sh'
+
+      # Reads production and writes only to a scratch database in QA's PostgreSQL,
+      # which it drops. See scripts/qa/production-copy-test.sh.
+      - name: Test qa on a copy of production's football data
+        if: ${{ inputs.production_copy_test && github.ref == 'refs/heads/qa' }}
+        env:
+          REPLAY_BATCHES: ${{ inputs.replay_batches }}
+        run: |
+          scp scripts/qa/production-copy-test.sh vps:/tmp/production-copy-test.sh
+          ssh vps "REPLAY_BATCHES=${REPLAY_BATCHES} bash /tmp/production-copy-test.sh"

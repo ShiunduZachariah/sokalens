@@ -7,3 +7,7 @@ packages/contracts/seo-indexability.golden.json -text
 
 # Git runs hooks with /bin/sh; a CRLF shebang line does not execute.
 .githooks/* text eol=lf
+
+# Model artifacts are hashed into model_registry.artifact_hash. Line-ending
+# normalisation would give the same model a different hash on Windows.
+services/prediction-engine/prediction_engine/artifacts/*.json -text

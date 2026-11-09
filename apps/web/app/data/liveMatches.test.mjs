@@ -72,12 +72,12 @@ test("matchClockLabel shows human terminal labels instead of raw elapsed minutes
 
 test("toPredictions retains over 2.5 and hides unsupported correct score", () => {
   assert.deepEqual(toPredictions([
-    { id: 101, market_key: "1x2", selection: "Home", confidence: 55, published_version: 3, published_at: "2026-08-25T08:00:00Z" },
+    { id: 101, market_key: "1x2", selection: "Home", confidence: 55, probability: 0.48, published_version: 3, published_at: "2026-08-25T08:00:00Z" },
     { id: 102, market_key: "total_goals", selection: "over_2.5", confidence: 52, published_version: 3, published_at: "2026-08-25T08:00:00Z" },
     { id: 103, market_key: "correct_score", selection: "2-1", confidence: 12, published_version: 3, published_at: "2026-08-25T08:00:00Z" },
   ]), [
-    { id: 101, source: "engine", marketKey: "1x2", selection: "Home", confidence: 55, publishedVersion: 3, publishedAt: "2026-08-25T08:00:00Z", outcome: "pending", actual: "", voidReason: "" },
-    { id: 102, source: "engine", marketKey: "total_goals", selection: "over_2.5", confidence: 52, publishedVersion: 3, publishedAt: "2026-08-25T08:00:00Z", outcome: "pending", actual: "", voidReason: "" },
+    { id: 101, source: "engine", marketKey: "1x2", selection: "Home", confidence: 55, probability: 0.48, publishedVersion: 3, publishedAt: "2026-08-25T08:00:00Z", outcome: "pending", actual: "", voidReason: "" },
+    { id: 102, source: "engine", marketKey: "total_goals", selection: "over_2.5", confidence: 52, probability: 0, publishedVersion: 3, publishedAt: "2026-08-25T08:00:00Z", outcome: "pending", actual: "", voidReason: "" },
   ]);
 });
 

@@ -158,7 +158,7 @@ export function MatchPredictionCard(props: MatchPredictionCardProps) {
         {!providerFallback ? <AddToSlipButton
           className="mp-btn"
           target={{
-            confidence: prediction.confidence,
+            probability: prediction.probability,
             kickoffAt,
             marketKey: prediction.marketKey,
             matchId,

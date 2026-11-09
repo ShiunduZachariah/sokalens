@@ -90,7 +90,8 @@ export default async function BestBetsPage() {
           <div className="td-panel">
             <h2>How we rank</h2>
             <p className="bb-rank">
-              Each pick shows the model&rsquo;s probability for that outcome. We list the
+              Each pick shows a confidence score: how well the data and models support it,
+              not the chance it wins. We list the
               day&rsquo;s highest-confidence picks across all markets, and every one is settled
               on the Performance page.
             </p>

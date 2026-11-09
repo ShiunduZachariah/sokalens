@@ -8,7 +8,7 @@ import {
   type ProviderLivePrediction,
 } from "../../data/livePredictions";
 
-import { resolveSelectedDay } from "../../lib/dateWindow";
+import { formatLongDayLabel, resolveSelectedDay } from "../../lib/dateWindow";
 import { localeAlternates, localePath } from "../../i18n/config";
 import { translate } from "../../i18n/catalogs";
 import { requestLocaleContext } from "../../i18n/server";
@@ -18,9 +18,28 @@ import { validViewerTimezone } from "../../lib/viewerTimezone";
 import { PredictionListShell } from "../../components/PredictionListShell";
 import { fromLivePrediction, fromProviderLivePrediction } from "../../data/predictionItems";
 
-export async function generateMetadata() {
+/**
+ * The name of the day the strip has moved this page to, or null when it is
+ * still showing today. This URL serves all eight days, and the heading has to
+ * follow: "Today's football predictions" above Sunday's fixtures is simply wrong.
+ */
+function otherDayLabel(selectedDate: string, timezone: string, locale: string) {
+  const today = resolveSelectedDay({}, new Date(), timezone);
+  return selectedDate === today ? null : formatLongDayLabel(selectedDate, locale);
+}
+
+export async function generateMetadata({ searchParams }: Pick<TodayPredictionsPageProps, "searchParams">) {
   const { locale, publicPath } = await requestLocaleContext();
-  return { title: translate(locale, "today.metadata_title"), description: translate(locale, "today.metadata_description"), alternates: { canonical: publicPath, languages: localeAlternates(publicPath) } };
+  const dateValue = (await searchParams)?.date;
+  const timezone = validViewerTimezone((await cookies()).get("sokalens_timezone")?.value);
+  const date = typeof dateValue === "string"
+    ? otherDayLabel(resolveSelectedDay({ date: dateValue }, new Date(), timezone), timezone, locale)
+    : null;
+  return {
+    title: date ? translate(locale, "day.metadata_title", { date }) : translate(locale, "today.metadata_title"),
+    description: date ? translate(locale, "day.metadata_description", { date }) : translate(locale, "today.metadata_description"),
+    alternates: { canonical: publicPath, languages: localeAlternates(publicPath) },
+  };
 }
 
 type TodayPredictionsPageProps = {
@@ -51,6 +70,8 @@ export default async function TodayPredictionsPage({ searchParams, forcedDay, hu
     new Date(),
     timezone,
   );
+
+  const dayLabel = forcedDay ? null : otherDayLabel(selectedDate, timezone, locale);
 
   let livePredictions: LivePrediction[] = [];
   let providerPredictions: ProviderLivePrediction[] = [];
@@ -110,13 +131,13 @@ export default async function TodayPredictionsPage({ searchParams, forcedDay, hu
     <div className="ac-empty" aria-live="polite">
       <h3>
         {feedState === "empty"
-          ? "No published predictions for today"
+          ? `No published predictions for ${dayLabel ?? "today"}`
           : "The prediction feed is temporarily unavailable"}
       </h3>
       <p>
         {feedState === "empty"
-          ? "Today\u2019s prediction list is up to date, but no signals fall inside the current match window. Sample picks are not substituted for a quiet slate."
-          : "Today\u2019s predictions could not be loaded. Try again shortly; no sample picks are being shown as current data."}
+          ? `${dayLabel ? "The" : "Today\u2019s"} prediction list is up to date, but no signals fall inside the current match window. Sample picks are not substituted for a quiet slate.`
+          : `${dayLabel ? "These" : "Today\u2019s"} predictions could not be loaded. Try again shortly; no sample picks are being shown as current data.`}
       </p>
       <Link className="mp-btn" href={localePath("/matches/today", locale)}>
         Browse today&apos;s fixtures
@@ -163,8 +184,9 @@ export default async function TodayPredictionsPage({ searchParams, forcedDay, hu
         { label: "Fixtures", value: totalFixtures },
         { label: "Predictions", value: merged.length, accent: true },
       ]}
-      summary={translate(locale, forcedDay === "tomorrow" ? "tomorrow.summary" : "today.summary")}
-      title={translate(locale, forcedDay === "tomorrow" ? "tomorrow.title" : "today.title")}
+      subnavNoCurrent={dayLabel !== null}
+      summary={dayLabel ? translate(locale, "day.summary", { date: dayLabel }) : translate(locale, forcedDay === "tomorrow" ? "tomorrow.summary" : "today.summary")}
+      title={dayLabel ? translate(locale, "day.title", { date: dayLabel }) : translate(locale, forcedDay === "tomorrow" ? "tomorrow.title" : "today.title")}
     />
   );
 }

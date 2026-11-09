@@ -3,9 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 import json
+import os
 from typing import Callable, Protocol
 
-from prediction_engine.features import FixtureRecord, OddsSnapshot, TeamFixtureStats
+from prediction_engine.features import FixtureRecord, OddsSnapshot, TeamFixtureStats, team_primary_leagues
 from prediction_engine.inplay_counts import (
     CORNERS,
     FOULS,
@@ -19,6 +20,7 @@ from prediction_engine.lifecycle import calculate_lifecycle_stability
 from prediction_engine.persistence import IN_PLAY_LIFECYCLE_STAGES, EnginePrediction
 from prediction_engine.league_strength import measure_home_advantage
 from prediction_engine.pipeline import FixtureEngineInput
+from prediction_engine.promoted_markets import ModelForecasts, forecasts_from_rows
 from prediction_engine.provisional_odds import synthesize_provisional_1x2
 from prediction_engine.tracker import MatchState, tracker_state
 from prediction_engine.settlement import (
@@ -175,7 +177,49 @@ class PredictionInputRepository:
             coverage=_map_coverage(coverage_row),
             market_accuracy=_map_market_accuracy(accuracy_rows),
             league_accuracy=_map_league_accuracy(accuracy_rows),
+            league_history=self._load_league_history(target, history, as_of_timestamp=as_of_timestamp),
+            model_forecasts=self._load_model_forecasts(target.id, as_of_timestamp=as_of_timestamp),
         )
+
+    def _load_model_forecasts(self, fixture_id: int, *, as_of_timestamp: datetime) -> ModelForecasts | None:
+        """The newest Model B and C forecasts made by the as-of time, for this fixture.
+
+        Live rows only, so a replay of a finished fixture is not fed a forecast made
+        for the real match. PREDICTION_ENGINE_PROMOTED_MARKETS_ENABLED=false publishes
+        the champion alone, without a deploy.
+        """
+        if os.environ.get("PREDICTION_ENGINE_PROMOTED_MARKETS_ENABLED", "").strip().lower() == "false":
+            return None
+        rows = self._connection.execute(
+            _MODEL_FORECASTS_SQL,
+            {"fixture_id": fixture_id, "as_of_timestamp": as_of_timestamp},
+        ).fetchall()
+        return forecasts_from_rows(rows)
+
+    def _load_league_history(
+        self,
+        target: FixtureRecord,
+        history: list[FixtureRecord],
+        *,
+        as_of_timestamp: datetime,
+    ) -> list[FixtureRecord]:
+        """The two teams' own leagues, which the team-strength fit is made on."""
+        primary = team_primary_leagues(history)
+        league_ids = sorted(
+            {primary[team_id] for team_id in (target.home_team_id, target.away_team_id) if team_id in primary}
+        )
+        if not league_ids:
+            return []
+        rows = self._connection.execute(
+            _LEAGUE_HISTORY_FIXTURES_SQL,
+            {
+                "league_ids": league_ids,
+                "season_id": target.season,
+                "target_kickoff_at": target.kickoff_at,
+                "as_of_timestamp": as_of_timestamp,
+            },
+        ).fetchall()
+        return [map_fixture_record(row) for row in rows]
 
     # --- in-play reads (architecture v2 7.4) -------------------------------
     #
@@ -704,18 +748,14 @@ class PredictionSettlementRepository:
                 )
 
             # The goal timeline is loaded once per fixture, not once per row,
-            # and only when an in-play row actually needs it -- a fixture
-            # carrying only pre-match predictions must not pay for a query it
-            # cannot use.
-            timeline: list[tuple[datetime, int, int, str | None]] | None = None
-            if any(str(row["lifecycle_stage"]) in _IN_PLAY_STAGE_VALUES for row in settleable):
-                timeline = self._load_inplay_anchors(fixture_id, fixture_row, actual)
+            # and only when a row actually needs it -- a fixture whose markets
+            # all grade on the score must not pay for a query it cannot use.
+            evidence = self._load_goal_evidence(fixture_id, fixture_row, actual, settleable)
+            actual = evidence.actual
 
             results: list[SettlementResult] = []
             for row in settleable:
-                anchor: InPlayAnchor | None = None
-                if timeline is not None and str(row["lifecycle_stage"]) in _IN_PLAY_STAGE_VALUES:
-                    anchor = self._anchor_at(timeline, row.get("data_cutoff_at"))
+                anchor = self._row_anchor(row, evidence)
                 result = settle_prediction(str(row["market"]), str(row["prediction"]), actual, anchor)
                 self._connection.execute(
                     _UPSERT_PREDICTION_RESULT_SQL, _settlement_params(row, result, settled_at, anchor)
@@ -843,17 +883,14 @@ class PredictionSettlementRepository:
                 _SETTLED_PREDICTIONS_FOR_FIXTURE_SQL, {"fixture_id": fixture_id}
             ).fetchall()
 
-            timeline: list[tuple[datetime, int, int, str | None, str]] | None = None
-            if any(str(row["lifecycle_stage"]) in _IN_PLAY_STAGE_VALUES for row in rows):
-                timeline = self._load_inplay_anchors(fixture_id, fixture_row, actual)
+            evidence = self._load_goal_evidence(fixture_id, fixture_row, actual, rows)
+            actual = evidence.actual
 
             retracted_key = self._newest_retracted_goal_key(fixture_id)
 
             outcomes: list[Resettlement] = []
             for row in rows:
-                anchor: InPlayAnchor | None = None
-                if timeline is not None and str(row["lifecycle_stage"]) in _IN_PLAY_STAGE_VALUES:
-                    anchor = self._anchor_at(timeline, row.get("data_cutoff_at"))
+                anchor = self._row_anchor(row, evidence)
                 recomputed = settle_prediction(
                     str(row["market"]), str(row["prediction"]), actual, anchor
                 )
@@ -930,26 +967,49 @@ class PredictionSettlementRepository:
             _SETTLEMENT_GOAL_TIMELINE_SQL,
             {"fixture_id": fixture_id},
         ).fetchall()
-        timeline: list[tuple[datetime, int, int, str | None, str]] = []
-        home_so_far, away_so_far = 0, 0
-        for row in rows:
-            team_id = row["team_id"]
-            if team_id is None:
-                # Unattributable goal: the same bail-out ReconcileScoringEvents
-                # takes rather than guessing a side.
-                return None
-            if int(team_id) == int(home_team_id):
-                home_so_far += 1
-                side = "home"
-            elif int(team_id) == int(away_team_id):
-                away_so_far += 1
-                side = "away"
-            else:
-                return None
-            timeline.append((row["observed_at"], home_so_far, away_so_far, side, str(row["identity_key"])))
-        if home_so_far != actual.home_goals or away_so_far != actual.away_goals:
-            return None
-        return timeline
+        return _reconcile_goal_timeline(rows, fixture_row, actual)
+
+    def _load_goal_evidence(
+        self,
+        fixture_id: int,
+        fixture_row: dict[str, object],
+        actual: ActualFixtureResult,
+        prediction_rows: list[dict[str, object]],
+    ) -> "_GoalEvidence":
+        """What the event timeline can say about this fixture's predictions.
+
+        Runs the one query both uses share, and only if some row needs it. A
+        goalless match needs nothing for `team_to_score_first`: the score alone
+        grades it as `no_goals`.
+        """
+        needs_anchors = any(str(row["lifecycle_stage"]) in _IN_PLAY_STAGE_VALUES for row in prediction_rows)
+        needs_first_goal = actual.home_goals + actual.away_goals > 0 and any(
+            str(row["market"]) == _FIRST_GOAL_MARKET for row in prediction_rows
+        )
+        if not needs_anchors and not needs_first_goal:
+            return _GoalEvidence(actual=actual)
+        if fixture_row.get("home_team_id") is None or fixture_row.get("away_team_id") is None:
+            return _GoalEvidence(actual=actual)
+        goal_rows = self._connection.execute(
+            _SETTLEMENT_GOAL_TIMELINE_SQL,
+            {"fixture_id": fixture_id},
+        ).fetchall()
+        timeline = _reconcile_goal_timeline(goal_rows, fixture_row, actual)
+        first_goal = _first_goal_anchor(goal_rows, fixture_row) if needs_first_goal and timeline is not None else None
+        if first_goal is None:
+            return _GoalEvidence(actual=actual, timeline=timeline)
+        return _GoalEvidence(
+            actual=replace(actual, first_goal_team=first_goal.next_goal_team),
+            timeline=timeline,
+            first_goal=first_goal,
+        )
+
+    def _row_anchor(self, row: dict[str, object], evidence: "_GoalEvidence") -> InPlayAnchor | None:
+        if str(row["market"]) == _FIRST_GOAL_MARKET:
+            return evidence.first_goal
+        if evidence.timeline is not None and str(row["lifecycle_stage"]) in _IN_PLAY_STAGE_VALUES:
+            return self._anchor_at(evidence.timeline, row.get("data_cutoff_at"))
+        return None
 
     @staticmethod
     def _anchor_at(
@@ -1503,6 +1563,84 @@ def _map_league_accuracy(rows: list[dict[str, object]]) -> float | None:
     return None
 
 
+_FIRST_GOAL_MARKET = "team_to_score_first"
+
+
+@dataclass(frozen=True)
+class _GoalEvidence:
+    """A fixture's result plus what its goal timeline can add to it.
+
+    `timeline` is None when the timeline was not needed or cannot be trusted.
+    `first_goal` is the anchor at kickoff: nothing scored yet, and the side that
+    scored next. It also names the goals the grade rests on, so a settlement
+    records them and a later retraction can be traced to it.
+    """
+
+    actual: ActualFixtureResult
+    timeline: list[tuple[datetime, int, int, str | None, str]] | None = None
+    first_goal: InPlayAnchor | None = None
+
+
+def _reconcile_goal_timeline(
+    rows: list[dict[str, object]],
+    fixture_row: dict[str, object],
+    actual: ActualFixtureResult,
+) -> list[tuple[datetime, int, int, str | None, str]] | None:
+    home_team_id = fixture_row["home_team_id"]
+    away_team_id = fixture_row["away_team_id"]
+    timeline: list[tuple[datetime, int, int, str | None, str]] = []
+    home_so_far, away_so_far = 0, 0
+    for row in rows:
+        team_id = row["team_id"]
+        if team_id is None:
+            # Unattributable goal: the same bail-out ReconcileScoringEvents
+            # takes rather than guessing a side.
+            return None
+        if int(team_id) == int(home_team_id):
+            home_so_far += 1
+            side = "home"
+        elif int(team_id) == int(away_team_id):
+            away_so_far += 1
+            side = "away"
+        else:
+            return None
+        timeline.append((row["observed_at"], home_so_far, away_so_far, side, str(row["identity_key"])))
+    if home_so_far != actual.home_goals or away_so_far != actual.away_goals:
+        return None
+    return timeline
+
+
+def _first_goal_anchor(rows: list[dict[str, object]], fixture_row: dict[str, object]) -> InPlayAnchor | None:
+    """Which side scored first, from a timeline that has already reconciled.
+
+    Ordered by the match clock, not by `observed_at`: that is when a poll first
+    saw a goal, and a backfill or a batched response sees several at once or out
+    of order. 45+3 sorts before 46 because the clock is (minute, added minute).
+
+    Goals for both sides in the same minute are not separated by anything the
+    provider sends, so the first scorer is left unset and the market closes as
+    `unsettled_data_unavailable` rather than guessing.
+    """
+    if not rows:
+        return None
+
+    def clock(row: dict[str, object]) -> tuple[int, int]:
+        return int(row["elapsed_minute"]), int(row.get("elapsed_extra") or 0)
+
+    earliest = min(clock(row) for row in rows)
+    opening = [row for row in rows if clock(row) == earliest]
+    team_ids = {int(row["team_id"]) for row in opening}
+    if len(team_ids) != 1:
+        return None
+    side = "home" if team_ids == {int(fixture_row["home_team_id"])} else "away"
+    return InPlayAnchor(
+        home_goals=0,
+        away_goals=0,
+        next_goal_team=side,
+        deciding_event_keys=tuple(str(row["identity_key"]) for row in opening),
+    )
+
+
 def _map_actual_fixture_result(row: dict[str, object], stat_totals: dict[str, int | float | None]) -> ActualFixtureResult:
     return ActualFixtureResult(
         home_goals=int(row["home_goals_ft"]),
@@ -1604,7 +1742,7 @@ def _evaluation_fact_params(
 
     raw_probability = row.get("raw_probability")
     if raw_probability is None:
-        # For the current python-engine-v1 contract the stored probability is
+        # For rows written by python-engine-v1 the stored probability is
         # the uncalibrated model output. Historical uncertainty remains
         # explicit in registry metadata; other model versions must populate
         # raw_probability before they can be settled through this writer.
@@ -1758,6 +1896,36 @@ WHERE f.id <> %(fixture_id)s
   )
 ORDER BY f.kickoff_at DESC
 LIMIT 80
+"""
+
+
+# Same point-in-time rules as the history above, across whole leagues. The limit
+# only bounds a corrupt league: two seasons of the largest real one fit well inside.
+_LEAGUE_HISTORY_FIXTURES_SQL = """
+SELECT
+  f.id,
+  f.kickoff_at,
+  f.league_id,
+  COALESCE(l.name, '') AS league_name,
+  f.season_id,
+  f.home_team_id,
+  f.away_team_id,
+  f.home_goals_ft,
+  f.away_goals_ft,
+  f.status,
+  COALESCE(f.source, '') AS source
+FROM fixtures AS f
+LEFT JOIN leagues AS l ON l.id = f.league_id
+WHERE f.league_id = ANY(%(league_ids)s)
+  AND f.season_id IN (%(season_id)s, %(season_id)s - 1)
+  AND f.kickoff_at < %(target_kickoff_at)s
+  AND f.kickoff_at < %(as_of_timestamp)s
+  AND f.updated_at <= %(target_kickoff_at)s
+  AND f.updated_at <= %(as_of_timestamp)s
+  AND f.home_goals_ft IS NOT NULL
+  AND f.away_goals_ft IS NOT NULL
+ORDER BY f.kickoff_at DESC
+LIMIT 5000
 """
 
 
@@ -2132,7 +2300,7 @@ _IN_PLAY_STAGE_VALUES = frozenset(stage.value for stage in IN_PLAY_LIFECYCLE_STA
 
 
 _SETTLEMENT_GOAL_TIMELINE_SQL = """
-SELECT observed_at, team_id, identity_key
+SELECT observed_at, elapsed_minute, elapsed_extra, team_id, identity_key
 FROM fixture_events
 WHERE fixture_id = %(fixture_id)s
   AND lower(event_type) = 'goal'
@@ -2278,6 +2446,20 @@ WHERE f.kickoff_at >= %(as_of_timestamp)s
           )
           AND lower(COALESCE(newly_resolved.status, 'scheduled')) IN ({PLAYED_RESULT_STATUSES})
           AND newly_resolved.updated_at > predicted.generated_at
+      )
+      -- A Model B or C forecast made after this row was last evaluated. Forecasts
+      -- target fixtures that already have a prediction, so without this a fixture
+      -- would keep the champion's numbers until kick-off. Unchanged rows still move
+      -- last_evaluated_at, so each forecast causes one re-run.
+      AND NOT EXISTS (
+        SELECT 1
+        FROM challenger_market_predictions AS forecast
+        JOIN model_registry AS registry ON registry.id = forecast.model_registry_id
+        WHERE forecast.fixture_id = f.id
+          AND forecast.origin = 'live'
+          AND registry.model_key IN ('elo-markets', 'model-c-markets')
+          AND forecast.as_of_timestamp > predicted.last_evaluated_at
+          AND forecast.as_of_timestamp <= %(as_of_timestamp)s
       )
   )
 ORDER BY f.kickoff_at ASC, f.id ASC
@@ -2505,6 +2687,22 @@ WHERE fixture_id = %(fixture_id)s
   AND market = %(market)s
   AND superseded_at IS NULL
 FOR UPDATE
+"""
+
+
+_MODEL_FORECASTS_SQL = """
+SELECT DISTINCT ON (registry.model_key)
+  registry.model_key,
+  registry.model_version,
+  forecast.markets,
+  forecast.as_of_timestamp
+FROM challenger_market_predictions AS forecast
+JOIN model_registry AS registry ON registry.id = forecast.model_registry_id
+WHERE forecast.fixture_id = %(fixture_id)s
+  AND forecast.origin = 'live'
+  AND forecast.as_of_timestamp <= %(as_of_timestamp)s
+  AND registry.model_key IN ('elo-markets', 'model-c-markets')
+ORDER BY registry.model_key, forecast.as_of_timestamp DESC, forecast.created_at DESC
 """
 
 

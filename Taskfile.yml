@@ -215,6 +215,20 @@ tasks:
     cmds:
       - python -m model_lab.football_data {{.TRAINING_DATA_PATH | default "Model-Training-Data"}} --train-fraction {{.TRAIN_FRACTION | default 0.7}}
 
+  model:elo-walk-forward:
+    desc: Walk-forward comparison of the Elo challenger against the live engine's Model A on the local Football-Data corpus.
+    env:
+      PYTHONPATH: services/model-lab{{if eq OS "windows"}};{{else}}:{{end}}services/prediction-engine
+    cmds:
+      - python -m model_lab.elo_walk_forward {{.TRAINING_DATA_PATH | default "Model-Training-Data/raw"}} --holdout-from {{.HOLDOUT_FROM | default "2022-07-01"}} {{.CLI_ARGS}}
+
+  model:c-train:
+    desc: Train, validate and export Model C (gradient-boosted trees) from the local Football-Data corpus. Needs services/model-lab/requirements-train.txt.
+    env:
+      PYTHONPATH: services/model-lab{{if eq OS "windows"}};{{else}}:{{end}}services/prediction-engine
+    cmds:
+      - python -m model_lab.model_c_train {{.TRAINING_DATA_PATH | default "Model-Training-Data/raw"}} --code-commit {{.CODE_COMMIT | default "unknown"}} {{.CLI_ARGS}}
+
   db:migrate:
     desc: Apply foundation migrations.
     cmds:

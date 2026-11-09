@@ -160,6 +160,32 @@ class AdditiveMigrationContractTests(unittest.TestCase):
         self.assertNotIn("DELETE FROM model_registry", down)
         self.assertNotIn("DELETE FROM model_evaluation_facts", down)
 
+    def test_python_engine_v2_promotion_keeps_the_old_identity_and_its_rows(self) -> None:
+        up = (MIGRATIONS / "000091_champion_python_engine_v2.up.sql").read_text()
+        down = (MIGRATIONS / "000091_champion_python_engine_v2.down.sql").read_text()
+        for sql in (up, down):
+            self.assertNotIn("DELETE FROM", sql)
+            self.assertNotIn("UPDATE engine_predictions", sql)
+            self.assertNotIn("UPDATE model_evaluation_facts", sql)
+        # The old champion must be out before the new one satisfies the
+        # one-production-per-family index.
+        self.assertLess(up.index("SET status = 'retired'"), up.index("INSERT INTO model_registry"))
+        self.assertIn("BEFORE INSERT ON engine_predictions", up)
+        self.assertIn("IF NEW.model_registry_id IS NULL", up)
+        self.assertLess(down.index("SET status = 'retired'"), down.index("SET status = 'production'"))
+
+    def test_python_engine_v3_promotion_keeps_the_old_identity_and_its_rows(self) -> None:
+        up = (MIGRATIONS / "000093_champion_python_engine_v3.up.sql").read_text()
+        down = (MIGRATIONS / "000093_champion_python_engine_v3.down.sql").read_text()
+        for sql in (up, down):
+            self.assertNotIn("DELETE FROM", sql)
+            self.assertNotIn("UPDATE engine_predictions", sql)
+            self.assertNotIn("UPDATE model_evaluation_facts", sql)
+        self.assertLess(up.index("SET status = 'retired'"), up.index("INSERT INTO model_registry"))
+        self.assertLess(down.index("SET status = 'retired'"), down.index("SET status = 'production'"))
+        # The record must say the shadow minimum was not met when this was decided.
+        self.assertIn('"section_21_4_shadow_minimum_met":false', up)
+
     def test_every_v1_pipeline_market_has_an_explicit_bootstrap_mapping(self) -> None:
         emitted: set[str] = set()
         for relative in (

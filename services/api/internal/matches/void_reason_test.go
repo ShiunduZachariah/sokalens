@@ -59,6 +59,9 @@ func TestMatchPredictionsCarryTheVoidReasonOnlyWhenOneWasRecorded(t *testing.T) 
 	}
 
 	expired := byMarket["total_goals"]
+	if expired.Probability != 0.61 {
+		t.Fatalf("probability = %v, want the stored 0.61, not the confidence", expired.Probability)
+	}
 	if expired.Outcome != "void" {
 		t.Fatalf("expired outcome = %q, want void", expired.Outcome)
 	}

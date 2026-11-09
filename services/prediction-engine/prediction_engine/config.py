@@ -406,7 +406,12 @@ def default_config() -> PredictionEngineConfig:
                 tier_c_completeness_addition=0.15,
             ),
             # These are registration-time defaults only. Model A remains the entire
-            # blend until independently trained Models B/C earn challenger status.
+            # blend. model_b is the Elo model (`prediction_engine.elo`,
+            # architecture v2 8.2), not v1's form adjustment in `model_b.py`;
+            # model_c is the trained trees (`prediction_engine.model_c`, 8.3).
+            # Both run only as shadow challengers (`prediction_engine.challengers`)
+            # and stay at zero until champion/challenger evaluation on settled
+            # production fixtures justifies a weight.
             ensemble_weights={
                 market: EnsembleWeights(model_a=1.0, model_b=0.0, model_c=0.0)
                 for market in V2_ENSEMBLE_MARKET_FAMILIES

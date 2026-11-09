@@ -8,12 +8,19 @@ opponent adjustment, the recency weighting and the small-sample shrinkage.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+import math
+import random
+from statistics import pstdev
 import unittest
 
 from prediction_engine.features import FixtureRecord
+from prediction_engine.pipeline import FixtureEngineInput, _team_strength_table
 from prediction_engine.team_strength import (
+    DECAY,
     SHRINKAGE_MATCHES,
+    _shrink,
     compute_team_strength,
 )
 
@@ -191,6 +198,89 @@ class ScopeTests(unittest.TestCase):
 
     def test_empty_history_yields_no_ratings(self) -> None:
         self.assertEqual(compute_team_strength([]).ratings, {})
+
+
+class FitSampleTests(unittest.TestCase):
+    """Twenty identical teams: any spread in their fitted ratings is an artefact."""
+
+    TRIALS = 30
+
+    def _season(self, generator: random.Random) -> list[FixtureRecord]:
+        records: list[FixtureRecord] = []
+        teams = list(range(1, 21))
+        for week in range(76):
+            generator.shuffle(teams)
+            for home, away in zip(teams[::2], teams[1::2]):
+                records.append(
+                    match(
+                        len(records) + 1,
+                        7 * (week + 1),
+                        home,
+                        away,
+                        _poisson(generator, 1.5),
+                        _poisson(generator, 1.2),
+                    )
+                )
+        return records
+
+    def test_fitting_on_the_two_teams_alone_invents_a_spread_the_whole_league_does_not(self) -> None:
+        generator = random.Random(20261104)
+        two_team: list[float] = []
+        whole_league: list[float] = []
+        for _ in range(self.TRIALS):
+            records = self._season(generator)
+            sample = sorted(
+                (record for record in records if {record.home_team_id, record.away_team_id} & {1, 2}),
+                key=lambda record: record.kickoff_at,
+                reverse=True,
+            )[:80]
+            two_team.append(compute_team_strength(sample).for_team(1).attack)
+            whole_league.append(compute_team_strength(records).for_team(1).attack)
+
+        self.assertLess(pstdev(whole_league), pstdev(two_team) * 0.8)
+
+    def test_a_rating_shrinks_by_what_its_matches_are_worth(self) -> None:
+        records = schedule_of_convenience()
+        fitted = compute_team_strength(records).for_team(STRONG)
+        effective = sum(DECAY**index for index in range(fitted.sample_size))
+
+        self.assertLess(effective, fitted.sample_size)
+        self.assertAlmostEqual(_shrink(2.0, effective), 1 + effective / (effective + SHRINKAGE_MATCHES))
+
+    def test_the_pipeline_fits_on_the_league_when_it_has_one(self) -> None:
+        league = schedule_of_convenience()
+        two_team = league[:4]
+
+        self.assertEqual(
+            _team_strength_table(replace(_inputs(two_team), league_history=league), 1.1),
+            compute_team_strength(league, home_advantage=1.1),
+        )
+        self.assertEqual(
+            _team_strength_table(_inputs(two_team), 1.1),
+            compute_team_strength(two_team, home_advantage=1.1),
+        )
+
+
+def _inputs(history: list[FixtureRecord]) -> FixtureEngineInput:
+    target = match(99, -7, STRONG, WEAK, 0, 0)
+    return FixtureEngineInput(
+        as_of_timestamp=NOW,
+        target_fixture=target,
+        history=history,
+        statistics_by_fixture={},
+        odds=None,
+        generated_at=NOW,
+    )
+
+
+def _poisson(generator: random.Random, rate: float) -> int:
+    threshold = math.exp(-rate)
+    goals = 0
+    product = generator.random()
+    while product > threshold:
+        goals += 1
+        product *= generator.random()
+    return goals
 
 
 def table_best_attack(table) -> float:

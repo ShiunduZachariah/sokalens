@@ -18,7 +18,7 @@ export type HitRateReport = {
 
 export async function fetchPredictionResults(date: string, timezone: string) {
   const params = new URLSearchParams({ date, timezone, limit: "100", page: "1" });
-  const response = await fetchPredictionApi(`/v1/predictions/results?${params}`, { revalidate: 15 });
+  const response = await fetchPredictionApi(`/v1/predictions/results?${params}`, { revalidate: 15, staleWhileRevalidate: 30 });
   if (!response.ok) throw new Error(`Prediction results request failed with ${response.status}`);
   const payload = await response.json() as { results?: Array<Record<string, unknown>>; total?: number };
   return {

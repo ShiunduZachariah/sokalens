@@ -1880,9 +1880,15 @@ components:
         selection:
           type: string
         confidence:
+          description: Composite score for how well supported the selection is. Not a chance of winning; never derive a price from it.
           type: number
           minimum: 0
           maximum: 100
+        probability:
+          description: The engine's probability for this selection. Absent when there is none, as on provider rows.
+          type: number
+          exclusiveMinimum: 0
+          maximum: 1
         published_version:
           type: integer
           minimum: 1

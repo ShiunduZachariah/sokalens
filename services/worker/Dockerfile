@@ -16,7 +16,7 @@ RUN apk add --no-cache python3 py3-pip \
   && adduser -D -H appuser
 COPY --chown=appuser:appuser services/prediction-engine /srv/prediction-engine
 RUN /opt/prediction-engine-venv/bin/pip install --no-cache-dir -r /srv/prediction-engine/requirements.txt \
-  && PYTHONPATH=/srv/prediction-engine /opt/prediction-engine-venv/bin/python -c "import prediction_engine.cli"
+  && PYTHONPATH=/srv/prediction-engine /opt/prediction-engine-venv/bin/python -c "import prediction_engine.cli; from prediction_engine.model_c import load_model; load_model()"
 ENV PATH="/opt/prediction-engine-venv/bin:${PATH}" \
   PYTHONPATH="/srv/prediction-engine" \
   PREDICTION_ENGINE_CLI_COMMAND="python" \

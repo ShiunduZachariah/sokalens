@@ -65,25 +65,6 @@ class ShotPossessionMarketTests(ApproxAssertions, unittest.TestCase):
         self.assertFalse(decision.eligible)
         self.assertEqual(decision.exclusion_reason, "statistics_not_supported")
 
-    def test_possession_market_returns_band_and_side_probabilities_from_discrete_distribution(self) -> None:
-        result = possession_market(
-            expected_home_possession_pct=1.0,
-            bands=((0, 0), (1, 1), (2, 100)),
-        )
-
-        raw_p0 = math.exp(-1.0)
-        raw_p1 = math.exp(-1.0)
-        raw_p2_and_up = 1 - raw_p0 - raw_p1
-
-        self.assertEqual(result.method, "possession_pct_poisson")
-        self.assertFloatApprox(result.band_probabilities["0-0"], raw_p0)
-        self.assertFloatApprox(result.band_probabilities["1-1"], raw_p1)
-        self.assertFloatApprox(result.band_probabilities["2-100"], raw_p2_and_up)
-        self.assertFloatApprox(sum(result.band_probabilities.values()), 1.0)
-        self.assertFloatApprox(result.side_probabilities["home_more"], 0.0)
-        self.assertFloatApprox(result.side_probabilities["level"], 0.0)
-        self.assertFloatApprox(result.side_probabilities["away_more"], 1.0)
-
     def test_possession_market_side_probabilities_favor_home_above_even_line(self) -> None:
         result = possession_market(expected_home_possession_pct=55.0)
 

@@ -1,0 +1,4 @@
+# Offline training only (model_lab.model_c_train). The serving engine is
+# standard-library Python and must never import these (ADR 0002).
+lightgbm==4.7.0
+numpy==2.5.4

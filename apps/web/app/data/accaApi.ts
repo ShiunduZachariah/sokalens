@@ -96,7 +96,7 @@ export function normalizeAccaPage(raw: unknown): AccaPage {
 }
 
 export async function fetchAccaPage(query: URLSearchParams): Promise<AccaPage> {
-  const response = await fetchPredictionApi(`/v1/accas?${query}`, { revalidate: 15 });
+  const response = await fetchPredictionApi(`/v1/accas?${query}`, { revalidate: 15, staleWhileRevalidate: 30 });
   if (!response.ok) throw new Error(`ACCA API returned ${response.status}`);
   return normalizeAccaPage(await response.json());
 }

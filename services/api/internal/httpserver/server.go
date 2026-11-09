@@ -495,11 +495,15 @@ type OddsPrice struct {
 }
 
 type MatchPredictionSummary struct {
-	ID               int64
-	Source           string
-	MarketKey        string
-	Selection        string
-	Confidence       float64
+	ID         int64
+	Source     string
+	MarketKey  string
+	Selection  string
+	Confidence float64
+	// Probability is the engine's probability for this selection, from 0 to 1, and
+	// the only input a fair price may use. Confidence is a composite score, not a
+	// chance. Zero means none: provider rows have no such figure.
+	Probability      float64
 	PublishedVersion int
 	PublishedAt      time.Time
 	UpdatedAt        time.Time
@@ -2266,6 +2270,9 @@ func matchSummaryResponse(match MatchSummary) map[string]any {
 			"last_evaluated_at": lastEvaluatedAt.UTC().Format(time.RFC3339),
 			"tracker_state":     trackerStateValue(match.Prediction.TrackerState),
 		}
+		if match.Prediction.Probability > 0 {
+			response["prediction"].(map[string]any)["probability"] = match.Prediction.Probability
+		}
 	}
 	if len(match.Predictions) > 0 {
 		predictions := make([]map[string]any, 0, len(match.Predictions))
@@ -2282,6 +2289,9 @@ func matchPredictionSummaryResponse(prediction MatchPredictionSummary) map[strin
 		"id": prediction.ID, "market_key": prediction.MarketKey, "selection": prediction.Selection,
 		"source":     matchPredictionSource(prediction),
 		"confidence": prediction.Confidence, "published_version": prediction.PublishedVersion,
+	}
+	if prediction.Probability > 0 {
+		response["probability"] = prediction.Probability
 	}
 	if !prediction.PublishedAt.IsZero() {
 		response["published_at"] = prediction.PublishedAt.UTC().Format(time.RFC3339)

@@ -39,13 +39,13 @@ from prediction_engine.features import (
 # beyond about five passes the ratings move by less than a rounding error.
 ITERATIONS = 6
 
-# Matches needed before a team's rating is trusted at full weight. Below this it
-# is pulled toward its league average in proportion.
-SHRINKAGE_MATCHES = 6
+# Decay-weighted matches at which a rating sits halfway to its league average.
+# Chosen with DECAY on the walk-forward tuning window, 2019-07 to 2022-07.
+SHRINKAGE_MATCHES = 12
 
-# Per-match recency decay. A match n matches back carries DECAY**n weight, so
-# the most recent ten matches dominate without older ones being discarded.
-DECAY = 0.90
+# Per-match recency decay. A match n matches back carries DECAY**n weight. At
+# 0.90 a rating rested on about ten matches, too few to tell teams apart.
+DECAY = 0.98
 
 # Ratings are bounded so one freak scoreline cannot produce an absurd
 # multiplier: the best attacks are roughly twice the league average, not ten
@@ -171,13 +171,13 @@ def _fit_league(
 
     fitted: dict[int, TeamStrength] = {}
     for team_id, entries in observations.items():
-        sample_size = len(entries)
+        effective_matches = sum(o.weight for o in entries)
         fitted[team_id] = TeamStrength(
             team_id=team_id,
             league_id=league_id,
-            attack=_shrink(attack[team_id], sample_size),
-            defence=_shrink(defence[team_id], sample_size),
-            sample_size=sample_size,
+            attack=_shrink(attack[team_id], effective_matches),
+            defence=_shrink(defence[team_id], effective_matches),
+            sample_size=len(entries),
             league_goal_rate=league_goal_rate,
         )
     return fitted
@@ -237,8 +237,8 @@ def _recentre(ratings: dict[int, float]) -> dict[int, float]:
     return {team_id: value / mean for team_id, value in ratings.items()}
 
 
-def _shrink(rating: float, sample_size: int) -> float:
-    weight = sample_size / (sample_size + SHRINKAGE_MATCHES)
+def _shrink(rating: float, effective_matches: float) -> float:
+    weight = effective_matches / (effective_matches + SHRINKAGE_MATCHES)
     return _clamp(1.0 + ((rating - 1.0) * weight), MIN_RATING, MAX_RATING)
 
 

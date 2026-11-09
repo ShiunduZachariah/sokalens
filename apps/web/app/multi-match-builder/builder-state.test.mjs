@@ -1,8 +1,25 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
-import { builderLegId, decodeBuilderSelection, encodeBuilderSelection, formatOdds, hasBuilderLegStarted, pruneBuilderLegs, pruneBuilderSelection, readBuilderSelection, totalOdds, writeBuilderSelection } from "./builder-state.ts";
+import { builderLegId, fairOdds, decodeBuilderSelection, encodeBuilderSelection, formatOdds, hasBuilderLegStarted, pruneBuilderLegs, pruneBuilderSelection, readBuilderSelection, totalOdds, writeBuilderSelection } from "./builder-state.ts";
 
 const leg = (id, odds) => ({ id: String(id), predictionId: id, matchId: id, matchTitle: `Match ${id}`, marketKey: "1x2", selection: "home", odds, oddsType: "market", kickoffAt: "2026-08-30T12:00:00Z", matchStatus: "scheduled", source: "manual" });
+
+test("a fair price comes from a real probability, or there is none", () => {
+  assert.equal(fairOdds(0.5), 2);
+  for (const unusable of [0, 1, -0.2, 52, Number.NaN]) assert.equal(fairOdds(unusable), null);
+});
+
+test("both ways onto a slip price a selection the same way", () => {
+  const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
+  const button = read("../components/match/AddToSlipButton.tsx");
+  assert.match(button, /fairOdds\(target\.probability\)/);
+  assert.doesNotMatch(button, /confidence/);
+  assert.match(read("./BuilderClient.tsx"), /fairOdds\(market\.probability\)/);
+  for (const caller of ["../components/MatchDetail.tsx", "../matches/[id]/MatchPredictionCard.tsx"]) {
+    assert.match(read(caller), /probability: prediction\.probability/);
+  }
+});
 
 test("ticket totals every leg without a six-selection cap", () => {
   const legs = Array.from({ length: 20 }, (_, index) => leg(index + 1, 1.1));

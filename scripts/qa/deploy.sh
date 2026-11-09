@@ -59,6 +59,17 @@ git -C "$DEPLOY_DIR" fetch --quiet origin
 git -C "$DEPLOY_DIR" reset --quiet --hard origin/qa
 git -C "$DEPLOY_DIR" log --oneline -1
 
+# Run the rest from the version just synced. The workflow starts the copy of
+# this script already on the host, and the reset above rewrites that file
+# under the running shell, so without this a change to the steps below takes
+# effect one deploy late -- which is how the challenger smoke added in #356
+# was skipped by the deploy that shipped it. Re-exec once; the second pass's
+# fetch and reset are no-ops.
+if [ -z "${QA_DEPLOY_SYNCED:-}" ]; then
+  export QA_DEPLOY_SYNCED=1
+  exec bash "$DEPLOY_DIR/scripts/qa/deploy.sh" "$@"
+fi
+
 log "building and starting containers"
 COMPOSE_PROJECT_NAME="$PROJECT" docker compose "${COMPOSE_FILES[@]}" \
   --env-file "$ENV_FILE" "${PROFILES[@]}" up -d --build
@@ -107,3 +118,6 @@ done
 
 log "smoke test"
 bash "$DEPLOY_DIR/scripts/qa/smoke.sh"
+
+log "shadow challenger smoke"
+bash "$DEPLOY_DIR/scripts/qa/challenger-smoke.sh"

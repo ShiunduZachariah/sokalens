@@ -5,7 +5,8 @@ import unittest
 
 from prediction_engine.features import FixtureRecord, OddsSnapshot, TeamFixtureStats
 from prediction_engine.persistence import ConfidenceTier, GateTier
-from prediction_engine.pipeline import BackfillDeferred, FixtureEngineInput, _score_consistent_candidates, _top_total_goals_2_5_selection, run_and_save_fixture, run_fixture, run_fixture_engine
+from prediction_engine.config import default_config
+from prediction_engine.pipeline import BackfillDeferred, FixtureEngineInput, _published_result_markets, _score_consistent_candidates, _selection_matches_score, _tier_a_outcome, _top_total_goals_2_5_selection, run_and_save_fixture, run_fixture, run_fixture_engine
 
 
 class PipelineTests(unittest.TestCase):
@@ -28,6 +29,59 @@ class PipelineTests(unittest.TestCase):
             {("1x2", "away"), ("btts", "no"), ("total_goals", "under_2.5"), ("total_cards", "over_3.5")},
         )
 
+    def test_no_goals_is_only_true_of_a_goalless_score(self) -> None:
+        # The check compared against "no_goal", while the market and settlement
+        # both say "no_goals", so the selection read as "some goal was scored".
+        self.assertTrue(_selection_matches_score("team_to_score_first", "no_goals", 0, 0))
+        self.assertFalse(_selection_matches_score("team_to_score_first", "no_goals", 1, 0))
+        self.assertFalse(_selection_matches_score("team_to_score_first", "no_goals", 0, 2))
+
+    def test_a_first_scorer_has_to_score(self) -> None:
+        self.assertTrue(_selection_matches_score("team_to_score_first", "home", 1, 1))
+        self.assertFalse(_selection_matches_score("team_to_score_first", "home", 0, 1))
+        self.assertTrue(_selection_matches_score("team_to_score_first", "away", 1, 1))
+        self.assertFalse(_selection_matches_score("team_to_score_first", "away", 1, 0))
+        self.assertFalse(_selection_matches_score("team_to_score_first", "home", 0, 0))
+
+    def test_a_goalless_story_keeps_its_first_scorer_market(self) -> None:
+        # A draw with no BTTS can only be 0-0. The mismatch rejected every
+        # selection here, so the market vanished from the fixture.
+        filtered = _score_consistent_candidates(
+            [("1x2", "draw", 0.40), ("btts", "no", 0.70), ("team_to_score_first", "no_goals", 0.30)]
+        )
+
+        self.assertIn(("team_to_score_first", "no_goals", 0.30), filtered)
+
+    def test_no_goals_does_not_sit_beside_a_winner(self) -> None:
+        # The mismatch let "no goals" stand next to "home wins".
+        filtered = _score_consistent_candidates(
+            [("1x2", "home", 0.45), ("team_to_score_first", "no_goals", 0.40)],
+            alternatives={
+                "team_to_score_first": [
+                    ("team_to_score_first", "no_goals", 0.40),
+                    ("team_to_score_first", "home", 0.35),
+                    ("team_to_score_first", "away", 0.25),
+                ]
+            },
+        )
+
+        self.assertIn(("team_to_score_first", "home", 0.35), filtered)
+        self.assertNotIn(("team_to_score_first", "no_goals", 0.40), filtered)
+
+    def test_an_exact_score_cannot_contradict_the_first_scorer(self) -> None:
+        filtered = _score_consistent_candidates(
+            [("team_to_score_first", "home", 0.55), ("correct_score", "0-1", 0.12)],
+            alternatives={
+                "correct_score": [
+                    ("correct_score", "0-1", 0.12),
+                    ("correct_score", "1-1", 0.11),
+                ]
+            },
+        )
+
+        self.assertIn(("correct_score", "1-1", 0.11), filtered)
+        self.assertNotIn(("correct_score", "0-1", 0.12), filtered)
+
     def test_total_goals_2_5_uses_the_stronger_model_side(self) -> None:
         self.assertEqual(
             _top_total_goals_2_5_selection({"over_2.5": 0.42, "under_2.5": 0.58}),
@@ -37,6 +91,62 @@ class PipelineTests(unittest.TestCase):
             _top_total_goals_2_5_selection({"over_2.5": 0.63, "under_2.5": 0.37}),
             ("total_goals", "over_2.5", 0.63),
         )
+
+    def test_draw_no_bet_cannot_favour_the_side_the_1x2_has_against_it_without_odds(self) -> None:
+        # The form adjustment moved the 1X2 to the away side; the raw markets beside
+        # it still favour the home side. The score consistency gate would keep the
+        # raw number on the away pick, publishing draw no bet "away" at 44%.
+        markets = {
+            "match_result": {"home": 0.34, "draw": 0.28, "away": 0.38},
+            "double_chance": {"home_or_draw": 0.70, "draw_or_away": 0.58, "home_or_away": 0.72},
+            "draw_no_bet": {"home": 0.56, "away": 0.44},
+        }
+
+        published = _published_result_markets(markets, {}, default_config().probability_clamp)
+
+        self.assertEqual(published["match_result"], markets["match_result"])
+        self.assertEqual(max(published["draw_no_bet"], key=published["draw_no_bet"].get), "away")
+        self.assertAlmostEqual(published["draw_no_bet"]["away"], 0.38 / 0.72)
+        self.assertAlmostEqual(published["double_chance"]["home_or_draw"], 0.62)
+        self.assertAlmostEqual(published["double_chance"]["draw_or_away"], 0.66)
+        self.assertAlmostEqual(published["double_chance"]["home_or_away"], 0.72)
+
+    def test_dependent_markets_follow_the_final_1x2_on_every_odds_path(self) -> None:
+        now = datetime(2026, 7, 1, 12, 0, tzinfo=UTC)
+        target = FixtureRecord(
+            id=42,
+            kickoff_at=now + timedelta(hours=4),
+            league_id=39,
+            league_name="Premier League",
+            season=2026,
+            home_team_id=10,
+            away_team_id=20,
+            home_goals=None,
+            away_goals=None,
+            status="scheduled",
+        )
+        history = full_history(now)
+        odds = OddsSnapshot(fixture_id=42, home_win=1.85, draw=3.60, away_win=4.10)
+
+        for name, provisional in (("real odds", False), ("provisional odds", True)):
+            with self.subTest(name):
+                inputs = FixtureEngineInput(
+                    as_of_timestamp=now,
+                    target_fixture=target,
+                    history=history,
+                    statistics_by_fixture=statistics_for(history),
+                    odds=odds,
+                    odds_provisional=provisional,
+                    generated_at=now,
+                    coverage={"has_statistics": True},
+                )
+                markets = _tier_a_outcome(inputs, default_config()).tier_a_markets
+                result = markets["match_result"]
+
+                self.assertAlmostEqual(markets["double_chance"]["home_or_draw"], 1 - result["away"])
+                self.assertAlmostEqual(markets["double_chance"]["draw_or_away"], 1 - result["home"])
+                self.assertAlmostEqual(markets["double_chance"]["home_or_away"], 1 - result["draw"])
+                self.assertAlmostEqual(markets["draw_no_bet"]["home"], result["home"] / (result["home"] + result["away"]))
 
     def test_pipeline_entry_point_requires_as_of_timestamp(self) -> None:
         with self.assertRaisesRegex(TypeError, "as_of_timestamp"):
@@ -81,6 +191,81 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(rows, output_repository.saved)
         self.assertGreater(len(output_repository.saved), 1)
         self.assertEqual(output_repository.saved[0].fixture_id, 42)
+
+    def test_published_rows_use_the_stored_forecasts_and_say_so(self) -> None:
+        from prediction_engine.challenger_markets import count_document, goal_document
+        from prediction_engine.model_a import ModelAInputs, run_model_a
+        from prediction_engine.promoted_markets import ModelForecasts
+
+        now = datetime(2026, 7, 1, 12, 0, tzinfo=UTC)
+        target = FixtureRecord(
+            id=42,
+            kickoff_at=now + timedelta(hours=4),
+            league_id=39,
+            league_name="Premier League",
+            season=2026,
+            home_team_id=10,
+            away_team_id=20,
+            home_goals=None,
+            away_goals=None,
+            status="scheduled",
+        )
+        history = full_history(now)
+        statistics = statistics_for(history)
+        odds = OddsSnapshot(fixture_id=42, home_win=1.85, draw=3.60, away_win=4.10)
+
+        def engine(forecasts: ModelForecasts | None) -> dict[str, object]:
+            rows = run_fixture_engine(
+                FixtureEngineInput(
+                    now,
+                    target,
+                    history,
+                    statistics,
+                    odds,
+                    now,
+                    coverage={"has_statistics": True},
+                    model_forecasts=forecasts,
+                )
+            )
+            return {row.market: row for row in rows}
+
+        def document(home: float, away: float) -> dict[str, dict[str, float]]:
+            result = run_model_a(ModelAInputs(home_lambda=home, away_lambda=away))
+            return goal_document(result.markets, result.score_matrix)
+
+        champion = engine(None)
+        self.assertEqual({row.features_used["probability_source"] for row in champion.values()}, {"champion"})
+        self.assertEqual(next(iter(champion.values())).model_version, "python-engine-v3")
+
+        counts: dict[str, dict[str, float]] = {}
+        for market, mean in (
+            ("total_corners", 10.0),
+            ("team_corners_home", 5.2),
+            ("team_corners_away", 4.8),
+            ("total_cards", 4.2),
+            ("total_fouls", 22.0),
+            ("total_shots", 24.0),
+            ("shots_on_target", 8.2),
+        ):
+            counts.update(count_document(market, mean, 0.02))
+        model_b, model_c = document(0.7, 2.4), {**document(0.9, 2.1), **counts}
+        promoted = engine(
+            ModelForecasts(model_b=model_b, model_c=model_c, provenance={"model-c-x": now.isoformat()})
+        )
+
+        # Coverage does not move: the same markets publish, from different numbers.
+        self.assertEqual(set(promoted), set(champion))
+        for market in ("1x2", "double_chance", "draw_no_bet"):
+            self.assertEqual(promoted[market].probability, champion[market].probability, market)
+            self.assertEqual(promoted[market].features_used["probability_source"], "champion")
+        self.assertEqual(promoted["total_goals"].features_used["probability_source"], "champion_b_c_mix")
+        self.assertEqual(promoted["btts"].features_used["probability_source"], "champion_b_c_mix")
+        self.assertEqual(promoted["half_time_result"].features_used["probability_source"], "model_b")
+        self.assertEqual(promoted["half_time_result"].probability, max(model_b["half_time_result"].values()))
+        if "total_corners" in promoted:
+            self.assertEqual(promoted["total_corners"].features_used["probability_source"], "model_c")
+        self.assertEqual(promoted["btts"].features_used["model_forecasts"], {"model-c-x": now.isoformat()})
+        self.assertNotEqual(promoted["total_goals"].probability, champion["total_goals"].probability)
 
     def test_run_and_save_fixture_defers_when_history_backfill_is_pending_and_gate_has_no_signal(self) -> None:
         now = datetime(2026, 7, 1, 12, 0, tzinfo=UTC)

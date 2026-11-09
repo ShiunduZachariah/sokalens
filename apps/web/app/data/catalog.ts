@@ -77,7 +77,7 @@ export type CatalogResult<T> = { ok: true; data: T } | { ok: false; error: Catal
  */
 async function fetchCatalogResult<T>(path: string): Promise<CatalogResult<T>> {
   try {
-    const response = await fetchPredictionApi(path, { revalidate: 60 });
+    const response = await fetchPredictionApi(path, { revalidate: 60, staleWhileRevalidate: 60 });
     if (response.status === 404) {
       return { ok: false, error: "not_found" };
     }

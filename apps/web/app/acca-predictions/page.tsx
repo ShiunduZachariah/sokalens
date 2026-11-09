@@ -176,8 +176,8 @@ export default async function AccaPredictionsPage() {
             <span className="mp-section__num">01</span>
             <h2>How to read this page</h2>
             <p>
-              A higher confidence value means the model sees a stronger signal inside the available
-              data. It does not remove match uncertainty.
+              A higher confidence value means the available data and models support the pick more
+              strongly. It is not the chance the pick wins, and it does not remove match uncertainty.
             </p>
           </div>
           <div className="ac-edu">

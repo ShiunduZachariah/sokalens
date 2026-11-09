@@ -29,6 +29,19 @@ to `origin/qa`, builds the rootless QA stack, applies QA migrations, and runs
 live QA checkout SHA, relevant user/API behavior, and QA CI. A green `qa`
 branch check alone does not prove the deployed QA service works.
 
+**Testing a change on production's data.** QA's mock cannot show how a model
+behaves on production's fixtures. Run this after a change to the prediction
+engine and before promoting it:
+
+```bash
+gh workflow run qa-deploy.yml --ref qa -f production_copy_test=true
+```
+
+`scripts/qa/production-copy-test.sh` streams the football tables it names into a
+scratch database inside QA's PostgreSQL, runs QA's worker against it, prints the
+results and drops it. Production sessions are read-only and no user table is
+copied. It is one database for one run, not a third environment.
+
 **Note on the QA database and role.** Until 2026-09-18 this table was
 aspirational: QA was actually running on `sports_prediction` / `sports` --
 production's database name and production's role name, on production's host.

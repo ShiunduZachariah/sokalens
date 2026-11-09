@@ -13,6 +13,7 @@ Production deployment manifests, VPS bootstrap scripts, reverse-proxy config, ba
 Production deployments are driven by the CI pipeline — never by direct SSH from a laptop.
 
 - `.github/workflows/ci.yml` runs the path-filtered test/lint/build gates, then a `deploy` job on **green main pushes** that touch deployable surfaces (api/worker/web/admin/infra/contracts/security/ops).
+- On a main push, both the gates and the service list compare against the last successful production deploy, not the previous push. `ci-deploy.sh` records that commit in `sokalens-lkg/last-deployed-sha` once a deploy completes, so a follow-up to a failed or killed deploy still covers the failed commit's changes. If the marker is missing, unreadable or not a known commit, every gate runs and every service rebuilds.
 - The deploy job rebuilds only the affected services (or the full set when infra/compose changes) and runs `infra/deploy/ci-deploy.sh` on the VPS as the `deploy` user:
   1. Fresh `tar` extract + atomic swap of `/home/deploy/sokalens` (preserving `.env.prod` and `fetchproviderpredictions-linux`),
   2. `~/dbtool-linux -mode up` for pending migrations,
@@ -136,4 +137,4 @@ sudo systemctl reload caddy
 
 ## Backups to Cloudflare R2
 
-`backup.sh` dumps PostgreSQL (`pg_dump`) and uploads a gzipped copy to the R2 bucket `sokalens-backups`. Prerequisites and the cron line are documented in the script header. R2 uses its own S3-compatible endpoint and does not depend on `sokalens.com` DNS, so backups can be enabled independently of the DNS/SSL blocker.
+`backup.sh` dumps PostgreSQL (`pg_dump`, zstd), proves the dump restores into a throwaway database, and can upload an encrypted copy to the bucket `sokalens-backups`. A deploy dumps only when a pending migration does more than add tables, columns or indexes, using `backup.sh dump`. The `verify-recovery-point` job in `ci.yml` then runs `backup.sh verify-pending` after the deploy, so the restore check no longer holds the release. A dump that has not passed is named in `restore-check-pending` beside the dumps; while that file exists, the previous proven dump is kept, and the next `backup.sh dump` runs its restore check before its migration. If that job is red, read its log before the next migration ships. Run plainly, `backup.sh` does both steps at once. Prerequisites and the cron line are documented in the script header. R2 uses its own S3-compatible endpoint and does not depend on `sokalens.com` DNS, so backups can be enabled independently of the DNS/SSL blocker.

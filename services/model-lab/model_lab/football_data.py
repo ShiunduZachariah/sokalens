@@ -79,6 +79,14 @@ class Match:
     away_fouls: int | None = None
     home_throw_ins: int | None = None
     away_throw_ins: int | None = None
+    home_red_cards: int | None = None
+    away_red_cards: int | None = None
+    home_shots: int | None = None
+    away_shots: int | None = None
+    home_shots_on_target: int | None = None
+    away_shots_on_target: int | None = None
+    odds_over_2_5: float | None = None
+    odds_under_2_5: float | None = None
     odds_home: float | None = None
     odds_draw: float | None = None
     odds_away: float | None = None
@@ -408,6 +416,7 @@ def _normalize_row(path: Path, row_number: int, row: dict[str, str | None]) -> M
     league = _first(row, "League", "Div")
     season = _first(row, "Season")
     odds_home, odds_draw, odds_away = _extract_closing_odds(row)
+    odds_over, odds_under = _extract_total_goals_odds(row)
 
     features = {
         "country": country,
@@ -439,10 +448,33 @@ def _normalize_row(path: Path, row_number: int, row: dict[str, str | None]) -> M
         away_cards=_optional_int(_first(row, "AY"), _first(row, "AR")),
         home_fouls=_optional_int(_first(row, "HF")),
         away_fouls=_optional_int(_first(row, "AF")),
+        home_red_cards=_optional_int(_first(row, "HR")),
+        away_red_cards=_optional_int(_first(row, "AR")),
+        home_shots=_optional_int(_first(row, "HS")),
+        away_shots=_optional_int(_first(row, "AS")),
+        home_shots_on_target=_optional_int(_first(row, "HST")),
+        away_shots_on_target=_optional_int(_first(row, "AST")),
+        odds_over_2_5=odds_over,
+        odds_under_2_5=odds_under,
         odds_home=odds_home,
         odds_draw=odds_draw,
         odds_away=odds_away,
     )
+
+
+def _extract_total_goals_odds(row: dict[str, str | None]) -> tuple[float | None, float | None]:
+    """Over/under 2.5 prices, closing where the file has them."""
+    for over_name, under_name in (
+        ("PC>2.5", "PC<2.5"),
+        ("AvgC>2.5", "AvgC<2.5"),
+        ("P>2.5", "P<2.5"),
+        ("Avg>2.5", "Avg<2.5"),
+        ("BbAv>2.5", "BbAv<2.5"),
+    ):
+        over, under = _optional_float(_first(row, over_name)), _optional_float(_first(row, under_name))
+        if over and under and over > 1.0 and under > 1.0:
+            return over, under
+    return None, None
 
 
 def _first(row: dict[str, str | None], *names: str) -> str:

@@ -299,7 +299,7 @@ test("the top slot sits directly under the site header, above the page title", a
     "page.tsx": '<section className="hm-hero">',
     "acca-predictions/page.tsx": '<section className="ac-hero">',
     "components/ContentPageShell.tsx": "<PageHeader",
-    "components/PredictionListShell.tsx": "<PredictionSubnav />",
+    "components/PredictionListShell.tsx": "<PredictionSubnav",
     "multi-match-builder/BuilderClient.tsx": "<PageHeader",
   };
 

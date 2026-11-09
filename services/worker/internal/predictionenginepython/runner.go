@@ -36,6 +36,10 @@ type Config struct {
 	Timeout    time.Duration
 	Env        map[string]string
 	Logger     *slog.Logger
+	// ChallengersDisabled turns off the zero-weight shadow models (v2 Models B
+	// and C) without a deploy. They are on by default: a shadow that has to be
+	// remembered to be switched on is one nobody switches on.
+	ChallengersDisabled bool
 }
 
 type Command struct {
@@ -43,6 +47,10 @@ type Command struct {
 	Args []string
 	Dir  string
 	Env  []string
+	// Optional marks a command whose failure is logged and does not fail the
+	// job. Only the shadow challenger commands use it: they publish nothing,
+	// so a fault in them must never block or retry the champion's work.
+	Optional bool
 }
 
 type Result struct {
@@ -88,6 +96,10 @@ type Summary struct {
 	FixturesSuppressed int            `json:"fixtures_suppressed"`
 	SuppressedByReason map[string]int `json:"suppressed_by_reason"`
 	Tier               string         `json:"tier"`
+
+	// Shadow challengers (v2 Models B and C).
+	ChallengerForecasts int `json:"challenger_forecasts"`
+	ChallengerSettled   int `json:"challenger_settled"`
 }
 
 type Executor interface {
@@ -207,6 +219,7 @@ func LoadConfig(env map[string]string) Config {
 	if cfg.Script != "" {
 		cfg.Module = ""
 	}
+	cfg.ChallengersDisabled = strings.EqualFold(strings.TrimSpace(env["PREDICTION_ENGINE_CHALLENGERS_ENABLED"]), "false")
 	if databaseURL := env["DATABASE_URL"]; databaseURL != "" {
 		cfg.Env["DATABASE_URL"] = databaseURL
 	}
@@ -314,10 +327,20 @@ func (h JobHandler) RunWithSummaries(ctx context.Context, job jobs.Job) ([]Summa
 	for _, command := range commands {
 		result, err := h.exec.Run(ctx, command)
 		if err != nil {
+			if command.Optional {
+				cfg.Logger.WarnContext(ctx, "optional prediction engine command failed",
+					"job_id", job.ID, "args", command.Args, "error", commandError(err, result.Output).Error())
+				continue
+			}
 			return summaries, commandError(err, result.Output)
 		}
 		summary, err := parseSummary(result.Output)
 		if err != nil {
+			if command.Optional {
+				cfg.Logger.WarnContext(ctx, "optional prediction engine command summary unreadable",
+					"job_id", job.ID, "args", command.Args, "error", err.Error())
+				continue
+			}
 			return summaries, fmt.Errorf("parse prediction engine python summary: %w", err)
 		}
 		summaries = append(summaries, summary)
@@ -377,7 +400,8 @@ func (cfg Config) withDefaults() Config {
 
 func (cfg Config) commands(payload Payload, job jobs.Job, op operation) []Command {
 	if op == operationSnapshot {
-		return []Command{cfg.commandArgs([]string{"snapshot-accuracy"}, payload.Args, job)}
+		commands := []Command{cfg.commandArgs([]string{"snapshot-accuracy"}, payload.Args, job)}
+		return append(commands, cfg.challengerCommands(job, "challenger-report")...)
 	}
 	if op == operationFinaliseSnap {
 		limit := payload.BatchSize
@@ -448,6 +472,9 @@ func (cfg Config) commands(payload Payload, job jobs.Job, op operation) []Comman
 		args = append(args, "--tier", normalizeTier(payload.Tier))
 	}
 	commands := []Command{cfg.commandArgs(args, payload.Args, job)}
+	if op == operationGenerate && scope == "upcoming" {
+		commands = append(commands, cfg.challengerCommands(job, "run-challengers")...)
+	}
 	if op == operationSettle {
 		// Provider corrections, in the only order that works. See
 		// reversalCommands.
@@ -455,8 +482,28 @@ func (cfg Config) commands(payload Payload, job jobs.Job, op operation) []Comman
 		if !payload.SkipExpirySweep {
 			commands = append(commands, cfg.expirySweepCommand(payload, job))
 		}
+		commands = append(commands, cfg.challengerCommands(job, "settle-challengers")...)
 	}
 	return commands
+}
+
+// challengerCommands attaches a shadow challenger pass to an existing job.
+//
+// Attached rather than scheduled on its own, for the reason the expiry sweep
+// gives: forecasting rides the upcoming run, settlement rides the settlement
+// run and the report rides the daily accuracy snapshot, so a shadow can never
+// be running while the thing it shadows is not. Each runs after the
+// champion's commands, so the champion's work is committed first, and each is
+// Optional, so a fault in a model that publishes nothing never fails or
+// retries the job that publishes. The commands throttle themselves; see
+// prediction_engine/challengers.py.
+func (cfg Config) challengerCommands(job jobs.Job, command string) []Command {
+	if cfg.ChallengersDisabled {
+		return nil
+	}
+	shadow := cfg.commandArgs([]string{command}, nil, job)
+	shadow.Optional = true
+	return []Command{shadow}
 }
 
 // reversalCommands re-settles fixtures whose goals the provider retracted, then
@@ -633,6 +680,8 @@ func logSummary(ctx context.Context, logger *slog.Logger, job jobs.Job, summary 
 		"fixtures_suppressed", summary.FixturesSuppressed,
 		"suppressed_by_reason", summary.SuppressedByReason,
 		"tier", summary.Tier,
+		"challenger_forecasts", summary.ChallengerForecasts,
+		"challenger_settled", summary.ChallengerSettled,
 	}
 	if summary.FixturesFailed > 0 {
 		logger.WarnContext(ctx, "prediction engine python summary", attrs...)

@@ -33,7 +33,7 @@ class CaddySeoContractTests(unittest.TestCase):
         workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
         deploy_script = (ROOT / "infra" / "deploy" / "ci-deploy.sh").read_text(encoding="utf-8")
 
-        self.assertIn("proxy: ${{ steps.filter.outputs.proxy }}", workflow)
+        self.assertIn("proxy: ${{ steps.baseline.outputs.full == 'true' || steps.filter.outputs.proxy }}", workflow)
         self.assertIn("SURFACE_PROXY: ${{ needs.detect.outputs.proxy }}", workflow)
         self.assertIn('SERVICES="proxy-only"', workflow)
         self.assertIn('if [ "$SERVICE_LIST" = "proxy-only" ]', deploy_script)

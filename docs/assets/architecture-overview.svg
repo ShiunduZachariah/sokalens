@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 590" role="img" aria-label="Requests read PostgreSQL. Background jobs write it, and only they call out." font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <defs>
+    <marker id="solid-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#5f6368"/></marker>
+  </defs>
+  <rect width="760" height="590" fill="#ffffff"/>
+  <text x="24" y="30" font-size="15" font-weight="600" fill="#1f2328">Requests read PostgreSQL. Background jobs write it, and only they call out.</text>
+
+  <g fill="none" stroke="#5f6368" stroke-width="1.25">
+    <!-- Request path -->
+    <path d="M136 74H176" marker-end="url(#solid-arrow)"/>
+    <path d="M404 74H436" marker-end="url(#solid-arrow)"/>
+    <path d="M520 96V124H380V144" marker-end="url(#solid-arrow)"/>
+    <path d="M520 124H560V144" marker-end="url(#solid-arrow)"/>
+    <path d="M380 188V208H470V224" marker-end="url(#solid-arrow)"/>
+    <path d="M560 188V208H470"/>
+    <path d="M470 268V288H220V304" marker-end="url(#solid-arrow)"/>
+    <path d="M470 288V304" marker-end="url(#solid-arrow)"/>
+    <path d="M470 288H630V304" marker-end="url(#solid-arrow)"/>
+    <!-- Background -->
+    <path d="M240 432H276" marker-end="url(#solid-arrow)"/>
+  </g>
+  <g fill="none" stroke="#5f6368" stroke-width="1.25" stroke-dasharray="5 4">
+    <path d="M140 404V352" marker-end="url(#solid-arrow)"/>
+    <path d="M300 404V352" marker-end="url(#solid-arrow)"/>
+    <path d="M140 460V500" marker-end="url(#solid-arrow)"/>
+    <path d="M640 460V500" marker-end="url(#solid-arrow)"/>
+  </g>
+
+  <g fill="#ffffff" stroke="#5f6368" stroke-width="1.25">
+    <rect x="40" y="52" width="96" height="44" rx="8"/>
+    <rect x="180" y="52" width="224" height="44" rx="8"/>
+    <rect x="440" y="52" width="160" height="44" rx="8"/>
+    <rect x="300" y="146" width="160" height="42" rx="8"/>
+    <rect x="480" y="146" width="160" height="42" rx="8"/>
+    <rect x="300" y="226" width="340" height="42" rx="8"/>
+    <rect x="400" y="306" width="140" height="46" rx="8"/>
+    <rect x="560" y="306" width="140" height="46" rx="8"/>
+    <rect x="40" y="406" width="200" height="54" rx="8"/>
+    <rect x="280" y="406" width="240" height="54" rx="8"/>
+    <rect x="560" y="406" width="160" height="54" rx="8"/>
+    <rect x="40" y="502" width="200" height="40" rx="8"/>
+    <rect x="560" y="502" width="160" height="40" rx="8"/>
+  </g>
+  <rect x="120" y="306" width="260" height="46" rx="8" fill="#dbe9fb" stroke="#1a66c9" stroke-width="2"/>
+
+  <g text-anchor="middle" fill="#1f2328">
+    <text x="88" y="79" font-weight="600">Visitor</text>
+    <text x="292" y="70" font-weight="600">Cloudflare</text>
+    <text x="292" y="87" font-size="11.5" fill="#57606a">DNS, TLS, Turnstile, HTML cache</text>
+    <text x="520" y="70" font-weight="600">Caddy</text>
+    <text x="520" y="87" font-size="11.5" fill="#57606a">reverse proxy on the host</text>
+    <text x="380" y="172" font-weight="600">Next.js public web</text>
+    <text x="560" y="172" font-weight="600">Next.js admin</text>
+    <text x="470" y="244" font-weight="600">Go API</text>
+    <text x="470" y="260" font-size="11.5" fill="#57606a">one modular monolith</text>
+    <text x="250" y="325" font-weight="600">PostgreSQL</text>
+    <text x="250" y="342" font-size="11.5" fill="#57606a">the only source of truth</text>
+    <text x="470" y="325" font-weight="600">Redis</text>
+    <text x="470" y="342" font-size="11.5" fill="#57606a">cache, queues, locks</text>
+    <text x="630" y="325" font-weight="600">Typesense</text>
+    <text x="630" y="342" font-size="11.5" fill="#57606a">search index</text>
+    <text x="140" y="428" font-weight="600">Go worker</text>
+    <text x="140" y="446" font-size="11.5" fill="#57606a">ingestion, jobs, settlement</text>
+    <text x="400" y="428" font-weight="600">Python prediction engine</text>
+    <text x="400" y="446" font-size="11.5" fill="#57606a">Models A, B and C</text>
+    <text x="640" y="428" font-weight="600">Ops controller</text>
+    <text x="640" y="446" font-size="11.5" fill="#57606a">observe only</text>
+    <text x="140" y="527" font-weight="600">API-Football</text>
+    <text x="640" y="527" font-weight="600">AI incident advisor</text>
+  </g>
+  <g font-size="11.5" fill="#57606a">
+    <text x="148" y="384">writes</text>
+    <text x="308" y="384">writes</text>
+    <text x="148" y="485">requests, within a daily budget</text>
+    <text x="630" y="485" text-anchor="end">bounded, redacted evidence</text>
+    <text x="24" y="572">Solid: request and job flow. Dashed: writes to state and calls outside the server.</text>
+  </g>
+</svg>

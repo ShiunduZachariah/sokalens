@@ -46,7 +46,7 @@ export default async function MarketPage({ params }: MarketPageProps) {
       {
         "@type": "Question",
         name: `How are ${definition.heading} generated?`,
-        acceptedAnswer: { "@type": "Answer", text: "SokaLens publishes a market only when its model and data-quality checks support that fixture. Predictions are probabilities, not guarantees." },
+        acceptedAnswer: { "@type": "Answer", text: "SokaLens publishes a market only when its model and data-quality checks support that fixture. Predictions are estimates, not guarantees." },
       },
     ],
   };
@@ -104,8 +104,8 @@ export default async function MarketPage({ params }: MarketPageProps) {
           returnPath={`/predictions/markets/${definition.slug}`}
         />
         <p>
-          Confidence describes the model&apos;s assessed probability after data-quality checks. It is
-          not a promise of an outcome. Read the reported record and its sample limitations on the{" "}
+          Confidence scores how well supported a pick is, from data completeness, sample size, model
+          agreement and similar checks. It is not the chance of the outcome, and not a promise of one. Read the reported record and its sample limitations on the{" "}
           <Link href={localePath("/results", locale)}>results page</Link>.
         </p>
         <p>The feed shows a capped sample of published selections from each day of the coming week. Open a fixture for its full market detail.</p>
@@ -113,7 +113,7 @@ export default async function MarketPage({ params }: MarketPageProps) {
       <MarketReadingGuide slug={definition.slug} predictions={predictionsResult === null ? null : predictions} locale={locale} timezone={timezone} />
       <details className="td-note">
         <summary>How are {definition.heading} generated?</summary>
-        <p>SokaLens publishes a market only when its model and data-quality checks support that fixture. Predictions are probabilities, not guarantees.</p>
+        <p>SokaLens publishes a market only when its model and data-quality checks support that fixture. Predictions are estimates, not guarantees.</p>
       </details>
       {otherMarkets}
     </>
