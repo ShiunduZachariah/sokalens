@@ -55,8 +55,10 @@ jobs:
       - name: Deploy qa to the QA environment
         if: ${{ !inputs.production_copy_test }}
         run: |
-          ssh vps \
-            'sudo -u dev env HOME=/home/dev bash /home/dev/sokalens/scripts/qa/deploy.sh'
+          guard="/tmp/sokalens-qa-guard-${GITHUB_RUN_ID}.sh"
+          scp scripts/qa/guarded-deploy.sh "vps:$guard"
+          trap 'ssh vps "rm -f -- $guard"' EXIT
+          ssh vps "sudo -u dev bash '$guard'"
 
       # Reads production and writes only to a scratch database in QA's PostgreSQL,
       # which it drops. See scripts/qa/production-copy-test.sh.

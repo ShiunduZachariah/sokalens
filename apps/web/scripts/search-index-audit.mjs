@@ -112,7 +112,17 @@ export function inspectInternalLinks(html, responseUrl, siteUrl = DEFAULT_SITE_U
   return failures;
 }
 
-export async function auditCanonicalOrigins({ fetchImpl = fetch, siteUrl = DEFAULT_SITE_URL } = {}) {
+// How many times one alternate origin is asked before a transport error
+// counts. The answer itself is never retried: a 200 from the www host is a
+// finding the first time.
+const ORIGIN_FETCH_ATTEMPTS = 3;
+
+export async function auditCanonicalOrigins({
+  fetchImpl = fetch,
+  siteUrl = DEFAULT_SITE_URL,
+  retryDelayMs = 2000,
+  sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+} = {}) {
   const canonical = new URL(siteUrl);
   const expected = new URL("/", canonical).toString();
   const candidates = [];
@@ -129,19 +139,42 @@ export async function auditCanonicalOrigins({ fetchImpl = fetch, siteUrl = DEFAU
 
   const failures = [];
   for (const url of candidates) {
-    try {
-      const response = await fetchImpl(url, {
-        method: "HEAD",
-        redirect: "manual",
-        headers: { "user-agent": AUDIT_USER_AGENT },
-      });
-      const location = response.headers?.get?.("location") ?? null;
-      const destination = location ? new URL(location, url).toString() : null;
-      if (![301, 308].includes(response.status) || destination !== expected) {
-        failures.push({ url, reason: "noncanonical_origin", status: response.status, location, expected });
+    // This runs seconds after the deploy purges the edge cache, and it is one
+    // request per origin with nothing behind it: the sitemap pass below gets a
+    // second look at every failure, this did not. On 2026-11-15 a single
+    // "fetch failed" on the www host failed a production deploy whose every
+    // service was already up; the same audit run by hand minutes later passed
+    // 400 of 400. A request that never got an answer is not a wrong answer, so
+    // ask again, and still fail if the host never replies.
+    let response = null;
+    let transportError = null;
+    for (let attempt = 1; attempt <= ORIGIN_FETCH_ATTEMPTS; attempt += 1) {
+      try {
+        response = await fetchImpl(url, {
+          method: "HEAD",
+          redirect: "manual",
+          headers: { "user-agent": AUDIT_USER_AGENT },
+        });
+        transportError = null;
+        break;
+      } catch (error) {
+        transportError = error;
+        if (attempt < ORIGIN_FETCH_ATTEMPTS) await sleep(retryDelayMs * attempt);
       }
-    } catch (error) {
-      failures.push({ url, reason: "fetch_error", detail: error instanceof Error ? error.message : String(error) });
+    }
+    if (transportError) {
+      failures.push({
+        url,
+        reason: "fetch_error",
+        detail: transportError instanceof Error ? transportError.message : String(transportError),
+        attempts: ORIGIN_FETCH_ATTEMPTS,
+      });
+      continue;
+    }
+    const location = response.headers?.get?.("location") ?? null;
+    const destination = location ? new URL(location, url).toString() : null;
+    if (![301, 308].includes(response.status) || destination !== expected) {
+      failures.push({ url, reason: "noncanonical_origin", status: response.status, location, expected });
     }
   }
   return failures;

@@ -26,7 +26,7 @@ const (
 	defaultPredictionSchedule      = time.Minute
 	defaultRecommendationSchedule  = 15 * time.Minute
 	defaultPublicResultDetailHours = 24
-	defaultRawResultRetentionDays  = 2
+	defaultRawResultRetentionDays  = 1
 	defaultHeartbeatMaxAge         = 10 * time.Minute
 	defaultQueueConcurrency        = 4
 	// Sized for the per-queue drain loops: every concurrent handler needs a
@@ -150,6 +150,8 @@ type Config struct {
 	EnableDestructiveRetention     bool
 	// EnableRawPredictionDrain independently gates the bounded, indexed
 	// engine_predictions cleanup. Turn it on only after QA validation.
+	RetentionReleaseSHA          string
+	ExpireUnresolvedPredictions  bool
 	EnableRawPredictionDrain     bool
 	RawPredictionDrainBatchSize  int
 	RawPredictionDrainMaxBatches int
@@ -366,6 +368,8 @@ func Load(overrides map[string]string) (Config, error) {
 		PublicResultDetailHours:        publicResultDetailHours,
 		RawResultRetentionDays:         rawResultRetentionDays,
 		EnableDestructiveRetention:     parseBool(value(env, "ENABLE_DESTRUCTIVE_RETENTION", "false")),
+		RetentionReleaseSHA:            strings.TrimSpace(env["RETENTION_RELEASE_SHA"]),
+		ExpireUnresolvedPredictions:    parseBool(value(env, "EXPIRE_UNRESOLVED_PREDICTIONS", "false")),
 		EnableRawPredictionDrain:       parseBool(value(env, "ENABLE_RAW_PREDICTION_DRAIN", "false")),
 		RawPredictionDrainBatchSize:    rawPredictionDrainBatchSize,
 		RawPredictionDrainMaxBatches:   rawPredictionDrainMaxBatches,

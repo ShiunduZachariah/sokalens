@@ -12,6 +12,9 @@ SERVICES='${services}'
 ACTIVATED_SERVICES=''
 compose() { echo "compose:$*"; if [[ "$*" == *"up"*"api"* ]]; then return ${backend}; fi; if [[ "$*" == *"up"*"web"* ]]; then return ${frontend}; fi; }
 wait_for_release_health() { echo health; }
+refresh_go_base_images() { echo go-base-images; }
+reconcile_postgres_settings() { echo postgres-settings; }
+run_backend_checks() { echo backend-checks; }
 wait_for_container() { echo "healthy:$1"; }
 run_acca_readiness() { echo inventory-gate; return ${gate}; }
 trap 'echo "activated:$ACTIVATED_SERVICES"; echo "backend-ready:\${BACKEND_READY:-0}"' EXIT
@@ -200,4 +203,30 @@ printf 'global:%s\\n' "$(cat "$DEPLOY_DIR/.release-sha")"
   assert.match(result.stdout, /backend:new-release/);
   assert.match(result.stdout, /frontend:old-frontend/);
   assert.match(result.stdout, /global:split-/);
+});
+
+test('PostgreSQL drift is activated before marking the service for rollback', () => {
+ const result = spawnSync('bash', ['-c', `${definitions}
+trap - EXIT
+compose() {
+ if [ "$1" = config ]; then printf '%s\\n' '{"services":{"postgres":{"command":["postgres","-c","shared_buffers=1536MB"],"shm_size":1073741824}}}'; else echo "compose:$*"; fi
+}
+docker() { printf '%s\\n' '[["postgres","-c","shared_buffers=256MB"],67108864]'; }
+wait_for_container() { echo "ready:$1"; }
+reconcile_postgres_settings
+printf 'activated:%s\\n' "$ACTIVATED_SERVICES"
+`], {encoding:'utf8'});
+ assert.equal(result.status,0,result.stderr);
+ assert.match(result.stdout,/compose:up -d --no-build --no-deps --force-recreate postgres/);
+ assert.match(result.stdout,/activated: postgres/);
+});
+
+test('PostgreSQL unchanged runtime does not restart', () => {
+ const result = spawnSync('bash', ['-c', `${definitions}
+trap - EXIT
+compose() { if [ "$1" = config ]; then printf '%s\\n' '{"services":{"postgres":{"command":["postgres"],"shm_size":67108864}}}'; else exit 9; fi; }
+docker() { printf '%s\\n' '[["postgres"],67108864]'; }
+reconcile_postgres_settings
+`], {encoding:'utf8'});
+ assert.equal(result.status,0,result.stderr);
 });

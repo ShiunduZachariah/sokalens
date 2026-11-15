@@ -22,6 +22,7 @@ ENV_UPDATE_TEMPORARY=""
 CADDY_SOURCE=""
 CADDY_LIVE_CONFIG="/etc/caddy/Caddyfile"
 CADDY_BACKUP="/tmp/sokalens-caddy-lkg.$$"
+POSTGRES_ROLLBACK_OVERRIDE=""
 CADDY_CHANGED=0
 SWAPPED=0
 DEPLOY_SUCCEEDED=0
@@ -42,11 +43,35 @@ else
 fi
 
 compose() {
+  local postgres_override=()
+  [ -z "$POSTGRES_ROLLBACK_OVERRIDE" ] || postgres_override=(-f "$POSTGRES_ROLLBACK_OVERRIDE")
   docker compose \
     -f infra/docker/docker-compose.yml \
-    -f infra/deploy/docker-compose.prod.yml \
+    -f infra/deploy/docker-compose.prod.yml "${postgres_override[@]}" \
     --env-file .env.prod \
     --profile core --profile frontend --profile search "$@"
+}
+
+# The Go services build FROM a floating patch tag (golang:1.27-alpine), and a
+# tag Docker already holds is never re-resolved. Refresh it so the binaries
+# that ship are built with the same patch release CI scanned. Registry trouble
+# must not block a deploy, so a failed refresh warns and builds from the copy
+# on disk; the version actually used is logged either way.
+refresh_go_base_images() {
+  local image attempt
+  for image in $(awk '$1 == "FROM" && $2 ~ /^golang:/ { print $2 }' services/*/Dockerfile | sort -u); do
+    for attempt in 1 2 3; do
+      if docker pull --quiet "$image" >/dev/null; then
+        break
+      fi
+      if [ "$attempt" -eq 3 ]; then
+        echo "WARNING: could not refresh $image; building from the cached copy" >&2
+      else
+        sleep $((attempt * 10))
+      fi
+    done
+    echo "go base image $image: $(docker run --rm "$image" go version 2>/dev/null || echo unknown)"
+  done
 }
 
 cleanup_secret_files() {
@@ -146,6 +171,9 @@ capture_lkg() {
     docker tag "$image_id" "$lkg_ref"
     printf 'image|%s|%s|%s|%s\n' "$service" "$image_name" "$lkg_ref" "$image_id" >> "$LKG_MANIFEST"
   done
+  docker inspect --format '{"services":{"postgres":{"command":{{json .Config.Cmd}},"shm_size":{{.HostConfig.ShmSize}}}}}' \
+    sports-prediction-platform-postgres-1 > "$LKG_ROOT/$LKG_TAG/postgres-runtime.json"
+  chmod 600 "$LKG_ROOT/$LKG_TAG/postgres-runtime.json"
   (cd "$DEPLOY_DIR" && sha256sum infra/docker/docker-compose.yml infra/deploy/docker-compose.prod.yml) \
     > "$LKG_ROOT/$LKG_TAG/config.sha256"
 }
@@ -229,6 +257,9 @@ rollback_release() {
     mv "$OLD_DIR" "$DEPLOY_DIR"
   fi
   restore_caddy_config
+  case " $ACTIVATED_SERVICES " in
+    *" postgres "*) POSTGRES_ROLLBACK_OVERRIDE="$LKG_ROOT/$LKG_TAG/postgres-runtime.json" ;;
+  esac
   cd "$DEPLOY_DIR"
   # Restoring old source must not restore the public API binding that this
   # release closed. The previous base Compose also honors this variable.
@@ -284,6 +315,24 @@ run_acca_readiness() {
   bash infra/deploy/acca-readiness.sh
 }
 
+run_backend_checks() {
+  bash infra/deploy/backend-check.sh sports-prediction-platform http://127.0.0.1:8080 1536
+}
+
+reconcile_postgres_settings() {
+  # Reconcile PostgreSQL independently: application-only service lists used
+  # to leave the old tiny command running indefinitely. Capture the exact old
+  # runtime above so a failed release can restore it, including shared memory.
+  local desired_postgres current_postgres
+  desired_postgres="$(compose config --format json | python3 -c 'import json,sys; p=json.load(sys.stdin)["services"]["postgres"]; print(json.dumps([p.get("command"),int(p.get("shm_size",67108864))],sort_keys=True))')"
+  current_postgres="$(docker inspect --format '[{{json .Config.Cmd}},{{.HostConfig.ShmSize}}]' sports-prediction-platform-postgres-1 | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin),sort_keys=True))')"
+  if [ "$desired_postgres" != "$current_postgres" ]; then
+    ACTIVATED_SERVICES="$ACTIVATED_SERVICES postgres"
+    compose up -d --no-build --no-deps --force-recreate postgres
+    wait_for_container postgres
+  fi
+}
+
 stage_release() {
   local service backend="" frontend=""
   [ -n "$SERVICES" ] || return 0
@@ -297,8 +346,10 @@ stage_release() {
   FRONTEND_SERVICES="$frontend"
   # Complete builds before touching running services. --no-deps keeps unrelated
   # applications unchanged, including when a selected-service rollback runs.
+  refresh_go_base_images
   # shellcheck disable=SC2086
   compose build $SERVICES
+  reconcile_postgres_settings
   if [ -n "$backend" ]; then
     ACTIVATED_SERVICES="$ACTIVATED_SERVICES$backend"
     # Record first: Compose can partially activate services before failing.
@@ -307,6 +358,7 @@ stage_release() {
     wait_for_release_health
   fi
   run_acca_readiness
+  run_backend_checks
   BACKEND_READY=1
   if [ -n "$frontend" ]; then
     ACTIVATED_SERVICES="$ACTIVATED_SERVICES$frontend"
@@ -327,6 +379,9 @@ stage_release() {
 }
 
 [ -f "$TARBALL" ] || { echo "ERROR: source tarball $TARBALL not found" >&2; exit 1; }
+mkdir -p "$HOME/.cache"
+exec 9>"$HOME/.cache/sokalens-production-release.lock"
+flock -w 600 9
 [ -f "$DEPLOY_DIR/.env.prod" ] || { echo "ERROR: production env is missing" >&2; exit 1; }
 echo "== CI deploy $RELEASE_SHA started $(date -u) =="
 
@@ -348,6 +403,7 @@ upsert_env_value TURNSTILE_REQUIRED true "$NEW_DIR/.env.prod"
 upsert_env_value PUBLIC_WEB_URL "$PRODUCTION_WEB_URL" "$NEW_DIR/.env.prod"
 upsert_env_value API_BIND_ADDRESS 127.0.0.1 "$NEW_DIR/.env.prod"
 upsert_env_value PREDICTION_SCHEDULE_INTERVAL 15m "$NEW_DIR/.env.prod"
+upsert_env_value PREDICTION_RESULT_RAW_RETENTION_DAYS 1 "$NEW_DIR/.env.prod"
 # API-Football Pro subscription: 7,500 requests per provider day, 300 a minute.
 # Normalize preserved Ultra settings before the new worker starts -- its budget
 # reset otherwise inherits the old ceiling until a response header arrives.
@@ -498,6 +554,7 @@ fi
 # cannot reach PostgreSQL volumes or unrelated backups.
 find "$BACKUP_DIR" -maxdepth 1 -type f \( -name 'sokalens-*.dump' -o -name 'sokalens-*.dump.sha256' -o -name 'sokalens-*.dump.facts' \) \
   -mtime "+$BACKUP_MAX_AGE_DAYS" -print -delete 2>/dev/null || true
+wait_for_release_health
 capture_lkg
 
 rm -rf "$OLD_DIR"
@@ -522,11 +579,28 @@ fi
 wait_for_release_health
 sync_caddy_config
 
+# Full origin journeys run before declaring success. If they fail, the
+# combined release is unvalidated and must take the full rollback path.
+BACKEND_READY=0
+QA_WEB_ORIGIN=http://127.0.0.1:3000 QA_API_ORIGIN=http://127.0.0.1:8080 bash scripts/qa/smoke.sh
+BACKEND_READY=1
+
 backend_sha="$LKG_BACKEND_SHA"
 frontend_sha="$LKG_FRONTEND_SHA"
 [ -z "$BACKEND_SERVICES" ] || backend_sha="$RELEASE_SHA"
 [ -z "$FRONTEND_SERVICES" ] || frontend_sha="$RELEASE_SHA"
 record_release_state "$backend_sha" "$frontend_sha"
+# Allow an external CI post-deployment check to restore this exact release.
+# Only locally generated, quoted operator state is sourced by the recovery tool.
+mkdir -p "$LKG_ROOT/releases"
+recovery_state="$LKG_ROOT/releases/$RELEASE_SHA.env"
+{
+  for variable in RELEASE_SHA LKG_TAG LKG_MANIFEST LKG_BACKEND_SHA LKG_FRONTEND_SHA ACTIVATED_SERVICES; do
+    printf '%s=%q\n' "$variable" "${!variable}"
+  done
+  printf 'LKG_PREVIOUS_DEPLOYED_SHA=%q\n' "$(cat "$LAST_DEPLOYED_MARKER" 2>/dev/null || true)"
+} > "$recovery_state"
+chmod 600 "$recovery_state"
 DEPLOY_SUCCEEDED=1
 # After the success flag, so failing to write this cannot roll back a healthy
 # release. A stale marker only makes the next deploy wider, never narrower.

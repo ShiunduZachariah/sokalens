@@ -128,7 +128,7 @@ func (r Repository) Prune(ctx context.Context, policy Payload, now time.Time) (M
 		// That ordering is asserted by
 		// TestProviderCleanupRunsInForeignKeyDependencyOrder.
 		{"provider_request_logs", now.AddDate(0, 0, -policy.ProviderRequestRetentionDays), pruneProviderRequestLogsSQL, &metrics.ProviderRequestLogs, policy.ProviderRequestMaxBatches},
-		{"jobs", now.AddDate(0, 0, -policy.JobRetentionDays), pruneJobsSQL, &metrics.Jobs, 0},
+		{"jobs", now.AddDate(0, 0, -policy.JobRetentionDays), pruneJobsSQL, &metrics.Jobs, policy.JobMaxBatches},
 	}
 	for _, task := range tasks {
 		maxBatches := task.maxBatches

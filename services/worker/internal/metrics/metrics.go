@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strings"
 	"sync"
 )
 
@@ -44,6 +45,23 @@ func (r *Registry) SetGauge(name string, value float64) {
 	defer r.mu.Unlock()
 	r.gauges[name] = value
 	r.trackOrder(name)
+}
+
+// ReplaceGaugeFamily publishes a complete snapshot. Missing previous members
+// become zero, so an empty queue recovers its alert instead of retaining a peak.
+func (r *Registry) ReplaceGaugeFamily(prefix string, values map[string]float64) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for name := range r.gauges {
+		if strings.HasPrefix(name, prefix) {
+			r.gauges[name] = 0
+		}
+	}
+	for suffix, value := range values {
+		name := prefix + SafeMetricName(suffix)
+		r.gauges[name] = value
+		r.trackOrder(name)
+	}
 }
 
 func (r *Registry) trackOrder(name string) {

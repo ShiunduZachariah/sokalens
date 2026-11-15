@@ -1,4 +1,4 @@
-FROM golang:1.27.3-alpine AS build
+FROM golang:1.27-alpine AS build
 ARG OPS_BUILD_VERSION=dev
 WORKDIR /src
 COPY services/ops-controller/go.mod ./

@@ -143,6 +143,17 @@ finding.
 **Keep independent scanners in independent jobs**, so one scanner's outage can
 never hide another's finding.
 
+**The Go toolchain floats on the patch release.** `GO_VERSION` in `ci.yml`
+names a minor (`1.27.x`); `setup-go` resolves its newest patch on every run,
+the three service Dockerfiles build `FROM golang:1.27-alpine`, and
+`ci-deploy.sh` refreshes that tag before building. A standard-library advisory
+from `govulncheck` (`Found in: ...@go1.27.N`, `Fixed in: ...@go1.27.N+1`)
+therefore clears on the next run once Go has published the fix: re-run the
+job, do not edit a version. Do not reintroduce an exact patch pin. It was
+hand-bumped five times in three months and twice left the nightly audit red
+for days. Moving to a new minor is the one manual change: `GO_VERSION` and the
+three `FROM` lines together, which `security-audit-go` checks.
+
 ## Deployment gates: widen the budget, never the contract
 
 Promotion gates such as `infra/deploy/acca-readiness.sh` mix two kinds of

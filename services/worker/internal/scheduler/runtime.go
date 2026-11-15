@@ -59,6 +59,10 @@ type RuntimeOptions struct {
 	// minute behind an empty queue and far longer behind a busy one.
 	IdleBackoff time.Duration
 
+	// MaxIdleBackoff caps exponential backoff on non-live empty queues.
+	// Queues with reserved live slots retain IdleBackoff responsiveness.
+	MaxIdleBackoff time.Duration
+
 	// HeartbeatInterval is how often liveness is recorded. Independent of job
 	// execution: a worker that is busy is alive, and the previous runtime wrote
 	// the heartbeat only after all work returned, so a long job was
@@ -100,6 +104,9 @@ func Run(ctx context.Context, opts RuntimeOptions) error {
 	}
 	if opts.IdleBackoff <= 0 {
 		opts.IdleBackoff = defaultIdleBackoff
+	}
+	if opts.MaxIdleBackoff < opts.IdleBackoff {
+		opts.MaxIdleBackoff = max(5*time.Second, opts.IdleBackoff)
 	}
 	if opts.HeartbeatInterval <= 0 {
 		opts.HeartbeatInterval = defaultHeartbeatInterval
@@ -239,6 +246,11 @@ func runQueueLoop(ctx context.Context, opts RuntimeOptions, worker QueueWorker, 
 		return
 	}
 	logger := opts.Logger.With("queue", worker.Queue, "slot", slot)
+	idleDelay := opts.IdleBackoff
+	idleCeiling := opts.MaxIdleBackoff
+	if worker.Reserved > 0 {
+		idleCeiling = opts.IdleBackoff
+	}
 	for {
 		if ctx.Err() != nil {
 			return
@@ -256,13 +268,15 @@ func runQueueLoop(ctx context.Context, opts RuntimeOptions, worker QueueWorker, 
 				return
 			}
 		case worked:
+			idleDelay = opts.IdleBackoff
 			// Claim again immediately. This is the difference between draining
 			// a backlog and sipping at it.
 			continue
 		default:
-			if !sleepOrDone(ctx, opts.IdleBackoff) {
+			if !sleepOrDone(ctx, idleDelay) {
 				return
 			}
+			idleDelay = min(idleCeiling, idleDelay*2)
 		}
 	}
 }

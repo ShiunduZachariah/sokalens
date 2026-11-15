@@ -7,29 +7,65 @@ Shiundu Zachariah
 SokaLens publishes football predictions, accumulators and live in-play
 probabilities at [sokalens.com](https://sokalens.com) in seven languages. It
 covers tens of thousands of matches across more than a thousand competitions,
-and it runs on a single server.
+grades every prediction it makes, and runs on a single server.
 
-This paper explains what was built and why. The platform is a Go modular
-monolith with a Python inference engine behind it, and PostgreSQL is its only
-source of truth. A worker process does everything that touches the outside
-world: it buys data from a rate-limited provider, runs three competing
-prediction models, grades every prediction once the match ends and keeps a
-public track record that can be recomputed from stored rows. The web front end
-is server-rendered Next.js behind Cloudflare and Caddy.
+This paper describes the system and, for each part of it, the reasoning behind
+the design. The platform is a Go modular monolith with a Python inference
+engine behind it, and PostgreSQL is its only source of truth. A worker process
+does everything that touches the outside world: it buys data from a
+rate-limited provider, runs three competing prediction models, grades every
+prediction once the match ends and keeps a public track record that can be
+recomputed from stored rows. The web front end is server-rendered Next.js
+behind Cloudflare and Caddy. Releases reach production only through pull
+requests, a QA environment and automated gates.
 
-Three goals shape nearly every decision:
+## Introduction
 
-1. **Cost.** Running costs stay close to one server.
-2. **Safe change.** A live system with a public record can change quickly
-   without breaking that record.
-3. **Honesty.** Every published number can be traced back to the data and
-   model that produced it.
+A football prediction is easy to publish and hard to stand behind. Anyone can
+post a pick before a match. Far fewer publish every pick they made afterwards,
+losses included, with an accuracy figure that someone else could recompute.
+SokaLens was built to be the second kind of product, and that decision
+explains more of its engineering than any choice of language or framework.
 
-The paper covers the context and principles, then the components, data,
-ingestion, prediction models, in-play system, front end, accounts,
-infrastructure, operations, security and quality gates. It closes with the
-known risks and the work still to do. Where a design document and the code
-disagree, this paper follows the code.
+Standing behind a number has technical consequences. A prediction has to be
+stored with the data it saw and the model that produced it, so predictions are
+versioned and never edited. It has to stop changing when the match starts, so
+it is locked at kick-off. It has to be graded whether or not the result
+flatters it, so every market closes at full time and the losses count. And
+when the data provider corrects itself, as it does when a goal is ruled out
+after review, the correction has to stay visible. In SokaLens each of these is
+enforced by the database or the worker, so none of them depends on anyone's
+good intentions.
+
+Two other pressures shaped the system as much as that one.
+
+The first is cost. SokaLens is self-funded and built by one developer working
+with AI coding agents. Its football data comes from a provider that meters
+every request. Most of its readers are on phones in Kenya, Nigeria, Ghana,
+Uganda, South Africa and Tanzania, often on slow mobile networks. The system
+has to cover more than a thousand competitions for roughly the cost of one
+server, and still load quickly on a weak connection.
+
+The second is the pace of change. The product changes daily, and much of its
+code is written by agents that do not remember yesterday's mistake. A rule
+that lives in someone's memory does not survive that. The rules therefore live
+in the repository as tests, gates and written decisions, and the delivery
+pipeline applies them to every pull request.
+
+Honesty, cost and safe change pull in the same direction. They favour few
+moving parts, a single source of truth, nothing external on the path of a page
+load, and checks that fail loudly so that nobody has to notice a problem by
+eye. The rest of this paper shows how those preferences became a working
+system.
+
+**How to read it.** Each section says what was built and then why it was built
+that way. Sections 1 and 2 set out the constraints and the principles.
+Sections 3 to 5 give the system's shape and its data. Sections 6 to 8 follow
+football data in and predictions out, before and during a match. Sections 9
+and 10 cover what readers see and what they pay for. Sections 11 to 14 cover
+how the system is deployed, watched, secured and tested. The paper ends with
+the known risks, the work ahead and what building the system has taught. Where
+a design document and the code disagree, the paper follows the code.
 
 **Not covered:** commercial terms and mobile screen design. The full model
 specification is in
@@ -131,7 +167,7 @@ system or supports releases.
 | Component | Path | Stack | Responsibility | On the request path? |
 | --- | --- | --- | --- | --- |
 | API | `services/api` | Go 1.27, `pgx/v5` | Modular monolith: public reads, accounts, sessions, tiers and entitlements, billing admin, search, sitemaps and admin APIs. Serves its OpenAPI contract at `/openapi.yaml` and reference docs at `/docs`. | Yes |
-| Worker | `services/worker` | Go 1.27 | Provider ingestion and quota planning, leased job queues, engine runs, settlement, accumulators, notifications and email. | No |
+| Worker | `services/worker` | Go 1.27 | Provider ingestion and quota planning, leased job queues, engine runs, settlement, accumulators, notifications, email and scheduled social posts. | No |
 | Prediction engine | `services/prediction-engine` | Python 3, psycopg 3 | Inference for a fixture scope at an as-of time, with Models A, B and C (§7). Writes versioned rows to `engine_predictions`. Started by the worker. | No |
 | Model lab | `services/model-lab` | Python | Offline training and backtesting on a historical match corpus. | No |
 | Public web | `apps/web` | Next.js 16, React 19, TypeScript | Server-rendered public site in seven locales, SEO metadata and structured data. | Yes |
@@ -140,6 +176,12 @@ system or supports releases.
 | Sentinel | `infra/sentinel` | Cloudflare Worker | Checks the public site and API health from outside the server. | No |
 | Release manifest | `tools/release-manifest` | Go | Builds an immutable release record: Git SHA, image digests, migration version and last-known-good release. Built and tested in CI, not yet wired into the deploy. | No |
 | Mobile | `apps/mobile` | Flutter | Planned; the folder is reserved. | — |
+
+**Why one repository.** A change to an API payload and the page that renders
+it travel in one pull request, and one CI run checks both sides of the
+contract. With one developer and several coding agents, that is worth more
+than independent release schedules would be, and it gives the rules one place
+to live.
 
 **Why a modular monolith.** On one server, a single Go binary for the API keeps
 deployment, transactions and tracing simple: one process to start, one
@@ -174,7 +216,7 @@ Typesense hold copies that can be thrown away and rebuilt.
 
 | Store | Role | Holds | If lost |
 | --- | --- | --- | --- |
-| PostgreSQL 18 | System of record (about 90 migrations, about 160 tables) | Fixtures, teams and leagues; odds, live-state and statistics snapshots; engine predictions and settlements; in-play series; users and entitlements; the provider request ledger; incidents and budgets | Restore from the newest verified recovery point (§11) |
+| PostgreSQL 18 | System of record (more than 90 migrations, about 160 tables) | Fixtures, teams and leagues; odds, live-state and statistics snapshots; engine predictions and settlements; in-play series; users and entitlements; the provider request ledger; incidents and budgets | Restore from the newest verified recovery point (§11) |
 | Redis 8 | Cache, queues, locks | Hot read caches, job queues, distributed locks, rate-limit counters | Nothing beyond a cold cache |
 | Typesense | Search index | Teams, leagues and fixtures | Rebuilt from PostgreSQL with `syncsearchindex`; search falls back to PostgreSQL meanwhile |
 
@@ -222,6 +264,30 @@ never takes long locks. Deleting rows makes space reusable but does not shrink
 files; shrinking uses an online `pg_repack` tested on QA first, never
 `VACUUM FULL` on production.
 
+**Deletion is deliberate.** Raw prediction detail has a short, explicit
+lifetime once a match is confirmed finished. Canonical fixtures, final
+snapshots and the compact accuracy and model evidence are kept. Anything a
+user has saved, any active slip and any prediction whose evidence is
+incomplete blocks its own deletion. Shipping a release never switches on a new
+deletion by itself: each destructive expiry has its own flag and runs first as
+a dry run, then as a small canary. For postponed and cancelled fixtures, the
+rows are archived for a day before they are removed, so the step can be
+undone. The caution is intended, because keeping a row too long costs disk
+space, while deleting the wrong one costs part of the record.
+
+**Queries are measured on production-sized data.** With hundreds of thousands
+of prediction rows, the query planner's choice matters more than the hardware.
+A team page once matched team aliases inside an `OR`, a shape PostgreSQL
+cannot serve from the home-team and away-team indexes, so it tested about
+90,000 fixtures to find a team's three matches. Resolving the alias ids first
+and filtering with plain lists took that query from 310 ms to 2 ms. The
+results page had the same kind of fault: it walked the large prediction table
+to find a small settled set, and it now starts from the settlement rows. Each
+such fix is measured with `EXPLAIN ANALYZE` against production data and
+checked to return the same rows as the query it replaces. The deploy's backend
+check also fails if the job-queue query falls back to scanning the whole table
+on a production-sized history.
+
 **Migrations are proven, not trusted.** CI applies every migration, then seeds
 and verifies the result against a PostgreSQL 18 service container.
 `task architecture:migrations:verify` runs the engine and operations
@@ -234,6 +300,14 @@ cannot be edited after the fact.
 Every fact about football enters through one door. The worker buys it from a
 paid provider, normalises it to canonical ids and writes it to PostgreSQL, and
 it spends against a hard daily ceiling that it counts itself.
+
+**The thinking: quota is money.** Every request to the provider is paid for,
+and the service stops when the allowance runs out, so the worker treats
+requests the way a careful business treats cash. Each one is entered in a
+ledger with a reason. The worker enforces its own ceiling and does not rely on
+the provider's headers to do it. A reserve is held back for emergencies, and
+spend is reported while there is still time to act. The rest of this section
+is that idea applied.
 
 **Sources.** API-Football is the primary source, on a plan of 7,500 requests a
 day and 300 a minute. football-data.org is wired as a secondary source, and
@@ -317,6 +391,16 @@ the fallback is flagged.
 Predictions are produced in batches, gated before publication, locked at
 kick-off and settled automatically, so the public record can always be
 recomputed from stored rows.
+
+**The thinking.** A track record is evidence only if it could have turned out
+badly. Three design choices follow from that. Predictions are computed in
+batches from data available at a stated time, so a backtest sees exactly what
+the live system saw. They stop changing at kick-off, so no pick can drift
+toward the result. And they are graded by a job that applies fixed rules to
+every market, so nobody chooses which outcomes to count. The quality gate
+comes from the same reasoning: when the data for a match is thin, publishing
+nothing costs less than publishing a number that later counts against the
+record.
 
 | Element | How it works |
 | --- | --- |
@@ -487,6 +571,13 @@ the relief valves.
 The public site is server-rendered Next.js, cached at the edge for anonymous
 visitors and designed for phones on slow networks.
 
+**Why server-rendered Next.js.** Two facts decide it: most readers are on
+phones on slow networks, and most arrive from search. A page rendered on the
+server can be read by a crawler and seen by a reader before any script has
+loaded. Server components keep the code that assembles a page on the server,
+so the browser downloads little, and one framework handles routing for seven
+locales, metadata and structured data with the same components.
+
 **Rendering.** List, team and league pages render on the server, for
 crawlability and a fast first paint on slow connections. Client JavaScript is
 kept small; the live match view hydrates and then subscribes to the in-play
@@ -582,6 +673,19 @@ outcome. Sharing works without an account (device share, WhatsApp, Telegram, X
 and others) through a bounded, rate-limited endpoint that records first-touch
 attribution.
 
+**Distribution follows the same rules.** The worker also prepares the
+product's social posts: the day's picks each morning, the results each
+evening, goal updates during selected matches and the week's record. Marketing
+is where a prediction product is most tempted to show only its winners, so
+these posts are generated from the same published predictions and stored
+settlements as the site. Losses are always shown. A goal removed after review
+gets a visible correction, and the original post is not deleted. Every card
+carries the 18+ and "not a bookmaker" line. Each post is written to a ledger
+before it is sent, so a retry cannot post twice. A preview mode sends
+everything to the owner first, and live posting is refused outside production.
+Where a channel offers no API for a format, the worker prepares the material
+and hands it to a person; it does not automate around the channel's rules.
+
 ## 11. Infrastructure, deployment and CI/CD
 
 Production and QA share one VPS but are kept apart by separate Docker daemons,
@@ -673,6 +777,31 @@ happens before the migration, but the restore check runs after the release, so
 for a short window the newest dump is unproven and the previous one is kept
 beside it. A failed check turns the run red and keeps that previous dump, and
 the next dump must pass its own check before its migration runs.
+
+**Check what is running, not what the file says.** A deploy recreates only the
+application containers. A change to the database container's settings can
+therefore merge, deploy green and change nothing. The deploy's backend check
+reads the settings from the running database and fails if they differ from
+what the release expects. QA deploys are guarded in the same spirit: before
+anything changes, the deploy records the running source, images and settings,
+and it restores them if a check fails.
+
+**No answer is retried; a wrong answer is not.** A production deploy was once
+marked failed because one request to the site was dropped seconds after the
+edge cache had been purged, while every real check had passed. The
+verification now asks again, a bounded number of times, when a host does not
+reply, and it never retries an actual response. The same rule governs every
+gate in the pipeline: missing information is retried and then fails closed,
+and a finding fails at once.
+
+**Float what fixes itself, pin what you execute.** The Go toolchain follows
+the newest patch of a fixed minor version, because an exact pin had to be
+bumped by hand each time a standard-library advisory was fixed, and the
+vulnerability gate stayed red in between. Moving to a new minor version
+remains a deliberate change that CI checks across the workflow and the
+Dockerfiles. Tools that CI downloads and runs are treated the opposite way:
+the secret scanner is pinned by SHA-256, and no unverified copy is ever
+executed (§13).
 
 **Runners.** CI and deploy jobs run on a self-hosted runner, which keeps the
 project inside GitHub's free Actions allowance; on hosted runners the same
@@ -783,8 +912,10 @@ redactor missing bare bot tokens, which was fixed before the bot went live.
 
 **Scanners run independently.** `secret-scan` runs gitleaks over the full
 history with no default rules disabled and a reviewed allowlist of false
-positives. `security-audit` (npm) and `security-audit-go` (`govulncheck`) run
-as separate jobs. An audit that cannot reach its service is treated as a
+positives. The scanner binary is pinned by SHA-256 and, once verified, kept in
+the runner's cache, so an outage at its download host cannot stop the scan.
+`security-audit` (npm) and `security-audit-go` (`govulncheck`) run as separate
+jobs. An audit that cannot reach its service is treated as a
 non-answer, not a pass: it is retried with backoff, then fails closed, and it
 is never bypassed.
 
@@ -857,6 +988,52 @@ In dependency order:
 9. A separate database host, when stream connections or PostgreSQL memory
    require it.
 
+## Conclusion
+
+By the usual measures SokaLens is a small system: one server, two Go services
+and one database. What it has that small systems often lack is a set of
+commitments it cannot quietly break. A prediction cannot be edited after it is
+published. A match cannot end with a market left open. A request cannot be
+sent to the provider past the day's ceiling. A page and its sitemap entry
+cannot disagree about whether the page should be indexed. A release cannot
+reach production without passing QA and its gates. None of these depends on
+anyone remembering, because each one is a constraint in the schema, a check in
+the worker or a job in CI.
+
+Three lessons from building it apply well beyond football.
+
+**The constraints did most of the design.** One server ruled out an
+orchestrator, a fleet of databases and a service per feature, and the system
+is easier to reason about as a result. A metered provider forced ingestion off
+the request path, and that same separation is what keeps a provider outage
+from taking a page down. A small budget did not make the engineering worse. It
+removed the options that would have added parts without adding value.
+
+**Almost every rule was first an incident.** The daily backfill cap exists
+because a restart once spent about ten times the plan in a day. One id per
+team exists because a guess once split a team's history in two. The bound on
+cached match state exists because finished matches were being shown as
+upcoming. The search invariants exist because fixes that had been marked done
+had quietly regressed. In each case the patch was the smaller part of the
+repair. The part that lasted was the check that makes the same failure either
+impossible or loud, and the habit behind it is to ask after every failure what
+would have caught it without a person.
+
+**Honesty is an engineering property.** It would have been easy to publish
+only the confident picks, to let old predictions drift toward the result, or
+to report accuracy only on the markets that flatter the models. Preventing
+that takes versioned rows, point-in-time inputs, automatic settlement and a
+hit rate with a fixed formula. This paper reports that the bookmaker's closing
+line still scores better than the best model on the market where the two can
+be compared, and the platform claims calibrated analysis and nothing more. A
+product that says so about its own models has earned some trust in the rest of
+what it publishes.
+
+The models will change, one server will eventually become two, and the mobile
+app is still to come. The property this design protects should outlast all of
+that: every number SokaLens publishes can be traced to the data and the model
+that produced it, and checked by someone who doubts it.
+
 ## Appendix A: Key decisions
 
 The full records are in
@@ -882,6 +1059,9 @@ The full records are in
 | Alerts reach Telegram only through the ops controller | Keeps deduplication, correlation and severity |
 | Bound the age of cached match state in the web app | A background-refresh cache otherwise shows finished matches as upcoming |
 | Off-site backups go outside Cloudflare when configured | Avoids sharing the edge's failure domain |
+| Social posts are generated from published predictions and stored settlements, ledger first | Marketing shows the same record as the site, losses included, and a retry cannot post twice |
+| The Go toolchain floats on the patch release; tools CI downloads are pinned by checksum | Security fixes arrive without a manual bump, and only a verified binary ever runs |
+| Each destructive retention step needs its own flag, a dry run and a canary | Shipping a release should never delete data by itself |
 | Prior-season statistics are the universal cold-start fallback | Predictions stay available at the start of a season |
 
 ## Appendix B: Glossary

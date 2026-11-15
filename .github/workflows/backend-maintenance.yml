@@ -1,0 +1,48 @@
+name: Bounded backend maintenance
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Validated deployment to maintain
+        type: choice
+        options: [qa, production]
+        required: true
+      expected_sha:
+        description: Exact tested and deployed commit
+        type: string
+        required: true
+concurrency:
+  group: backend-maintenance-${{ inputs.target }}
+  cancel-in-progress: false
+jobs:
+  maintain:
+    runs-on: ${{ vars.DEPLOY_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.expected_sha }}
+      - name: Validate immutable release identity
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: |
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - name: Configure SSH to the VPS
+        uses: ./.github/actions/vps-ssh
+        with:
+          private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          known-hosts: ${{ secrets.VPS_KNOWN_HOSTS }}
+          host: ${{ secrets.VPS_HOST }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          user: ${{ secrets.VPS_SSH_USER }}
+      - name: Verify recovery, rebuild oversized log indexes, and enable bounded expiry
+        env:
+          TARGET: ${{ inputs.target }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: |
+          case "$TARGET" in qa|production) ;; *) exit 2 ;; esac
+          helper="/tmp/sokalens-backend-maintenance-${GITHUB_RUN_ID}.sh"
+          scp infra/deploy/activate-backend-retention.sh "vps:$helper"
+          trap 'ssh vps "rm -f -- $helper"' EXIT
+          ssh vps "bash '$helper' '$TARGET' '$EXPECTED_SHA'"

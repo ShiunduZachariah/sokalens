@@ -34,3 +34,17 @@ func TestBackfillQueueGaugeExistsWhenInitiallyEmpty(t *testing.T) {
 		t.Fatalf("empty backfill queue metric missing: %s", response.Body.String())
 	}
 }
+
+func TestAllDrainedQueuesReportZeroWithoutResettingOtherGauges(t *testing.T) {
+	registry := metrics.New()
+	registry.SetGauge("worker_provider_daily_remaining", 42)
+	publishQueueDepthGauges(registry, map[string]int{"predictions": 7, "future-queue": 9})
+	publishQueueDepthGauges(registry, map[string]int{})
+	response := httptest.NewRecorder()
+	registry.Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	for _, expected := range []string{"worker_jobs_queued_predictions 0\n", "worker_jobs_queued_future_queue 0\n", "worker_provider_daily_remaining 42\n"} {
+		if !strings.Contains(response.Body.String(), expected) {
+			t.Fatalf("missing %q: %s", expected, response.Body.String())
+		}
+	}
+}

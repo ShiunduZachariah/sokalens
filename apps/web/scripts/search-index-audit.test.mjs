@@ -160,6 +160,70 @@ test("auditCanonicalOrigins rejects a crawlable www duplicate", async () => {
   }]);
 });
 
+test("auditCanonicalOrigins asks again when an origin does not answer", async () => {
+  // One dropped connection right after the deploy's cache purge must not fail
+  // the deploy: the request got no answer, which is not a wrong answer.
+  const calls = [];
+  const waits = [];
+  const fetchImpl = async (url) => {
+    calls.push(url);
+    if (url === "https://www.sokalens.com/" && calls.filter((seen) => seen === url).length === 1) {
+      throw new TypeError("fetch failed");
+    }
+    return { status: 301, headers: new Headers({ location: "https://sokalens.com/" }) };
+  };
+
+  const failures = await auditCanonicalOrigins({
+    fetchImpl,
+    siteUrl: "https://sokalens.com",
+    sleep: async (ms) => { waits.push(ms); },
+  });
+
+  assert.deepEqual(failures, []);
+  assert.equal(calls.filter((url) => url === "https://www.sokalens.com/").length, 2);
+  assert.equal(waits.length, 1);
+});
+
+test("auditCanonicalOrigins still fails when an origin never answers", async () => {
+  // Retrying must not turn an unreachable origin into a pass.
+  let wwwCalls = 0;
+  const fetchImpl = async (url) => {
+    if (url === "https://www.sokalens.com/") {
+      wwwCalls += 1;
+      throw new TypeError("fetch failed");
+    }
+    return { status: 308, headers: new Headers({ location: "https://sokalens.com/" }) };
+  };
+
+  const failures = await auditCanonicalOrigins({ fetchImpl, siteUrl: "https://sokalens.com", sleep: async () => {} });
+
+  assert.deepEqual(failures, [{
+    url: "https://www.sokalens.com/",
+    reason: "fetch_error",
+    detail: "fetch failed",
+    attempts: 3,
+  }]);
+  assert.equal(wwwCalls, 3);
+});
+
+test("auditCanonicalOrigins does not retry a wrong answer", async () => {
+  // A crawlable duplicate is a finding on the first response.
+  let wwwCalls = 0;
+  const fetchImpl = async (url) => {
+    if (url === "https://www.sokalens.com/") {
+      wwwCalls += 1;
+      return { status: 200, headers: new Headers() };
+    }
+    return { status: 308, headers: new Headers({ location: "https://sokalens.com/" }) };
+  };
+
+  const failures = await auditCanonicalOrigins({ fetchImpl, siteUrl: "https://sokalens.com", sleep: async () => {} });
+
+  assert.equal(failures.length, 1);
+  assert.equal(failures[0].reason, "noncanonical_origin");
+  assert.equal(wwwCalls, 1);
+});
+
 test("auditCanonicalOrigins skips alternate-host checks for local IP audits", async () => {
   const failures = await auditCanonicalOrigins({
     fetchImpl: async (url) => { throw new Error(`Unexpected URL: ${url}`); },

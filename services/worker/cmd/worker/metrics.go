@@ -42,6 +42,11 @@ func runMetricsRefresh(ctx context.Context, db *sql.DB, registry *metrics.Regist
 	refresh := func() {
 		refreshCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		defer cancel()
+		stats := db.Stats()
+		registry.SetGauge("worker_db_open_connections", float64(stats.OpenConnections))
+		registry.SetGauge("worker_db_in_use_connections", float64(stats.InUse))
+		registry.SetGauge("worker_db_wait_count", float64(stats.WaitCount))
+		registry.SetGauge("worker_db_wait_seconds", stats.WaitDuration.Seconds())
 		refreshProviderRateLimitGauges(refreshCtx, db, registry)
 		refreshRequestAccountingGauges(refreshCtx, db, registry)
 		refreshQueueDepthGauges(refreshCtx, db, registry)
@@ -254,15 +259,11 @@ GROUP BY queue`)
 }
 
 func publishQueueDepthGauges(registry *metrics.Registry, depths map[string]int) {
-	// An empty queue is absent from the grouped SQL result. Publish its zero
-	// explicitly so alert recovery sees healthy telemetry after the last job
-	// drains or the worker restarts. Only call this after a successful DB read.
+	values := map[string]float64{"data-backfill": 0}
 	for queue, depth := range depths {
-		registry.SetGauge("worker_jobs_queued_"+metrics.SafeMetricName(queue), float64(depth))
+		values[queue] = float64(depth)
 	}
-	if _, present := depths["data-backfill"]; !present {
-		registry.SetGauge("worker_jobs_queued_data_backfill", 0)
-	}
+	registry.ReplaceGaugeFamily("worker_jobs_queued_", values)
 }
 
 // publishQuotaDecision exports the latest planner decision as gauges so

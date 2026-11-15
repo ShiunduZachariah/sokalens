@@ -1,4 +1,4 @@
-FROM golang:1.27.3-alpine AS build
+FROM golang:1.27-alpine AS build
 WORKDIR /src
 COPY services/worker/go.mod ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
@@ -11,7 +11,9 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go build -o /out/worker ./cmd/worker
 
 FROM alpine:3.23
-RUN apk add --no-cache python3 py3-pip \
+# ffmpeg renders the daily story video for the marketing routine. Without it
+# the routine still sends the story cards, just not the video.
+RUN apk add --no-cache python3 py3-pip ffmpeg \
   && python3 -m venv /opt/prediction-engine-venv \
   && adduser -D -H appuser
 COPY --chown=appuser:appuser services/prediction-engine /srv/prediction-engine

@@ -185,6 +185,20 @@ func main() {
 		Analysis:        analysisdomain.NewService(db),
 	})
 	server := newHTTPServer(cfg, handler)
+	if address := os.Getenv("API_METRICS_ADDR"); address != "" {
+		listener, err := net.Listen("tcp", address)
+		if err != nil {
+			slog.Error("metrics listener", "error", err)
+			os.Exit(1)
+		}
+		metricsServer := &http.Server{Handler: httpserver.InternalMetricsHandler(db), ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second}
+		defer metricsServer.Close()
+		go func() {
+			if err := metricsServer.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				slog.Error("metrics server stopped", "error", err)
+			}
+		}()
+	}
 
 	slog.Info("starting api", "addr", server.Addr, "environment", cfg.Environment)
 	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {

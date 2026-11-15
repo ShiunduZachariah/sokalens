@@ -27,14 +27,16 @@ import { imageSrc } from "./imageSrc";
 export const SHARE_CARD_SIZE = { width: 1200, height: 630 };
 export const SHARE_CARD_CONTENT_TYPE = "image/png";
 
-const INK = "#0b1914";
-const GRAPHITE = "#25352f";
-const PITCH = "#159b67";
-const LIME = "#b8f171";
-const CHALK = "#f6f9f7";
-const MUTED = "#8ba093";
+// Exported for the campaign cards (campaignCard.tsx), so the images posted to
+// channels are drawn from the same palette and marks as the link previews.
+export const INK = "#0b1914";
+export const GRAPHITE = "#25352f";
+export const PITCH = "#159b67";
+export const LIME = "#b8f171";
+export const CHALK = "#f6f9f7";
+export const MUTED = "#8ba093";
 
-function Wordmark() {
+export function Wordmark() {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 40, fontWeight: 700 }}>
       <div
@@ -64,7 +66,7 @@ function Wordmark() {
  * string "null" often enough that an unguarded value once produced thousands of
  * 404s a day. Here a bad URL would fail the whole image render, not one crest.
  */
-function Crest({ logo, name, size = 148 }: { logo?: string | null; name: string; size?: number }) {
+export function Crest({ logo, name, size = 148 }: { logo?: string | null; name: string; size?: number }) {
   const src = imageSrc(logo);
   const initials = name
     .split(/\s+/)

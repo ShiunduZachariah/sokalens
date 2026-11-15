@@ -1,9 +1,14 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { after, test } from 'node:test';
+
+const ownedDirectories = new Set();
+after(() => {
+  for (const directory of ownedDirectories) rmSync(directory, { recursive: true, force: true });
+});
 
 /**
  * Exercises the off-site half of infra/deploy/backup.sh.
@@ -51,6 +56,7 @@ ${script.slice(start, end)}${marker}
 
 function runOffsite(env = {}, { realGpg = false } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'sokalens-backup-'));
+  ownedDirectories.add(dir);
   const dumpFile = join(dir, 'sokalens-20260908T000000Z.dump');
   writeFileSync(dumpFile, 'PGDMP fake dump with user@example.com and $2a$hash\n');
 
@@ -146,6 +152,7 @@ test('a backup that will not decrypt is never uploaded', () => {
   // backup, and the difference is only discovered on the worst day. The stub
   // encrypts to garbage and then refuses to decrypt it.
   const dir = mkdtempSync(join(tmpdir(), 'sokalens-backup-'));
+  ownedDirectories.add(dir);
   const dumpFile = join(dir, 'sokalens-20260908T000000Z.dump');
   writeFileSync(dumpFile, 'PGDMP fake dump\n');
 

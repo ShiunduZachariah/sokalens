@@ -17,21 +17,25 @@ const (
 )
 
 type Payload struct {
-	EnableDestructiveRetention   bool `json:"enable_destructive_retention"`
-	DryRun                       bool `json:"dry_run"`
-	JobRetentionDays             int  `json:"job_retention_days"`
-	NotificationRetentionDays    int  `json:"notification_retention_days"`
-	EventRetentionDays           int  `json:"event_retention_days"`
-	SessionRetentionDays         int  `json:"session_retention_days"`
-	RawPredictionRetentionHours  int  `json:"raw_prediction_retention_hours"`
-	ModelEvidenceRetentionDays   int  `json:"model_evidence_retention_days"`
-	AccuracyRetentionDays        int  `json:"accuracy_retention_days"`
-	SavedReferenceRetentionHours int  `json:"saved_reference_retention_hours"`
-	StatisticsMatchesPerTeam     int  `json:"statistics_matches_per_team"`
-	ProviderPayloadRetentionDays int  `json:"provider_payload_retention_days"`
-	ProviderRequestRetentionDays int  `json:"provider_request_retention_days"`
-	BatchSize                    int  `json:"batch_size"`
-	MaxBatches                   int  `json:"max_batches"`
+	EnableDestructiveRetention      bool   `json:"enable_destructive_retention"`
+	DryRun                          bool   `json:"dry_run"`
+	JobMaxBatches                   int    `json:"job_max_batches"`
+	JobRetentionDays                int    `json:"job_retention_days"`
+	NotificationRetentionDays       int    `json:"notification_retention_days"`
+	EventRetentionDays              int    `json:"event_retention_days"`
+	SessionRetentionDays            int    `json:"session_retention_days"`
+	RetentionReleaseSHA             string `json:"retention_release_sha"`
+	ExpireUnresolvedPredictions     bool   `json:"expire_unresolved_predictions"`
+	UnresolvedFixtureRetentionHours int    `json:"unresolved_fixture_retention_hours"`
+	RawPredictionRetentionHours     int    `json:"raw_prediction_retention_hours"`
+	ModelEvidenceRetentionDays      int    `json:"model_evidence_retention_days"`
+	AccuracyRetentionDays           int    `json:"accuracy_retention_days"`
+	SavedReferenceRetentionHours    int    `json:"saved_reference_retention_hours"`
+	StatisticsMatchesPerTeam        int    `json:"statistics_matches_per_team"`
+	ProviderPayloadRetentionDays    int    `json:"provider_payload_retention_days"`
+	ProviderRequestRetentionDays    int    `json:"provider_request_retention_days"`
+	BatchSize                       int    `json:"batch_size"`
+	MaxBatches                      int    `json:"max_batches"`
 	// provider_request_logs needs its own allowance: it arrives at roughly
 	// 1.25 million rows a day, which MaxBatches cannot drain at any value that
 	// is still sane for the other tables.
@@ -53,6 +57,7 @@ type Metrics struct {
 	PredictionDuplicatesDeleted int64
 	PredictionDuplicatesBlocked int64
 	RawPredictions              int64
+	UnresolvedRawPredictions    int64
 	RawPredictionsExamined      int64
 	RawPredictionsBlocked       int64
 	ModelEvidence               int64
@@ -147,8 +152,11 @@ func (j Job) Run(ctx context.Context, source jobs.Job) error {
 }
 
 func (p Payload) withDefaults() Payload {
+	if p.JobMaxBatches <= 0 || p.JobMaxBatches > 1000 {
+		p.JobMaxBatches = 100
+	}
 	if p.JobRetentionDays <= 0 {
-		p.JobRetentionDays = 30
+		p.JobRetentionDays = 7
 	}
 	if p.NotificationRetentionDays <= 0 {
 		p.NotificationRetentionDays = 90
@@ -158,6 +166,9 @@ func (p Payload) withDefaults() Payload {
 	}
 	if p.SessionRetentionDays <= 0 {
 		p.SessionRetentionDays = 30
+	}
+	if p.UnresolvedFixtureRetentionHours < 168 || p.UnresolvedFixtureRetentionHours > 720 {
+		p.UnresolvedFixtureRetentionHours = 168
 	}
 	if p.RawPredictionRetentionHours <= 0 {
 		p.RawPredictionRetentionHours = 24

@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/ShiunduZachariah/sports-prediction-platform/services/worker/internal/jobs"
@@ -91,22 +93,42 @@ func (r Repository) PruneRaw(ctx context.Context, policy Payload, now time.Time)
 		return metrics, errors.New("raw prediction drain requires transactional database")
 	}
 	policy = policy.withDefaults()
-	cutoff := now.Add(-time.Duration(policy.RawPredictionRetentionHours) * time.Hour)
-	for i := 0; i < policy.MaxBatches; i++ {
-		if err := ctx.Err(); err != nil {
-			return metrics, err
-		}
-		batch, complete, err := drainRawPredictionBatch(ctx, db, cutoff, policy.BatchSize)
-		if err != nil {
-			return metrics, err
-		}
-		metrics.RawPredictions += batch.deleted
-		metrics.RawPredictionsExamined += batch.examined
-		metrics.RawPredictionsBlocked += batch.examined - batch.deleted
-		if complete {
-			break
+	if policy.ExpireUnresolvedPredictions && !regexp.MustCompile(`^[0-9a-f]{40}$`).MatchString(policy.RetentionReleaseSHA) {
+		return metrics, errors.New("unresolved expiry requires an immutable retention release SHA")
+	}
+	streams := []rawPredictionStream{{name: "engine_predictions", query: rawPredictionDrainSQL,
+		cutoff: now.Add(-time.Duration(policy.RawPredictionRetentionHours) * time.Hour)}}
+	if policy.ExpireUnresolvedPredictions {
+		streams = append(streams, rawPredictionStream{name: "expired_fixture_predictions", query: unresolvedPredictionDrainSQL, releaseSHA: policy.RetentionReleaseSHA,
+			cutoff: now.Add(-time.Duration(policy.UnresolvedFixtureRetentionHours) * time.Hour)})
+	}
+	// Divide the batch allowance so an old confirmed backlog cannot starve
+	// unresolved expiry, while keeping the same total per-job work budget.
+	for _, stream := range streams {
+		for i := 0; i < max(1, policy.MaxBatches/len(streams)); i++ {
+			if err := ctx.Err(); err != nil {
+				return metrics, err
+			}
+			batch, complete, err := drainRawPredictionBatch(ctx, db, stream, policy.BatchSize)
+			if err != nil {
+				return metrics, err
+			}
+			metrics.RawPredictions += batch.deleted
+			metrics.RawPredictionsExamined += batch.examined
+			metrics.RawPredictionsBlocked += batch.examined - batch.deleted
+			if stream.name == "expired_fixture_predictions" {
+				metrics.UnresolvedRawPredictions += batch.deleted
+			}
+			if complete {
+				break
+			}
 		}
 	}
+	// Purge recovery copies even after unresolved expiry is switched off.
+	if _, err := r.pruneBatches(ctx, pruneRawRecoverySQL, now.Add(-24*time.Hour), policy.BatchSize, policy.MaxBatches); err != nil {
+		return metrics, err
+	}
+
 	if err := r.recordAudit(ctx, "raw_prediction_drain", metrics); err != nil {
 		return metrics, fmt.Errorf("audit raw prediction drain: %w", err)
 	}
@@ -114,8 +136,14 @@ func (r Repository) PruneRaw(ctx context.Context, policy Payload, now time.Time)
 }
 
 type rawBatch struct{ examined, deleted int64 }
+type rawPredictionStream struct {
+	name       string
+	query      string
+	cutoff     time.Time
+	releaseSHA string
+}
 
-func drainRawPredictionBatch(ctx context.Context, db transactionBeginner, cutoff time.Time, limit int) (rawBatch, bool, error) {
+func drainRawPredictionBatch(ctx context.Context, db transactionBeginner, stream rawPredictionStream, limit int) (rawBatch, bool, error) {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return rawBatch{}, false, err
@@ -127,13 +155,13 @@ func drainRawPredictionBatch(ctx context.Context, db transactionBeginner, cutoff
 	if _, err = tx.ExecContext(ctx, `SET LOCAL lock_timeout = '2s'`); err != nil {
 		return rawBatch{}, false, err
 	}
-	if _, err = tx.ExecContext(ctx, `INSERT INTO raw_prediction_drain_cursor (name) VALUES ('engine_predictions') ON CONFLICT (name) DO NOTHING`); err != nil {
+	if _, err = tx.ExecContext(ctx, `INSERT INTO raw_prediction_drain_cursor (name) VALUES ($1) ON CONFLICT (name) DO NOTHING`, stream.name); err != nil {
 		return rawBatch{}, false, err
 	}
 	var finishedAt, generatedAt sql.NullTime
 	var fixtureID sql.NullInt64
 	var predictionID sql.NullString
-	if err = tx.QueryRowContext(ctx, `SELECT finished_at, fixture_id, generated_at, prediction_id::text FROM raw_prediction_drain_cursor WHERE name='engine_predictions' FOR UPDATE`).Scan(&finishedAt, &fixtureID, &generatedAt, &predictionID); err != nil {
+	if err = tx.QueryRowContext(ctx, `SELECT finished_at, fixture_id, generated_at, prediction_id::text FROM raw_prediction_drain_cursor WHERE name=$1 FOR UPDATE`, stream.name).Scan(&finishedAt, &fixtureID, &generatedAt, &predictionID); err != nil {
 		return rawBatch{}, false, err
 	}
 	var lastFinished sql.NullTime
@@ -141,7 +169,11 @@ func drainRawPredictionBatch(ctx context.Context, db transactionBeginner, cutoff
 	var lastGenerated sql.NullTime
 	var lastID sql.NullString
 	var batch rawBatch
-	if err = tx.QueryRowContext(ctx, rawPredictionDrainSQL, cutoff, finishedAt, fixtureID, generatedAt, predictionID, limit).Scan(
+	args := []any{stream.cutoff, finishedAt, fixtureID, generatedAt, predictionID, limit}
+	if stream.releaseSHA != "" {
+		args = append(args, stream.releaseSHA)
+	}
+	if err = tx.QueryRowContext(ctx, stream.query, args...).Scan(
 		&batch.examined, &batch.deleted, &lastFinished, &lastFixture, &lastGenerated, &lastID); err != nil {
 		return rawBatch{}, false, err
 	}
@@ -151,7 +183,7 @@ func drainRawPredictionBatch(ctx context.Context, db transactionBeginner, cutoff
 		lastFinished, lastFixture = sql.NullTime{}, sql.NullInt64{}
 		lastGenerated, lastID = sql.NullTime{}, sql.NullString{}
 	}
-	if _, err = tx.ExecContext(ctx, `UPDATE raw_prediction_drain_cursor SET finished_at=$1,fixture_id=$2,generated_at=$3,prediction_id=$4::uuid,updated_at=now() WHERE name='engine_predictions'`, lastFinished, lastFixture, lastGenerated, lastID); err != nil {
+	if _, err = tx.ExecContext(ctx, `UPDATE raw_prediction_drain_cursor SET finished_at=$1,fixture_id=$2,generated_at=$3,prediction_id=$4::uuid,updated_at=now() WHERE name=$5`, lastFinished, lastFixture, lastGenerated, lastID, stream.name); err != nil {
 		return rawBatch{}, false, err
 	}
 	if err = tx.Commit(); err != nil {
@@ -194,3 +226,39 @@ SELECT (SELECT count(*) FROM scanned), (SELECT count(*) FROM deleted),
   (SELECT fixture_id FROM scanned ORDER BY finished_at DESC,fixture_id DESC,generated_at DESC,prediction_id DESC LIMIT 1),
   (SELECT generated_at FROM scanned ORDER BY finished_at DESC,fixture_id DESC,generated_at DESC,prediction_id DESC LIMIT 1),
   (SELECT prediction_id::text FROM scanned ORDER BY finished_at DESC,fixture_id DESC,generated_at DESC,prediction_id DESC LIMIT 1)`
+
+// Expiry of raw details is separate from the football outcome. Never invent
+// finished_at or a result for an unknown, cancelled or postponed fixture.
+// A rescheduled fixture with a future kickoff is ineligible. Compact fixture
+// identity/history and all protected prediction references remain intact.
+var unresolvedPredictionBaseSQL = strings.Replace(strings.Replace(
+	strings.ReplaceAll(rawPredictionDrainSQL, "fixture.finished_at", "fixture.kickoff_at"),
+	"SELECT fixture.kickoff_at,", "SELECT fixture.kickoff_at AS finished_at,", 1),
+	"WHERE fixture.kickoff_at < $1",
+	"WHERE fixture.finished_at IS NULL AND fixture.status IN ('unknown','cancelled','postponed') AND fixture.kickoff_at < $1", 1)
+
+var unresolvedPredictionDrainSQL = recoverableUnresolvedSQL(unresolvedPredictionBaseSQL)
+
+func recoverableUnresolvedSQL(base string) string {
+	base = strings.Replace(base, "), deleted AS (\n  DELETE FROM engine_predictions prediction USING scanned\n  WHERE prediction.id=scanned.prediction_id",
+		"), eligible AS MATERIALIZED (\n SELECT prediction.* FROM engine_predictions prediction JOIN scanned ON prediction.id=scanned.prediction_id WHERE true", 1)
+	base = strings.Replace(base, "  RETURNING prediction.id\n)\nSELECT",
+		`), archived AS (
+ INSERT INTO raw_prediction_retention_recovery(prediction_id,release_sha,prediction_data,result_data,tracker_data)
+ SELECT eligible.id,$7,to_jsonb(eligible),
+  (SELECT to_jsonb(result) FROM prediction_results result WHERE result.prediction_id=eligible.id),
+  (SELECT to_jsonb(tracker) FROM prediction_tracker_state tracker WHERE tracker.prediction_id=eligible.id)
+ FROM eligible
+ ON CONFLICT(prediction_id) DO UPDATE SET release_sha=excluded.release_sha,deleted_at=now(),prediction_data=excluded.prediction_data,result_data=excluded.result_data,tracker_data=excluded.tracker_data
+ RETURNING prediction_id
+), deleted AS (
+ DELETE FROM engine_predictions prediction USING archived WHERE prediction.id=archived.prediction_id RETURNING prediction.id
+)
+SELECT`, 1)
+	return base
+}
+
+const pruneRawRecoverySQL = `WITH expired AS (
+ SELECT prediction_id FROM raw_prediction_retention_recovery WHERE deleted_at<$1
+ ORDER BY deleted_at,prediction_id LIMIT $2 FOR UPDATE SKIP LOCKED
+) DELETE FROM raw_prediction_retention_recovery recovery USING expired WHERE recovery.prediction_id=expired.prediction_id`

@@ -109,7 +109,10 @@ systemctl enable --now docker
 The runner must not run as root, needs membership of the `docker` group, and
 should **not** be given passwordless sudo. Nothing here requires it: the one
 step that did — installing gitleaks into `/usr/local/bin` — now installs into
-`RUNNER_TEMP`.
+`RUNNER_TEMP`. `scripts/ci/install-gitleaks.sh` keeps the checksum-verified
+release archive in the runner's tool cache (`_work/_tool/gitleaks/`), so a
+GitHub release outage does not fail the secret scan once it has been
+downloaded once. Deleting that folder is safe; the next run downloads again.
 
 ### Keeping the WSL distro alive
 

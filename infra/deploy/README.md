@@ -138,3 +138,14 @@ sudo systemctl reload caddy
 ## Backups to Cloudflare R2
 
 `backup.sh` dumps PostgreSQL (`pg_dump`, zstd), proves the dump restores into a throwaway database, and can upload an encrypted copy to the bucket `sokalens-backups`. A deploy dumps only when a pending migration does more than add tables, columns or indexes, using `backup.sh dump`. The `verify-recovery-point` job in `ci.yml` then runs `backup.sh verify-pending` after the deploy, so the restore check no longer holds the release. A dump that has not passed is named in `restore-check-pending` beside the dumps; while that file exists, the previous proven dump is kept, and the next `backup.sh dump` runs its restore check before its migration. If that job is red, read its log before the next migration ships. Run plainly, `backup.sh` does both steps at once. Prerequisites and the cron line are documented in the script header. R2 uses its own S3-compatible endpoint and does not depend on `sokalens.com` DNS, so backups can be enabled independently of the DNS/SSL blocker.
+
+### Bounded backend maintenance
+
+[Backend retention and recovery](../../docs/operations/backend-retention.md)
+describes the short raw-detail windows, immutable QA-to-production rollout,
+private API metrics, runtime PostgreSQL reconciliation and failure recovery.
+`backend-maintenance.yml` verifies an exact deployed SHA and a fresh restored
+backup before rebuilding oversized request-log indexes and enabling unresolved
+raw prediction expiry. `scripts/operations/backend-window.sh` is the one-shot
+scheduled driver; it holds on changed identities, red checks or missing owner
+merge authorization and never uses an admin merge bypass.

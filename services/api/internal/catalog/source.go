@@ -277,7 +277,51 @@ LIMIT 100`, leagueID)
 	return teams, rows.Err()
 }
 
+// teamIdentityIDs returns the team's own id followed by every id an active
+// identity decision has folded into it, ready to pass as query arguments.
+//
+// The fixture queries below used to ask this once per fixture row, as a
+// correlated EXISTS inside an OR. PostgreSQL cannot use the home/away team
+// indexes for that shape, so it walked every past fixture newest-first looking
+// for the team: about 90,000 rows and 300 ms for a team with three matches, on
+// every team page. Resolving the ids once leaves plain equality on indexed
+// columns.
+func (s Source) teamIdentityIDs(ctx context.Context, teamID int64) ([]any, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT old_id FROM team_identity_aliases WHERE canonical_id = $1 AND revoked_at IS NULL ORDER BY old_id`, teamID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ids := []any{teamID}
+	for rows.Next() {
+		var oldID int64
+		if err := rows.Scan(&oldID); err != nil {
+			return nil, err
+		}
+		if oldID != teamID {
+			ids = append(ids, oldID)
+		}
+	}
+	return ids, rows.Err()
+}
+
+// teamSidePredicate renders "this fixture involves one of these teams" for the
+// first n positional arguments.
+func teamSidePredicate(n int) string {
+	placeholders := make([]string, n)
+	for i := range placeholders {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+	}
+	list := strings.Join(placeholders, ", ")
+	return "(f.home_team_id IN (" + list + ") OR f.away_team_id IN (" + list + "))"
+}
+
 func (s Source) teamMatch(ctx context.Context, teamID int64, upcoming bool) (*httpserver.MatchSummary, error) {
+	ids, err := s.teamIdentityIDs(ctx, teamID)
+	if err != nil {
+		return nil, err
+	}
 	comparison := "> now() - interval '2 hours'"
 	order := "ASC"
 	if !upcoming {
@@ -292,20 +336,16 @@ FROM fixtures f
 JOIN teams home ON home.id = f.home_team_id
 JOIN teams away ON away.id = f.away_team_id
 LEFT JOIN leagues l ON l.id = f.league_id
-WHERE (
-  f.home_team_id = $1 OR f.away_team_id = $1
-  OR EXISTS (SELECT 1 FROM team_identity_aliases tia WHERE tia.canonical_id = $1
-    AND tia.revoked_at IS NULL AND tia.old_id IN (f.home_team_id, f.away_team_id))
-)
+WHERE %s
   AND NOT EXISTS (SELECT 1 FROM fixture_identity_aliases fia WHERE fia.old_id = f.id AND fia.revoked_at IS NULL)
   AND f.kickoff_at %s
   AND lower(COALESCE(f.status, 'scheduled')) NOT IN ('finished', 'ft', 'aet', 'pen', 'awarded', 'walkover', 'cancelled', 'canceled', 'postponed', 'abandoned')
 ORDER BY f.kickoff_at %s
-LIMIT 1`, comparison, order)
+LIMIT 1`, teamSidePredicate(len(ids)), comparison, order)
 	var match httpserver.MatchSummary
 	var kickoff any
 	var homeScore, awayScore sql.NullInt64
-	err := s.db.QueryRowContext(ctx, query, teamID).Scan(&match.ID, &match.HomeTeam, &match.AwayTeam, &match.LeagueName, &kickoff, &match.Status, &homeScore, &awayScore, &match.HomeTeamLogo, &match.AwayTeamLogo)
+	err = s.db.QueryRowContext(ctx, query, ids...).Scan(&match.ID, &match.HomeTeam, &match.AwayTeam, &match.LeagueName, &kickoff, &match.Status, &homeScore, &awayScore, &match.HomeTeamLogo, &match.AwayTeamLogo)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -318,7 +358,11 @@ LIMIT 1`, comparison, order)
 }
 
 func (s Source) teamMatches(ctx context.Context, teamID int64, limit int) ([]httpserver.MatchSummary, error) {
-	rows, err := s.db.QueryContext(ctx, `
+	ids, err := s.teamIdentityIDs(ctx, teamID)
+	if err != nil {
+		return nil, err
+	}
+	query := fmt.Sprintf(`
 SELECT f.id, COALESCE(home.name,'Home'), COALESCE(away.name,'Away'), COALESCE(l.name,'Competition'), f.kickoff_at, COALESCE(f.status,'scheduled'), f.home_goals_ft, f.away_goals_ft,
        COALESCE(NULLIF(home.logo_url, ''), (SELECT NULLIF(alias_home.logo_url, '') FROM teams alias_home WHERE lower(alias_home.name) = lower(home.name) AND NULLIF(alias_home.logo_url, '') IS NOT NULL LIMIT 1), ''),
        COALESCE(NULLIF(away.logo_url, ''), (SELECT NULLIF(alias_away.logo_url, '') FROM teams alias_away WHERE lower(alias_away.name) = lower(away.name) AND NULLIF(alias_away.logo_url, '') IS NOT NULL LIMIT 1), '')
@@ -326,14 +370,11 @@ FROM fixtures f
 JOIN teams home ON home.id = f.home_team_id
 JOIN teams away ON away.id = f.away_team_id
 LEFT JOIN leagues l ON l.id = f.league_id
-WHERE (
-  f.home_team_id = $1 OR f.away_team_id = $1
-  OR EXISTS (SELECT 1 FROM team_identity_aliases tia WHERE tia.canonical_id = $1
-    AND tia.revoked_at IS NULL AND tia.old_id IN (f.home_team_id, f.away_team_id))
-) AND f.kickoff_at <= now()
+WHERE %s AND f.kickoff_at <= now()
   AND NOT EXISTS (SELECT 1 FROM fixture_identity_aliases fia WHERE fia.old_id = f.id AND fia.revoked_at IS NULL)
 ORDER BY f.kickoff_at DESC
-LIMIT $2`, teamID, limit)
+LIMIT $%d`, teamSidePredicate(len(ids)), len(ids)+1)
+	rows, err := s.db.QueryContext(ctx, query, append(ids, limit)...)
 	if err != nil {
 		return nil, err
 	}

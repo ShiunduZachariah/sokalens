@@ -733,21 +733,44 @@ WHERE ep.public_id = $1
 	return detail, nil
 }
 
+// The evaluation ledger stores the original generated_at as prediction_timestamp.
+// Read that compact metadata first: probing the large raw table for every result
+// took five seconds on production. Legacy rows still fall back to the raw row;
+// only versions sharing a timestamp need its public_id tie-breaker.
 func (s Source) GetHitRateReport(ctx context.Context) (httpserver.PredictionHitRateReport, error) {
 	rows, err := s.db.QueryContext(ctx, `
-WITH ranked_raw_results AS (
+WITH raw_metadata AS MATERIALIZED (
   SELECT
+    pr.prediction_id,
+    pr.fixture_id,
     pr.market,
     pr.settlement_status,
     pr.is_correct,
-    ROW_NUMBER() OVER (
-      PARTITION BY pr.fixture_id, pr.market
-      ORDER BY ep.generated_at DESC, ep.public_id DESC
-    ) AS final_prediction_rank
+    COALESCE(facts.prediction_timestamp, (
+      SELECT ep.generated_at FROM engine_predictions AS ep WHERE ep.id = pr.prediction_id
+    )) AS generated_at,
+    f.kickoff_at
   FROM prediction_results AS pr
-  JOIN engine_predictions AS ep ON ep.id = pr.prediction_id
   JOIN fixtures AS f ON f.id = pr.fixture_id
-  WHERE ep.generated_at <= f.kickoff_at
+  LEFT JOIN model_evaluation_facts AS facts ON facts.prediction_id = pr.prediction_id
+), eligible_raw AS MATERIALIZED (
+  SELECT *, COUNT(*) OVER (
+    PARTITION BY fixture_id, market, generated_at
+  ) AS timestamp_versions
+  FROM raw_metadata
+  WHERE generated_at <= kickoff_at
+), ranked_raw_results AS (
+  SELECT
+    market,
+    settlement_status,
+    is_correct,
+    ROW_NUMBER() OVER (
+      PARTITION BY fixture_id, market
+      ORDER BY generated_at DESC, CASE WHEN timestamp_versions > 1 THEN (
+        SELECT ep.public_id FROM engine_predictions AS ep WHERE ep.id = eligible_raw.prediction_id
+      ) END DESC
+    ) AS final_prediction_rank
+  FROM eligible_raw
 ), accuracy_sources AS (
   SELECT
     raw.market,
@@ -806,6 +829,39 @@ ORDER BY market ASC`)
 	return report, nil
 }
 
+// settledResultCandidatesCTE names the predictions of one day's fixtures that
+// can be settled at all, before anything reads their rows.
+//
+// A day's fixtures carry several hundred prediction versions each (708,818 for
+// 1,265 fixtures on 2026-11-14), and only a few percent are ever settled. The
+// results queries first joined every version to its result and evidence and
+// filtered afterwards: 387,000 rows read from an 11 GB table to keep 11,600,
+// 20 seconds cold against a 2,750 ms request budget, which is why the results
+// page said the day could not be loaded. Finding the settled ids by walking
+// engine_predictions' own index was still 387,000 index entries per request,
+// and 6 seconds whenever those pages had left memory.
+//
+// So the settled branch starts from prediction_results, which is small, using
+// the fixture_id it carries. GetHitRateReport already reads that column as the
+// prediction's fixture; if the two ever disagreed for a row, the queries below
+// would drop it, because they still join fixtures through the prediction and
+// apply the window there. The second branch is the one market that can settle
+// through evaluation evidence instead. Both are implied by the filter the
+// queries still apply. $1 and $2 are the day window.
+const settledResultCandidatesCTE = `settled_candidates AS (
+  SELECT pr.prediction_id AS id
+  FROM fixtures f
+  JOIN prediction_results pr ON pr.fixture_id = f.id
+  WHERE f.kickoff_at >= $1 AND f.kickoff_at < $2
+  UNION
+  SELECT ep.id
+  FROM fixtures f
+  JOIN engine_predictions ep ON ep.fixture_id = f.id AND ep.generated_at <= f.kickoff_at
+  WHERE f.kickoff_at >= $1 AND f.kickoff_at < $2
+    AND ep.market = 'btts_total_goals'
+    AND EXISTS (SELECT 1 FROM effective_model_evaluation_facts evidence WHERE evidence.prediction_id = ep.id)
+)`
+
 func (s Source) ListPredictionResults(ctx context.Context, filter httpserver.PredictionFilter) ([]httpserver.PredictionResultSummary, error) {
 	dayStart, dayEnd := s.predictionWindow(filter)
 	limit := filter.Limit
@@ -817,20 +873,13 @@ func (s Source) ListPredictionResults(ctx context.Context, filter httpserver.Pre
 		page = 1
 	}
 	rows, err := s.db.QueryContext(ctx, `
-WITH ranked AS (
+WITH `+settledResultCandidatesCTE+`, ranked AS (
   SELECT
     ep.public_id,
     ep.fixture_id,
-    COALESCE(home.name, 'Home') || ' vs ' || COALESCE(away.name, 'Away') AS match_title,
-    -- The two sides as their own columns. match_title stays: it is what the
-    -- share text and the single-line fallback read, and recovering names by
-    -- splitting it would be guessing at structure that was already flattened.
-    COALESCE(home.name, 'Home') AS home_team,
-    COALESCE(away.name, 'Away') AS away_team,
-    COALESCE(home.logo_url, '') AS home_team_logo,
-    COALESCE(away.logo_url, '') AS away_team_logo,
-    COALESCE(l.name, 'Competition') AS league_name,
-    COALESCE(l.country_code, 'International') AS country,
+    f.home_team_id,
+    f.away_team_id,
+    f.league_id,
     f.kickoff_at,
     COALESCE(f.status, 'finished') AS match_status,
     ep.market,
@@ -850,26 +899,46 @@ WITH ranked AS (
     END AS outcome,
     COALESCE(ep.confidence, 0) * 100 AS confidence,
     ROW_NUMBER() OVER (PARTITION BY ep.fixture_id, ep.market ORDER BY ep.generated_at DESC, ep.public_id DESC) AS result_rank
-  FROM engine_predictions ep
+  FROM settled_candidates candidate
+  JOIN engine_predictions ep ON ep.id = candidate.id
   LEFT JOIN prediction_results pr ON pr.prediction_id = ep.id
   LEFT JOIN effective_model_evaluation_facts evidence
     ON evidence.prediction_id = ep.id AND ep.market = 'btts_total_goals'
   JOIN fixtures f ON f.id = ep.fixture_id
-  LEFT JOIN teams home ON home.id = f.home_team_id
-  LEFT JOIN teams away ON away.id = f.away_team_id
-  LEFT JOIN leagues l ON l.id = f.league_id
   WHERE f.kickoff_at >= $1 AND f.kickoff_at < $2
     AND ($3 = '' OR ep.market = $3)
     AND ep.generated_at <= f.kickoff_at
     AND (pr.prediction_id IS NOT NULL OR evidence.settlement_classification IN ('correct', 'incorrect', 'void'))
+), page AS (
+  -- Rank and cut to one page before reading teams and leagues: a busy day has
+  -- 11,000 settled rows and the page shows 100 of them.
+  SELECT public_id, fixture_id, home_team_id, away_team_id, league_id, kickoff_at,
+         match_status, market, prediction, actual, outcome, confidence
+  FROM ranked
+  WHERE result_rank = 1
+  ORDER BY kickoff_at DESC, fixture_id, market
+  LIMIT $4 OFFSET $5
 )
-SELECT public_id, fixture_id, match_title, home_team, away_team,
-       home_team_logo, away_team_logo, league_name, country, kickoff_at,
-       match_status, market, prediction, actual, outcome, confidence
-FROM ranked
-WHERE result_rank = 1
-ORDER BY kickoff_at DESC, fixture_id, market
-LIMIT $4 OFFSET $5`, dayStart.UTC().Format(time.RFC3339), dayEnd.UTC().Format(time.RFC3339), filter.MarketKey, limit, (page-1)*limit)
+SELECT
+  page.public_id,
+  page.fixture_id,
+  COALESCE(home.name, 'Home') || ' vs ' || COALESCE(away.name, 'Away') AS match_title,
+  -- The two sides as their own columns. match_title stays: it is what the
+  -- share text and the single-line fallback read, and recovering names by
+  -- splitting it would be guessing at structure that was already flattened.
+  COALESCE(home.name, 'Home') AS home_team,
+  COALESCE(away.name, 'Away') AS away_team,
+  COALESCE(home.logo_url, '') AS home_team_logo,
+  COALESCE(away.logo_url, '') AS away_team_logo,
+  COALESCE(l.name, 'Competition') AS league_name,
+  COALESCE(l.country_code, 'International') AS country,
+  page.kickoff_at,
+  page.match_status, page.market, page.prediction, page.actual, page.outcome, page.confidence
+FROM page
+LEFT JOIN teams home ON home.id = page.home_team_id
+LEFT JOIN teams away ON away.id = page.away_team_id
+LEFT JOIN leagues l ON l.id = page.league_id
+ORDER BY page.kickoff_at DESC, page.fixture_id, page.market`, dayStart.UTC().Format(time.RFC3339), dayEnd.UTC().Format(time.RFC3339), filter.MarketKey, limit, (page-1)*limit)
 	if err != nil {
 		return nil, err
 	}
@@ -901,9 +970,11 @@ func (s Source) CountPredictionResults(ctx context.Context, filter httpserver.Pr
 	dayStart, dayEnd := s.predictionWindow(filter)
 	var count int
 	err := s.db.QueryRowContext(ctx, `
+WITH `+settledResultCandidatesCTE+`
 SELECT COUNT(*) FROM (
   SELECT DISTINCT ep.fixture_id, ep.market
-  FROM engine_predictions ep
+  FROM settled_candidates candidate
+  JOIN engine_predictions ep ON ep.id = candidate.id
   LEFT JOIN prediction_results pr ON pr.prediction_id = ep.id
   LEFT JOIN effective_model_evaluation_facts evidence
     ON evidence.prediction_id = ep.id AND ep.market = 'btts_total_goals'

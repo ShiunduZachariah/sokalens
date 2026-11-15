@@ -300,3 +300,32 @@ func TestTheHeartbeatKeepsBeatingWhileAJobRuns(t *testing.T) {
 		}
 	}
 }
+
+func TestEmptyQueuesBackOffAndDrainImmediatelyAfterWork(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var calls []time.Time
+	worker := QueueWorker{Queue: "background", Concurrency: 1, ProcessOnce: func(context.Context) (bool, error) {
+		calls = append(calls, time.Now())
+		if len(calls) == 4 {
+			return true, nil
+		}
+		if len(calls) == 5 {
+			cancel()
+		}
+		return false, nil
+	}}
+	opts := RuntimeOptions{IdleBackoff: 10 * time.Millisecond, MaxIdleBackoff: 40 * time.Millisecond, Logger: slog.Default()}
+	runQueueLoop(ctx, opts, worker, 0, newAdmission(1, []QueueWorker{worker}))
+	if len(calls) != 5 {
+		t.Fatalf("claims=%d", len(calls))
+	}
+	for i, floor := range []time.Duration{10 * time.Millisecond, 20 * time.Millisecond, 40 * time.Millisecond} {
+		if calls[i+1].Sub(calls[i]) < floor {
+			t.Fatalf("empty claim %d did not back off", i)
+		}
+	}
+	if calls[4].Sub(calls[3]) >= 40*time.Millisecond {
+		t.Fatal("work did not drain immediately")
+	}
+}

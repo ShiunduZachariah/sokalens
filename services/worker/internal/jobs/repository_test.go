@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -12,6 +14,7 @@ import (
 type fakeDB struct {
 	query     string
 	args      []any
+	execCalls int
 	execQuery string
 	execArgs  []any
 	row       fakeRow
@@ -26,6 +29,7 @@ func (f *fakeDB) QueryRowContext(_ context.Context, query string, args ...any) s
 }
 
 func (f *fakeDB) ExecContext(_ context.Context, query string, args ...any) (sql.Result, error) {
+	f.execCalls++
 	f.execQuery = query
 	f.execArgs = args
 	rows := int64(1)
@@ -244,5 +248,61 @@ func TestRepositoryRejectsStaleOwnerTransition(t *testing.T) {
 	repo := NewRepository(db)
 	if err := repo.Complete(context.Background(), 7, "stale-worker", time.Now()); !errors.Is(err, ErrLeaseLost) {
 		t.Fatalf("Complete error=%v, want ErrLeaseLost", err)
+	}
+}
+
+func TestLeaseSweepSharedAcrossQueuesAndRetriesFailures(t *testing.T) {
+	db := &fakeDB{row: fakeRow{err: sql.ErrNoRows}}
+	repo := NewRepository(db)
+	otherQueue := repo
+	now := time.Now().UTC()
+	for _, r := range []Repository{repo, otherQueue} {
+		if _, _, err := r.ClaimNext(context.Background(), "background", "worker", now); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if db.execCalls != 1 {
+		t.Fatalf("idle queues repeated lease sweep %d times", db.execCalls)
+	}
+	db.err = errors.New("temporary database failure")
+	if _, _, err := repo.ClaimNext(context.Background(), "background", "worker", now.Add(time.Minute)); err == nil {
+		t.Fatal("failed sweep was ignored")
+	}
+	db.err = nil
+	if _, _, err := otherQueue.ClaimNext(context.Background(), "background", "worker", now.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if db.execCalls != 3 {
+		t.Fatalf("failed sweep did not retry: calls=%d", db.execCalls)
+	}
+}
+
+type concurrentSweepDB struct{ calls atomic.Int64 }
+
+func (d *concurrentSweepDB) ExecContext(context.Context, string, ...any) (sql.Result, error) {
+	d.calls.Add(1)
+	time.Sleep(time.Millisecond)
+	return fakeResult(0), nil
+}
+func (d *concurrentSweepDB) QueryRowContext(context.Context, string, ...any) scanner {
+	return fakeRow{err: sql.ErrNoRows}
+}
+func TestConcurrentConsumersShareOneLeaseSweep(t *testing.T) {
+	db := &concurrentSweepDB{}
+	repo := NewRepository(db)
+	now := time.Now().UTC()
+	var wg sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func(copy Repository) {
+			defer wg.Done()
+			if _, _, err := copy.ClaimNext(context.Background(), "background", "worker", now); err != nil {
+				t.Error(err)
+			}
+		}(repo)
+	}
+	wg.Wait()
+	if got := db.calls.Load(); got != 1 {
+		t.Fatalf("simultaneous consumers ran %d lease sweeps", got)
 	}
 }

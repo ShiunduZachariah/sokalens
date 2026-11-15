@@ -107,6 +107,7 @@ echo "--- api ---"
 check_api "/v1/matches/today?limit=50"     "matches"
 check_api "/v1/predictions/today?limit=20" "predictions"
 check_api "/v1/accas?limit=10"             "items"
+check_api "/v1/predictions/hit-rate"      "settled"
 
 echo
 if [ "$FAILURES" -ne 0 ]; then

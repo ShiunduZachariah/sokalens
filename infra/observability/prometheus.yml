@@ -6,11 +6,8 @@
 #   - cAdvisor (per-container CPU/mem/network/disk)
 #   - worker (quota planner + provider request accounting gauges)
 #
-# The Go API also exposes a Prometheus text endpoint at
-# /v1/admin/observability/metrics, but it is admin-gated (requires an admin
-# session + the read_analytics permission), so it is intentionally NOT scraped
-# here. Host and container metrics come from node-exporter and cAdvisor, which
-# are unauthenticated but only reachable inside the Docker network.
+# API request histograms and pool metrics use a separate Docker-only listener.
+# Port 9092 is never published. The public admin metrics route remains gated.
 
 global:
   scrape_interval: 15s
@@ -39,3 +36,7 @@ scrape_configs:
   - job_name: ops-controller
     static_configs:
       - targets: ["ops-controller:8090"]
+
+  - job_name: api
+    static_configs:
+      - targets: ["api:9092"]

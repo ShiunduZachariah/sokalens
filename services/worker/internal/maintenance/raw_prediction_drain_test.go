@@ -19,13 +19,13 @@ func TestRawPredictionDrainRequiresExplicitGate(t *testing.T) {
 		t.Fatal("disabled raw drain called the destructive store")
 	}
 	job.Policy.EnableDestructiveRetention = true
-	if err := job.Run(context.Background(), jobs.Job{Payload: []byte(`{"batch_size":500,"max_batches":50,"enable_destructive_retention":false,"raw_prediction_retention_hours":1}`)}); err != nil {
+	if err := job.Run(context.Background(), jobs.Job{Payload: []byte(`{"batch_size":500,"max_batches":50,"enable_destructive_retention":false,"raw_prediction_retention_hours":1,"expire_unresolved_predictions":true,"unresolved_fixture_retention_hours":1}`)}); err != nil {
 		t.Fatal(err)
 	}
 	if !store.called {
 		t.Fatal("enabled raw drain did not call the store")
 	}
-	if store.policy.BatchSize != 500 || store.policy.MaxBatches != 50 || !store.policy.EnableDestructiveRetention || store.policy.RawPredictionRetentionHours != 24 {
+	if store.policy.BatchSize != 500 || store.policy.MaxBatches != 50 || !store.policy.EnableDestructiveRetention || store.policy.RawPredictionRetentionHours != 24 || store.policy.ExpireUnresolvedPredictions || store.policy.UnresolvedFixtureRetentionHours != 168 {
 		t.Fatalf("unsafe or missing throughput override: %+v", store.policy)
 	}
 	if err := job.Run(context.Background(), jobs.Job{Payload: []byte(`{"max_batches":101}`)}); err == nil {

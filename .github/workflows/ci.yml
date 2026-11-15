@@ -18,6 +18,16 @@ permissions:
   contents: read
   pull-requests: read
 
+env:
+  # The Go *minor* release. setup-go resolves the newest patch of it on every
+  # run (check-latest), and the service Dockerfiles build FROM the matching
+  # floating tag, so a Go security release needs no commit here. The exact
+  # patch pin this replaces was hand-bumped five times between August and
+  # November 2026, and twice the nightly audit stayed red for days (11, then
+  # 5) because nobody had bumped it. Change this only to move to a new minor,
+  # together with the three FROM lines; security-audit-go fails if they differ.
+  GO_VERSION: '1.27.x'
+
 # Serialize CI runs per branch so a deploy never overlaps a still-running run.
 concurrency:
   group: ci-${{ github.ref }}
@@ -185,6 +195,10 @@ jobs:
               - 'infra/**'
               - '!infra/deploy/Caddyfile'
               - '!infra/deploy/ci-deploy.sh'
+              - 'scripts/ci/**'
+              - 'scripts/operations/**'
+              - 'scripts/qa/guarded-deploy*'
+              - '.github/workflows/backend-maintenance.yml'
               - 'Taskfile.yml'
             proxy:
               - 'infra/deploy/Caddyfile'
@@ -231,7 +245,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.27.3'
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
       - uses: arduino/setup-task@v2
         with:
           # Pin a published release; the floating tag may have no assets yet.
@@ -243,7 +258,7 @@ jobs:
       - run: task db:migrate
       - run: task db:seed
       - run: task db:verify
-      - run: docker build -f services/api/Dockerfile -t sports-prediction-api:ci .
+      - run: docker build --pull -f services/api/Dockerfile -t sports-prediction-api:ci .
 
   security-invariants:
     runs-on: ${{ needs.detect.outputs.runner }}
@@ -254,7 +269,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.27.3'
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
       - uses: arduino/setup-task@v2
         with:
           # Pin a published release; the floating tag may have no assets yet.
@@ -330,6 +346,7 @@ jobs:
       SNAPSHOTS_TEST_DATABASE_URL: postgres://sports:sports@127.0.0.1:25434/sports_prediction?sslmode=disable
       SCHEDULER_TEST_DATABASE_URL: postgres://sports:sports@127.0.0.1:25434/sports_prediction?sslmode=disable
       WORKER_TEST_DATABASE_URL: postgres://sports:sports@127.0.0.1:25434/sports_prediction?sslmode=disable
+      MARKETING_TEST_DATABASE_URL: postgres://sports:sports@127.0.0.1:25434/sports_prediction?sslmode=disable
       # The same principle as PREDICTION_ENGINE_REQUIRE_DB_TESTS above, for the
       # Go side. Every one of those five tests skipped on every CI run from the
       # day it was written, because this job set none of the variables above.
@@ -353,7 +370,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.27.3'
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
@@ -367,10 +385,12 @@ jobs:
       # schema rather than building their own.
       - run: task db:migrate
       - run: task worker:test
+      - name: Verify deployed retention SQL against PostgreSQL without test caching
+        run: go test -count=1 -run TestRawRetentionAgainstPostgres ./services/worker/internal/maintenance
       - run: task prediction-engine:test
       - run: task worker:lint
       - run: task worker:build
-      - run: docker build -f services/worker/Dockerfile -t sports-prediction-worker:ci .
+      - run: docker build --pull -f services/worker/Dockerfile -t sports-prediction-worker:ci .
 
   ops-tooling:
     runs-on: ${{ needs.detect.outputs.runner }}
@@ -381,7 +401,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.27.3'
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
@@ -398,7 +419,7 @@ jobs:
       - run: task release-manifest:build
       - run: task architecture:test
       - run: task architecture:migrations:verify
-      - run: docker build -f services/ops-controller/Dockerfile -t sports-prediction-ops-controller:ci .
+      - run: docker build --pull -f services/ops-controller/Dockerfile -t sports-prediction-ops-controller:ci .
 
   web:
     runs-on: ${{ needs.detect.outputs.runner }}
@@ -508,7 +529,14 @@ jobs:
           bash -n infra/deploy/backup.sh
           # infra/**, not infra/deploy/**: the mock provider payload has a guard
           # too, and a guard CI never runs is not a guard.
-          node --test infra/deploy/*.test.mjs infra/mock-api-football/*.test.mjs
+          node --test infra/deploy/*.test.mjs infra/mock-api-football/*.test.mjs scripts/qa/guarded-deploy.test.mjs scripts/operations/backend-window.test.mjs
+      - name: Test the CI gate scripts
+        # The retry wrappers decide whether a security gate failed on a finding
+        # or on a non-answer. Their tests have to run, or that line can drift.
+        run: |
+          bash -n scripts/ci/install-gitleaks.sh
+          bash -n scripts/ci/npm-audit-with-retry.sh
+          node --test scripts/ci/*.test.mjs
       - run: task contracts:test
 
   ci-volume-cleanup:
@@ -568,8 +596,19 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.27.3'
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
           cache-dependency-path: '**/go.sum'
+      - name: Service images build with the Go release being scanned
+        run: |
+          minor="${GO_VERSION%.x}"
+          for dockerfile in services/api/Dockerfile services/ops-controller/Dockerfile services/worker/Dockerfile; do
+            if ! grep -q "^FROM golang:${minor}-alpine AS build" "$dockerfile"; then
+              echo "::error file=${dockerfile}::expected 'FROM golang:${minor}-alpine AS build' to match GO_VERSION=${GO_VERSION}"
+              exit 1
+            fi
+          done
+          go version
       - name: Scan reachable Go vulnerabilities
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
@@ -587,39 +626,18 @@ jobs:
           fetch-depth: 0
       - name: Install gitleaks
         env:
+          # Bump both together. The SHA-256 is the linux_x64 line of the
+          # release's gitleaks_<version>_checksums.txt.
           GITLEAKS_VERSION: '8.30.1'
+          GITLEAKS_SHA256: '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb'
+        # Into RUNNER_TEMP, not /usr/local/bin: the self-hosted runner has no
+        # sudo and should not be given it for this. The script verifies the
+        # pinned checksum, reuses a verified archive from the runner's tool
+        # cache, and retries GitHub 504s for minutes rather than seconds. It
+        # still fails if no verified archive can be had: a scanner that never
+        # ran is not a clean scan.
         run: |
-          set -euo pipefail
-          # Installed into the runner's own temp directory rather than
-          # /usr/local/bin. A hosted runner grants passwordless sudo; a
-          # self-hosted one has no reason to, and should not be given it just
-          # so a job can drop a binary into a system path. RUNNER_TEMP is
-          # per-job and always writable, so this behaves the same on both.
-          install -d "$RUNNER_TEMP/bin"
-          # --fail matters more than the retries.
-          #
-          # Without it curl exits 0 on a 404, a 403 or a rate-limit page and
-          # writes that body to the .tar.gz, so the first thing to complain is
-          # tar -- "gzip: stdin: not in gzip format", exit 2 -- and the job
-          # reads as a failed SECURITY SCAN when the scanner never ran. That is
-          # the worst shape a gate can fail in, because the honest answer
-          # ("I do not know") is indistinguishable from a finding. It happened
-          # twice on 2026-10-03.
-          #
-          # --fail turns a bad response into a non-zero curl under `set -e`,
-          # which stops here and says so. The retries cover the transient half.
-          archive="$RUNNER_TEMP/gitleaks.tar.gz"
-          curl -sS --fail --location --retry 3 --retry-delay 2 --retry-all-errors \
-            -o "$archive" \
-            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
-          # Belt: a 200 carrying the wrong body would still reach tar.
-          if ! gzip -t "$archive" 2>/dev/null; then
-            echo "::error::gitleaks download is not a gzip archive -- the scanner was not installed, so this job proves nothing about secrets" >&2
-            head -c 200 "$archive" >&2 || true
-            exit 1
-          fi
-          tar -xzf "$archive" -C "$RUNNER_TEMP/bin" gitleaks
-          chmod 0755 "$RUNNER_TEMP/bin/gitleaks"
+          bash scripts/ci/install-gitleaks.sh "$RUNNER_TEMP/bin"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       - name: Scan full git history for committed secrets
         run: gitleaks detect --source . --redact --no-banner

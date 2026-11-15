@@ -11,6 +11,7 @@ import (
 	"github.com/ShiunduZachariah/sports-prediction-platform/services/worker/internal/ingestion"
 	"github.com/ShiunduZachariah/sports-prediction-platform/services/worker/internal/jobs"
 	"github.com/ShiunduZachariah/sports-prediction-platform/services/worker/internal/maintenance"
+	"github.com/ShiunduZachariah/sports-prediction-platform/services/worker/internal/marketing"
 	"github.com/ShiunduZachariah/sports-prediction-platform/services/worker/internal/matchstate"
 	"github.com/ShiunduZachariah/sports-prediction-platform/services/worker/internal/predictions"
 	"github.com/ShiunduZachariah/sports-prediction-platform/services/worker/internal/recommendations"
@@ -59,6 +60,9 @@ type PlanOptions struct {
 	// silent. Nothing is planned while it is false, so the provider budget is
 	// untouched.
 	InPlayStatisticsPoll bool
+	// Marketing schedules the automated posting routine. Off unless
+	// MARKETING_MODE is preview or live; nothing is planned otherwise.
+	Marketing bool
 }
 
 type ScheduledJob struct {
@@ -449,6 +453,25 @@ func (p Planner) Plan(now time.Time) []ScheduledJob {
 		Payload: []byte(`{}`), IdempotencyKey: "schedule:matchstate:reap:" + reaperBucket,
 		DeduplicateCompleted: true, RunAfter: now,
 	}, Schedule: "match-state-reaper", Bucket: reaperBucket})
+
+	// The marketing routine decides for itself what is due, against the
+	// ledger, so the planner only has to wake it. Five minutes for the
+	// clock-driven posts is well inside the tolerance of "around 08:00"; two
+	// for goals keeps a goal post within a few minutes of the goal.
+	if p.opts.Marketing {
+		marketingBucket := cadenceBucket(now, 5*time.Minute)
+		plan = append(plan, ScheduledJob{Job: jobs.NewJob{
+			JobKey: marketing.TickJobKey, Queue: marketing.Queue, Priority: 40,
+			Payload: []byte(`{}`), IdempotencyKey: "schedule:marketing:tick:" + marketingBucket,
+			DeduplicateCompleted: true, RunAfter: now,
+		}, Schedule: "marketing-tick", Bucket: marketingBucket})
+		liveBucket := cadenceBucket(now, 2*time.Minute)
+		plan = append(plan, ScheduledJob{Job: jobs.NewJob{
+			JobKey: marketing.LiveJobKey, Queue: marketing.Queue, Priority: 45,
+			Payload: []byte(`{}`), IdempotencyKey: "schedule:marketing:live:" + liveBucket,
+			DeduplicateCompleted: true, RunAfter: now,
+		}, Schedule: "marketing-live", Bucket: liveBucket})
+	}
 
 	// Partition maintenance runs daily and unconditionally, including while
 	// snapshot writing is switched off. A partition that exists and is never

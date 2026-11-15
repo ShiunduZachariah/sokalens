@@ -167,6 +167,41 @@ dark until someone went looking.
 policy on web, admin and typesense.** That is the main reason
 `docker-compose.qa.yml` exists; the resource limits are secondary.
 
+## PostgreSQL settings do not apply themselves
+
+`ci-deploy.sh` recreates only the application services, with `--no-deps`. It
+never touches the `postgres` container, so a change to its `command:` or
+`shm_size:` in `docker-compose.prod.yml` merges, deploys green, and changes
+nothing. Production ran `shared_buffers=256MB` and `work_mem=8MB` for two
+months after #164 raised them to `1536MB` and `16MB`, because the container had
+been created three days before that merge.
+
+Check what is actually running, not what the file says:
+
+```bash
+docker exec sports-prediction-platform-postgres-1 sh -c \
+  'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SHOW shared_buffers; SHOW work_mem"'
+docker exec sports-prediction-platform-postgres-1 df -h /dev/shm
+```
+
+To apply a change, recreate the one container from the deploy directory. This
+restarts the database, so every service loses its connections for the time it
+takes PostgreSQL to stop and start. Do it outside match windows, and checkpoint
+first so the shutdown does not outlast Docker's stop timeout:
+
+```bash
+cd /home/deploy/sokalens
+docker exec sports-prediction-platform-postgres-1 sh -c \
+  'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c CHECKPOINT'
+docker compose -f infra/docker/docker-compose.yml \
+  -f infra/deploy/docker-compose.prod.yml --env-file .env.prod \
+  --profile core up -d --no-deps --no-build postgres
+```
+
+Then rerun the check above, and confirm the site and the worker recovered. The
+data volume is named by the Compose project, not the container, so recreating
+the container keeps the data.
+
 ## Deploying to QA
 
 ```bash

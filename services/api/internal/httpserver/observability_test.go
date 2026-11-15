@@ -98,3 +98,25 @@ func TestObservabilityDiagnosticsAndHealthAliasHandlers(t *testing.T) {
 		t.Fatalf("ready alias route = %d %s", readyResponse.Code, readyResponse.Body.String())
 	}
 }
+
+func TestInternalMetricsAreSeparateFromPublicAdminRoutes(t *testing.T) {
+	handler := InternalMetricsHandler(nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "sokalens_db_wait_seconds_total 0") || !strings.Contains(response.Header().Get("Content-Type"), "text/plain") {
+		t.Fatalf("metrics response: %d %s", response.Code, response.Body.String())
+	}
+	for _, path := range []string{"/v1/admin/observability/diagnostics", "/v1/me"} {
+		r := httptest.NewRecorder()
+		handler.ServeHTTP(r, httptest.NewRequest(http.MethodGet, path, nil))
+		if r.Code != http.StatusNotFound {
+			t.Fatalf("internal listener exposed %s: %d", path, r.Code)
+		}
+	}
+	public := New(ServerOptions{Config: config.Config{Environment: "test"}})
+	r := httptest.NewRecorder()
+	public.ServeHTTP(r, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	if r.Code != http.StatusNotFound {
+		t.Fatalf("public listener exposed private metrics: %d", r.Code)
+	}
+}

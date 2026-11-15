@@ -8,6 +8,10 @@ packages/contracts/seo-indexability.golden.json -text
 # Git runs hooks with /bin/sh; a CRLF shebang line does not execute.
 .githooks/* text eol=lf
 
+# The CI gate scripts and their tests run under bash, including from a Windows
+# checkout through WSL; a CRLF line is a bash syntax error there.
+scripts/ci/*.sh text eol=lf
+
 # Model artifacts are hashed into model_registry.artifact_hash. Line-ending
 # normalisation would give the same model a different hash on Windows.
 services/prediction-engine/prediction_engine/artifacts/*.json -text

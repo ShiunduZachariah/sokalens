@@ -1,6 +1,7 @@
 package httpserver
 
 import (
+	"database/sql"
 	"fmt"
 	"io"
 	"net/http"
@@ -278,4 +279,24 @@ func metricEscape(value string) string {
 	value = strings.ReplaceAll(value, `\`, `\\`)
 	value = strings.ReplaceAll(value, `"`, `\"`)
 	return strings.ReplaceAll(value, "\n", `\n`)
+}
+
+// InternalMetricsHandler is served only on the separate, unpublished Docker
+// listener. The public server keeps its existing admin permission checks.
+func InternalMetricsHandler(db *sql.DB) http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /metrics", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		writePrometheus(w, defaultRequestMetrics)
+		var stats sql.DBStats
+		if db != nil {
+			stats = db.Stats()
+		}
+		fmt.Fprintf(w, "# TYPE sokalens_db_open_connections gauge\nsokalens_db_open_connections %d\n", stats.OpenConnections)
+		fmt.Fprintf(w, "# TYPE sokalens_db_in_use_connections gauge\nsokalens_db_in_use_connections %d\n", stats.InUse)
+		fmt.Fprintf(w, "# TYPE sokalens_db_wait_total counter\nsokalens_db_wait_total %d\n", stats.WaitCount)
+		fmt.Fprintf(w, "# TYPE sokalens_db_wait_seconds_total counter\nsokalens_db_wait_seconds_total %g\n", stats.WaitDuration.Seconds())
+	})
+	return mux
 }

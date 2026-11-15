@@ -47,7 +47,7 @@ func TestJobAppliesBoundedRetentionDefaults(t *testing.T) {
 	if err := job.Run(context.Background(), jobs.Job{ID: 9, Payload: []byte(`{}`)}); err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
-	if store.policy.JobRetentionDays != 30 || store.policy.EventRetentionDays != 90 || store.policy.BatchSize != 1000 || store.policy.MaxBatches != 10 {
+	if store.policy.JobRetentionDays != 7 || store.policy.EventRetentionDays != 90 || store.policy.BatchSize != 1000 || store.policy.MaxBatches != 10 {
 		t.Fatalf("policy=%+v", store.policy)
 	}
 }

@@ -325,6 +325,39 @@ func TestSourceGetHitRateReportAggregatesEnginePredictionResults(t *testing.T) {
 			report.Markets[0].Denominator, report.Markets[1].Denominator, report.Markets[2].Denominator)
 	}
 
+	// The compact ledger path and missing-ledger fallback must produce exactly
+	// the original result, including rejecting the post-kickoff replay.
+	if _, err := db.ExecContext(context.Background(), "INSERT INTO model_evaluation_facts SELECT id, generated_at FROM engine_predictions WHERE id <> 'uuid-2'"); err != nil {
+		t.Fatal(err)
+	}
+	withEvidence, err := NewSource(db).GetHitRateReport(context.Background())
+	if err != nil || !reflect.DeepEqual(withEvidence, report) {
+		t.Fatalf("ledger/fallback report = %+v, %v; want %+v", withEvidence, err, report)
+	}
+	// Equal timestamps still select the larger public id, even when that
+	// version has no ledger row and must load its timestamp from raw storage.
+	for _, statement := range []string{
+		`INSERT INTO engine_predictions (id,public_id,fixture_id,market,prediction,probability,confidence,confidence_tier,is_best_bet,lifecycle_stage,data_completeness,features_used,explanation,generated_at,superseded_at,gate_tier,horizon_eligible,embargo_active,model_version)
+		 SELECT 'uuid-tie',7,fixture_id,market,'home',probability,confidence,confidence_tier,is_best_bet,lifecycle_stage,data_completeness,features_used,explanation,generated_at,superseded_at,gate_tier,horizon_eligible,embargo_active,model_version FROM engine_predictions WHERE id='uuid-1-final'`,
+		`INSERT INTO prediction_results SELECT 'uuid-tie',fixture_id,market,'home',actual,1,settlement_status,probability,confidence,confidence_tier,lifecycle_stage_at_settlement,league_id,settled_at FROM prediction_results WHERE prediction_id='uuid-1-final'`,
+	} {
+		if _, err := db.ExecContext(context.Background(), statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	withTie, err := NewSource(db).GetHitRateReport(context.Background())
+	if err != nil || withTie.Settled != 4 || withTie.Won != 2 || withTie.Lost != 1 || withTie.Void != 1 {
+		t.Fatalf("timestamp tie report = %+v, %v; want later public id to win", withTie, err)
+	}
+	for _, statement := range []string{
+		"DELETE FROM prediction_results WHERE prediction_id='uuid-tie'",
+		"DELETE FROM engine_predictions WHERE id='uuid-tie'",
+	} {
+		if _, err := db.ExecContext(context.Background(), statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+
 	beforePrune := report
 	if _, err := db.ExecContext(context.Background(), "INSERT INTO prediction_accuracy_daily (aggregate_date, market, league_id, confidence_tier, model_version, total_predictions, correct, incorrect, voided, pending, first_settled_at, last_settled_at, aggregated_at) VALUES ('2026-05-15', '1x2', 1, 'medium', 'python-engine-v1', 2, 0, 2, 0, 0, '2026-05-15T10:00:00Z', '2026-05-15T10:00:00Z', '2026-05-16T00:00:00Z')"); err != nil {
 		t.Fatal(err)
@@ -590,6 +623,7 @@ func openEnginePredictionTestDB(t *testing.T) *sql.DB {
 		"CREATE TABLE engine_predictions (id TEXT PRIMARY KEY, public_id INTEGER NOT NULL UNIQUE, fixture_id INTEGER NOT NULL, market TEXT NOT NULL, prediction TEXT NOT NULL, probability REAL NOT NULL, confidence REAL NOT NULL, confidence_tier TEXT NOT NULL, is_best_bet INTEGER NOT NULL, lifecycle_stage TEXT NOT NULL, data_completeness REAL NOT NULL, features_used TEXT NOT NULL, explanation TEXT NOT NULL, generated_at TEXT NOT NULL, superseded_at TEXT, gate_tier TEXT NOT NULL, horizon_eligible INTEGER NOT NULL, embargo_active INTEGER NOT NULL, model_version TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT '2026-05-14T10:05:00Z', last_evaluated_at TEXT NOT NULL DEFAULT '2026-05-14T10:04:00Z');",
 		"CREATE TABLE prediction_accuracy_daily (aggregate_date TEXT NOT NULL, market TEXT NOT NULL, league_id INTEGER NOT NULL, confidence_tier TEXT NOT NULL, model_version TEXT NOT NULL, total_predictions INTEGER NOT NULL, correct INTEGER NOT NULL, incorrect INTEGER NOT NULL, voided INTEGER NOT NULL, pending INTEGER NOT NULL, first_settled_at TEXT NOT NULL, last_settled_at TEXT NOT NULL, aggregated_at TEXT NOT NULL, PRIMARY KEY (aggregate_date, market, league_id, confidence_tier, model_version));",
 		"CREATE TABLE prediction_results (prediction_id TEXT PRIMARY KEY, fixture_id INTEGER NOT NULL, market TEXT NOT NULL, predicted TEXT NOT NULL, actual TEXT, is_correct INTEGER, settlement_status TEXT NOT NULL, probability REAL NOT NULL, confidence REAL NOT NULL, confidence_tier TEXT NOT NULL, lifecycle_stage_at_settlement TEXT NOT NULL, league_id INTEGER NOT NULL, settled_at TEXT NOT NULL);",
+		"CREATE TABLE model_evaluation_facts (prediction_id TEXT PRIMARY KEY, prediction_timestamp TEXT NOT NULL);",
 		"CREATE TABLE effective_model_evaluation_facts (prediction_id TEXT PRIMARY KEY, final_outcome TEXT NOT NULL, settlement_classification TEXT NOT NULL);",
 		"CREATE TABLE api_predictions (fixture_id INTEGER PRIMARY KEY, predicted_winner TEXT, win_or_draw INTEGER, under_over TEXT, percent_home REAL, percent_draw REAL, percent_away REAL, advice TEXT, captured_at TEXT NOT NULL);",
 		"CREATE TABLE odds (id INTEGER PRIMARY KEY, fixture_id INTEGER NOT NULL, bookmaker TEXT NOT NULL DEFAULT '', market TEXT NOT NULL, outcome TEXT NOT NULL, value REAL NOT NULL, fetched_at TEXT NOT NULL);",

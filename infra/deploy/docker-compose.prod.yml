@@ -35,6 +35,12 @@ services:
           memory: 6G
         reservations:
           memory: 1G
+    # Parallel query allocates its hash tables in /dev/shm
+    # (dynamic_shared_memory_type=posix), and Docker gives a container 64 MB of
+    # it. One parallel hash join may use work_mem x hash_mem_multiplier (2) x
+    # (workers + 1): 96 MB at work_mem=16MB with two workers, which fails with
+    # "could not resize shared memory segment". Keep this well above that.
+    shm_size: 1gb
     command:
       - postgres
       - -c
@@ -42,11 +48,15 @@ services:
       - -c
       - effective_cache_size=4GB
       - -c
-      - work_mem=16MB
+      - work_mem=8MB
       - -c
       - maintenance_work_mem=512MB
       - -c
       - max_connections=100
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+      - -c
+      - track_io_timing=on
     # NOTE: Postgres TLS is intentionally NOT enabled here. Enabling it requires
     # provisioning server.crt/server.key (plus client trust of the CA) and
     # switching .env.prod DATABASE_URL from sslmode=disable to verify-full.

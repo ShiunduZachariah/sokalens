@@ -292,8 +292,13 @@ for obsolete in "${OBSOLETE_DUMPS[@]}"; do
   # The .gpg is a backstop for a run killed hard enough to skip its own EXIT
   # trap. In normal operation the trap has already removed it; leaving one
   # behind would strand an encrypted copy of the database on the disk.
-  rm -f -- "$obsolete" "$obsolete.sha256" "$obsolete.gpg" "$obsolete.facts"
+  rm -f -- "$obsolete" "$obsolete.sha256" "$obsolete.gpg" "$obsolete.facts" "$obsolete.verified"
 done
+
+# Machine-readable proof is written only after restore validation and any
+# configured encrypted off-site upload succeeded. Never infer proof from mtime.
+sha256sum "$DUMP_FILE" > "$DUMP_FILE.verified"
+chmod 600 "$DUMP_FILE.verified"
 
 # Last, so a failure anywhere above leaves the next dump having to prove itself. The
 # plain path clears it too: its dump is proven, and the retention above just replaced

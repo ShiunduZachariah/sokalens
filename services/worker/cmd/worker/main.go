@@ -22,6 +22,7 @@ import (
 	"github.com/ShiunduZachariah/sports-prediction-platform/services/worker/internal/inplay"
 	"github.com/ShiunduZachariah/sports-prediction-platform/services/worker/internal/jobs"
 	"github.com/ShiunduZachariah/sports-prediction-platform/services/worker/internal/maintenance"
+	"github.com/ShiunduZachariah/sports-prediction-platform/services/worker/internal/marketing"
 	"github.com/ShiunduZachariah/sports-prediction-platform/services/worker/internal/matchstate"
 	"github.com/ShiunduZachariah/sports-prediction-platform/services/worker/internal/metrics"
 	"github.com/ShiunduZachariah/sports-prediction-platform/services/worker/internal/notifications"
@@ -304,6 +305,28 @@ func main() {
 			seourl.StableJobKey:   seourl.Handler{Sweep: seoSweep, Volatile: false, Logger: slog.Default()},
 		},
 	})
+	// A bad marketing setting switches marketing off rather than stopping the
+	// worker: ingestion, settlement and live polling matter more than a post.
+	marketingConfig, err := marketing.LoadConfig(os.Getenv)
+	if err != nil {
+		slog.Error("marketing disabled: invalid configuration", "error", err)
+		marketingConfig = marketing.Config{Mode: marketing.ModeOff}
+	}
+	if marketingConfig.Downgraded {
+		slog.Warn("marketing held to preview: MARKETING_MODE=live is only honoured with APP_ENV=production")
+	}
+	if marketingConfig.Enabled() {
+		slog.Info("marketing routine enabled", "mode", marketingConfig.Mode,
+			"telegram_channel", marketingConfig.TelegramChannelEnabled(), "facebook", marketingConfig.FacebookEnabled())
+	}
+	marketingService := marketing.NewService(marketingConfig, db, slog.Default())
+	marketingProcessor := ingestion.NewProcessor(ingestion.ProcessorOptions{
+		Jobs: jobRepo, Queue: marketing.Queue, WorkerID: runtimeWorkerID,
+		Handlers: map[string]ingestion.JobHandler{
+			marketing.TickJobKey: marketing.TickHandler{Service: marketingService},
+			marketing.LiveJobKey: marketing.LiveHandler{Service: marketingService},
+		},
+	})
 	personalizationProcessor := ingestion.NewProcessor(ingestion.ProcessorOptions{
 		Jobs: jobRepo, Queue: "personalization", WorkerID: runtimeWorkerID,
 		Handlers: map[string]ingestion.JobHandler{recommendationjobs.GenerateCandidatesJobKey: recommendationjobs.Job{Service: recommendationService}},
@@ -349,9 +372,11 @@ func main() {
 			maintenance.RawPredictionPruneJobKey: maintenance.RawPredictionJob{
 				Store: maintenance.NewRepository(db),
 				Policy: maintenance.Payload{
-					EnableDestructiveRetention: cfg.EnableRawPredictionDrain,
-					BatchSize:                  cfg.RawPredictionDrainBatchSize,
-					MaxBatches:                 cfg.RawPredictionDrainMaxBatches,
+					EnableDestructiveRetention:  cfg.EnableRawPredictionDrain,
+					RetentionReleaseSHA:         cfg.RetentionReleaseSHA,
+					ExpireUnresolvedPredictions: cfg.ExpireUnresolvedPredictions,
+					BatchSize:                   cfg.RawPredictionDrainBatchSize,
+					MaxBatches:                  cfg.RawPredictionDrainMaxBatches,
 				},
 			},
 			// Bounds matches still claiming to be in play hours after kickoff.
@@ -469,6 +494,7 @@ func main() {
 		PublicResultDetailHours:   cfg.PublicResultDetailHours,
 		RawResultRetentionDays:    cfg.RawResultRetentionDays,
 		InPlayStatisticsPoll:      cfg.InPlayStatisticsPollEnabled,
+		Marketing:                 marketingConfig.Enabled(),
 	})
 	if err != nil {
 		slog.Error("configure recurring scheduler", "error", err)
@@ -598,6 +624,9 @@ func main() {
 				return accaProcessor.ProcessOnce(ctx)
 			}},
 			{Queue: "billing", Concurrency: 1, ProcessOnce: billingProcessor.ProcessOnce},
+			// One slot: posts are few, and the ledger key is what prevents a
+			// double post, so two loops racing for the same key buys nothing.
+			{Queue: marketing.Queue, Concurrency: 1, ProcessOnce: marketingProcessor.ProcessOnce},
 			{Queue: "maintenance", Concurrency: 1, ProcessOnce: maintenanceProcessor.ProcessOnce},
 			// The notification workers report how many they delivered and the
 			// billing reconciler what it did with one event. Both are adapted to

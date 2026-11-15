@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"sync"
 	"time"
 )
 
@@ -32,6 +33,12 @@ type Repository struct {
 	db           any
 	maxAttempts  int
 	leaseSeconds int
+	leaseSweep   *leaseSweepState
+}
+
+type leaseSweepState struct {
+	mu   sync.Mutex
+	next time.Time
 }
 
 type NewJob struct {
@@ -67,7 +74,7 @@ func NewRepositoryWithDefaults(db any, maxAttempts int, leaseDuration time.Durat
 	if leaseDuration <= 0 {
 		leaseDuration = LeaseDuration
 	}
-	return Repository{db: db, maxAttempts: maxAttempts, leaseSeconds: int(leaseDuration.Seconds())}
+	return Repository{db: db, maxAttempts: maxAttempts, leaseSeconds: int(leaseDuration.Seconds()), leaseSweep: &leaseSweepState{}}
 }
 
 func (r Repository) Enqueue(ctx context.Context, job NewJob) (int64, error) {
@@ -155,17 +162,7 @@ func (r Repository) ClaimNext(ctx context.Context, queue, workerID string, now t
 	if err != nil {
 		return Job{}, false, err
 	}
-	if _, err := db.ExecContext(ctx, `
-UPDATE jobs
-SET
-  status = 'failed',
-  locked_by = NULL,
-  locked_at = NULL,
-  last_error = COALESCE(last_error, 'job lease expired after final attempt'),
-  updated_at = $1
-WHERE status = 'running'
-  AND locked_at <= $1::timestamptz - ($2 * interval '1 second')
-  AND attempts >= max_attempts`, now, r.leaseSeconds); err != nil {
+	if err := r.expireExhaustedLeases(ctx, db, now); err != nil {
 		return Job{}, false, err
 	}
 
@@ -208,6 +205,33 @@ RETURNING id, job_key, queue, payload, attempts, max_attempts, COALESCE(idempote
 		return Job{}, false, err
 	}
 	return job, true, nil
+}
+
+func (r Repository) expireExhaustedLeases(ctx context.Context, db repositoryDB, now time.Time) error {
+	if r.leaseSweep != nil {
+		r.leaseSweep.mu.Lock()
+		defer r.leaseSweep.mu.Unlock()
+		if now.Before(r.leaseSweep.next) {
+			return nil
+		}
+	}
+	if _, err := db.ExecContext(ctx, `
+UPDATE jobs
+SET
+  status = 'failed',
+  locked_by = NULL,
+  locked_at = NULL,
+  last_error = COALESCE(last_error, 'job lease expired after final attempt'),
+  updated_at = $1
+WHERE status = 'running'
+  AND locked_at <= $1::timestamptz - ($2 * interval '1 second')
+  AND attempts >= max_attempts`, now, r.leaseSeconds); err != nil {
+		return err
+	}
+	if r.leaseSweep != nil {
+		r.leaseSweep.next = now.Add(time.Minute)
+	}
+	return nil
 }
 
 func (r Repository) RenewLease(ctx context.Context, id int64, workerID string, now time.Time) error {
