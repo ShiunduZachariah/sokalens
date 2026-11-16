@@ -829,37 +829,103 @@ ORDER BY market ASC`)
 	return report, nil
 }
 
-// settledResultCandidatesCTE names the predictions of one day's fixtures that
-// can be settled at all, before anything reads their rows.
+// settledResultsCTE is the settled predictions of one day's fixtures, one row
+// per prediction, with everything the results page needs except the public id.
 //
-// A day's fixtures carry several hundred prediction versions each (708,818 for
-// 1,265 fixtures on 2026-11-14), and only a few percent are ever settled. The
-// results queries first joined every version to its result and evidence and
-// filtered afterwards: 387,000 rows read from an 11 GB table to keep 11,600,
-// 20 seconds cold against a 2,750 ms request budget, which is why the results
-// page said the day could not be loaded. Finding the settled ids by walking
-// engine_predictions' own index was still 387,000 index entries per request,
-// and 6 seconds whenever those pages had left memory.
+// The page used to read each settled prediction's row out of engine_predictions:
+// an 11 GB heap that batch jobs keep pushing out of memory, so a first request
+// for a busy day took over three seconds against a 2,750 ms budget and the page
+// said the day could not be loaded. Two rewrites that only narrowed which rows
+// were read still failed cold, because every settled row remained a random read
+// into that table.
 //
-// So the settled branch starts from prediction_results, which is small, using
-// the fixture_id it carries. GetHitRateReport already reads that column as the
-// prediction's fixture; if the two ever disagreed for a row, the queries below
-// would drop it, because they still join fixtures through the prediction and
-// apply the window there. The second branch is the one market that can settle
-// through evaluation evidence instead. Both are implied by the filter the
-// queries still apply. $1 and $2 are the day window.
-const settledResultCandidatesCTE = `settled_candidates AS (
-  SELECT pr.prediction_id AS id
+// The settlement row already holds what the page shows. prediction_results
+// copies the prediction's market, selection and confidence when it settles, and
+// its foreign key to engine_predictions cascades, so a result row cannot outlive
+// its prediction. The one thing it lacks is when the prediction was generated;
+// the evaluation ledger records that as prediction_timestamp, which is how
+// GetHitRateReport reads it too. A result with no ledger row (in-play
+// predictions are not evaluated) falls back to the prediction itself.
+//
+// btts_total_goals can also settle through evaluation evidence after retention
+// has pruned its result row. That ledger outlives the prediction, and the page
+// only lists predictions that still exist, so that branch joins the prediction
+// and checks its fixture and market again there.
+//
+// $1 and $2 are the day window, $3 the market filter or the empty string.
+const settledResultsCTE = `window_fixtures AS (
+  SELECT f.id, f.kickoff_at, f.status, f.home_team_id, f.away_team_id, f.league_id
   FROM fixtures f
+  WHERE f.kickoff_at >= $1 AND f.kickoff_at < $2
+), settled AS (
+  SELECT
+    pr.prediction_id,
+    pr.fixture_id,
+    pr.market,
+    pr.predicted AS prediction,
+    pr.confidence,
+    COALESCE(facts.prediction_timestamp, (
+      SELECT ep.generated_at FROM engine_predictions ep WHERE ep.id = pr.prediction_id
+    )) AS generated_at,
+    COALESCE(pr.actual, '') AS actual,
+    CASE
+      WHEN pr.settlement_status IN ('void', 'unsettled_data_unavailable') THEN 'void'
+      WHEN pr.settlement_status <> 'settled' THEN 'pending'
+      WHEN pr.is_correct THEN 'won'
+      ELSE 'lost'
+    END AS outcome
+  FROM window_fixtures f
   JOIN prediction_results pr ON pr.fixture_id = f.id
-  WHERE f.kickoff_at >= $1 AND f.kickoff_at < $2
-  UNION
-  SELECT ep.id
-  FROM fixtures f
-  JOIN engine_predictions ep ON ep.fixture_id = f.id AND ep.generated_at <= f.kickoff_at
-  WHERE f.kickoff_at >= $1 AND f.kickoff_at < $2
-    AND ep.market = 'btts_total_goals'
-    AND EXISTS (SELECT 1 FROM effective_model_evaluation_facts evidence WHERE evidence.prediction_id = ep.id)
+  LEFT JOIN model_evaluation_facts facts ON facts.prediction_id = pr.prediction_id
+  WHERE ($3 = '' OR pr.market = $3)
+
+  UNION ALL
+
+  SELECT
+    ep.id,
+    ep.fixture_id,
+    ep.market,
+    ep.prediction,
+    ep.confidence,
+    ep.generated_at,
+    COALESCE(evidence.final_outcome, '') AS actual,
+    CASE evidence.settlement_classification
+      WHEN 'correct' THEN 'won'
+      WHEN 'incorrect' THEN 'lost'
+      ELSE 'void'
+    END AS outcome
+  FROM window_fixtures f
+  JOIN effective_model_evaluation_facts evidence
+    ON evidence.fixture_id = f.id AND evidence.market = 'btts_total_goals'
+  JOIN engine_predictions ep
+    ON ep.id = evidence.prediction_id AND ep.fixture_id = f.id AND ep.market = 'btts_total_goals'
+  WHERE ($3 = '' OR ep.market = $3)
+    AND evidence.settlement_classification IN ('correct', 'incorrect', 'void')
+    AND NOT EXISTS (SELECT 1 FROM prediction_results pr WHERE pr.prediction_id = ep.id)
+), eligible AS (
+  SELECT
+    settled.*,
+    f.kickoff_at,
+    f.status,
+    f.home_team_id,
+    f.away_team_id,
+    f.league_id,
+    COUNT(*) OVER (PARTITION BY settled.fixture_id, settled.market, settled.generated_at) AS timestamp_versions
+  FROM settled
+  JOIN window_fixtures f ON f.id = settled.fixture_id
+  WHERE settled.generated_at <= f.kickoff_at
+), ranked AS (
+  -- The newest version wins. Two versions can only tie on the timestamp, and
+  -- only then is the public id read to break the tie as it always has.
+  SELECT
+    eligible.*,
+    ROW_NUMBER() OVER (
+      PARTITION BY fixture_id, market
+      ORDER BY generated_at DESC, CASE WHEN timestamp_versions > 1 THEN (
+        SELECT ep.public_id FROM engine_predictions ep WHERE ep.id = eligible.prediction_id
+      ) END DESC
+    ) AS result_rank
+  FROM eligible
 )`
 
 func (s Source) ListPredictionResults(ctx context.Context, filter httpserver.PredictionFilter) ([]httpserver.PredictionResultSummary, error) {
@@ -873,54 +939,18 @@ func (s Source) ListPredictionResults(ctx context.Context, filter httpserver.Pre
 		page = 1
 	}
 	rows, err := s.db.QueryContext(ctx, `
-WITH `+settledResultCandidatesCTE+`, ranked AS (
-  SELECT
-    ep.public_id,
-    ep.fixture_id,
-    f.home_team_id,
-    f.away_team_id,
-    f.league_id,
-    f.kickoff_at,
-    COALESCE(f.status, 'finished') AS match_status,
-    ep.market,
-    ep.prediction,
-    CASE WHEN pr.prediction_id IS NOT NULL THEN COALESCE(pr.actual, '')
-      ELSE COALESCE(evidence.final_outcome, '') END AS actual,
-    CASE
-      WHEN pr.prediction_id IS NOT NULL THEN CASE
-        WHEN pr.settlement_status IN ('void', 'unsettled_data_unavailable') THEN 'void'
-        WHEN pr.settlement_status <> 'settled' THEN 'pending'
-        WHEN pr.is_correct THEN 'won'
-        ELSE 'lost' END
-      WHEN evidence.settlement_classification = 'correct' THEN 'won'
-      WHEN evidence.settlement_classification = 'incorrect' THEN 'lost'
-      WHEN evidence.settlement_classification = 'void' THEN 'void'
-      ELSE 'pending'
-    END AS outcome,
-    COALESCE(ep.confidence, 0) * 100 AS confidence,
-    ROW_NUMBER() OVER (PARTITION BY ep.fixture_id, ep.market ORDER BY ep.generated_at DESC, ep.public_id DESC) AS result_rank
-  FROM settled_candidates candidate
-  JOIN engine_predictions ep ON ep.id = candidate.id
-  LEFT JOIN prediction_results pr ON pr.prediction_id = ep.id
-  LEFT JOIN effective_model_evaluation_facts evidence
-    ON evidence.prediction_id = ep.id AND ep.market = 'btts_total_goals'
-  JOIN fixtures f ON f.id = ep.fixture_id
-  WHERE f.kickoff_at >= $1 AND f.kickoff_at < $2
-    AND ($3 = '' OR ep.market = $3)
-    AND ep.generated_at <= f.kickoff_at
-    AND (pr.prediction_id IS NOT NULL OR evidence.settlement_classification IN ('correct', 'incorrect', 'void'))
-), page AS (
-  -- Rank and cut to one page before reading teams and leagues: a busy day has
-  -- 11,000 settled rows and the page shows 100 of them.
-  SELECT public_id, fixture_id, home_team_id, away_team_id, league_id, kickoff_at,
-         match_status, market, prediction, actual, outcome, confidence
+WITH `+settledResultsCTE+`, page AS (
+  -- Rank and cut to one page before reading teams, leagues and public ids: a
+  -- busy day has 11,000 settled rows and the page shows 100 of them.
+  SELECT prediction_id, fixture_id, home_team_id, away_team_id, league_id, kickoff_at,
+         status, market, prediction, actual, outcome, confidence
   FROM ranked
   WHERE result_rank = 1
   ORDER BY kickoff_at DESC, fixture_id, market
   LIMIT $4 OFFSET $5
 )
 SELECT
-  page.public_id,
+  (SELECT ep.public_id FROM engine_predictions ep WHERE ep.id = page.prediction_id) AS public_id,
   page.fixture_id,
   COALESCE(home.name, 'Home') || ' vs ' || COALESCE(away.name, 'Away') AS match_title,
   -- The two sides as their own columns. match_title stays: it is what the
@@ -933,7 +963,12 @@ SELECT
   COALESCE(l.name, 'Competition') AS league_name,
   COALESCE(l.country_code, 'International') AS country,
   page.kickoff_at,
-  page.match_status, page.market, page.prediction, page.actual, page.outcome, page.confidence
+  COALESCE(page.status, 'finished') AS match_status,
+  page.market,
+  page.prediction,
+  page.actual,
+  page.outcome,
+  COALESCE(page.confidence, 0) * 100 AS confidence
 FROM page
 LEFT JOIN teams home ON home.id = page.home_team_id
 LEFT JOIN teams away ON away.id = page.away_team_id
@@ -970,20 +1005,8 @@ func (s Source) CountPredictionResults(ctx context.Context, filter httpserver.Pr
 	dayStart, dayEnd := s.predictionWindow(filter)
 	var count int
 	err := s.db.QueryRowContext(ctx, `
-WITH `+settledResultCandidatesCTE+`
-SELECT COUNT(*) FROM (
-  SELECT DISTINCT ep.fixture_id, ep.market
-  FROM settled_candidates candidate
-  JOIN engine_predictions ep ON ep.id = candidate.id
-  LEFT JOIN prediction_results pr ON pr.prediction_id = ep.id
-  LEFT JOIN effective_model_evaluation_facts evidence
-    ON evidence.prediction_id = ep.id AND ep.market = 'btts_total_goals'
-  JOIN fixtures f ON f.id = ep.fixture_id
-  WHERE f.kickoff_at >= $1 AND f.kickoff_at < $2
-    AND ($3 = '' OR ep.market = $3)
-    AND ep.generated_at <= f.kickoff_at
-    AND (pr.prediction_id IS NOT NULL OR evidence.settlement_classification IN ('correct', 'incorrect', 'void'))
-) settled`, dayStart.UTC().Format(time.RFC3339), dayEnd.UTC().Format(time.RFC3339), filter.MarketKey).Scan(&count)
+WITH `+settledResultsCTE+`
+SELECT COUNT(*) FROM ranked WHERE result_rank = 1`, dayStart.UTC().Format(time.RFC3339), dayEnd.UTC().Format(time.RFC3339), filter.MarketKey).Scan(&count)
 	return count, err
 }
 

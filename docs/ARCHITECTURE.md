@@ -1,71 +1,68 @@
-# SokaLens: Design and Engineering of a Football Prediction Platform
+# SokaLens: Architecture and Performance of a Football Prediction Platform on One Server
 
 Shiundu Zachariah
 
 ## Abstract
 
 SokaLens publishes football predictions, accumulators and live in-play
-probabilities at [sokalens.com](https://sokalens.com) in seven languages. It
-covers tens of thousands of matches across more than a thousand competitions,
-grades every prediction it makes, and runs on a single server.
+probabilities at [sokalens.com](https://sokalens.com) in seven languages. Its
+catalogue holds about 51,000 matches, 13,800 teams and 1,200 competitions, and
+the whole platform runs on one 8 vCPU / 24 GB server.
 
-This paper describes the system and, for each part of it, the reasoning behind
-the design. The platform is a Go modular monolith with a Python inference
-engine behind it, and PostgreSQL is its only source of truth. A worker process
-does everything that touches the outside world: it buys data from a
-rate-limited provider, runs three competing prediction models, grades every
-prediction once the match ends and keeps a public track record that can be
-recomputed from stored rows. The web front end is server-rendered Next.js
-behind Cloudflare and Caddy. Releases reach production only through pull
-requests, a QA environment and automated gates.
+This paper describes the technology behind it and how it performs. The
+platform is a Go modular monolith with a Python inference engine behind it,
+PostgreSQL as its only source of truth, and a server-rendered Next.js front
+end behind Cloudflare and Caddy. Over a recent 30-day window that one server
+answered 3.78 million requests, with a peak of 489,000 in a day and 3,100 in a
+minute. The median origin response was 252 ms, the 95th percentile was 1.08 s,
+and 0.14% of responses were server errors. The paper explains the design
+choices behind those figures, reports where the measurements contradicted the
+design, and shows what was changed as a result.
 
 ## Introduction
 
-A football prediction is easy to publish and hard to stand behind. Anyone can
-post a pick before a match. Far fewer publish every pick they made afterwards,
-losses included, with an accuracy figure that someone else could recompute.
-SokaLens was built to be the second kind of product, and that decision
-explains more of its engineering than any choice of language or framework.
+SokaLens has an awkward performance problem. Its catalogue is large and almost
+all of it is requested rarely: tens of thousands of match pages, each in seven
+languages, most of them visited a handful of times. Its football data is
+bought from a provider that meters every request. Its readers are mostly on
+phones in Kenya, Nigeria, Ghana, Uganda, South Africa and Tanzania, often on
+slow networks. And everything runs on a single server that also hosts the QA
+environment and the monitoring stack, because the project is self-funded and
+built by one developer working with AI coding agents.
 
-Standing behind a number has technical consequences. A prediction has to be
-stored with the data it saw and the model that produced it, so predictions are
-versioned and never edited. It has to stop changing when the match starts, so
-it is locked at kick-off. It has to be graded whether or not the result
-flatters it, so every market closes at full time and the losses count. And
-when the data provider corrects itself, as it does when a goal is ruled out
-after review, the correction has to stay visible. In SokaLens each of these is
-enforced by the database or the worker, so none of them depends on anyone's
-good intentions.
+Three ideas carry most of the design.
 
-Two other pressures shaped the system as much as that one.
+1. **Nothing external sits on the path of a page load.** Only a background
+   worker calls the data provider, and the prediction models run when the
+   worker starts them. A page is rendered from state that is already in the
+   local database, so a slow provider or a failed model run makes data staler
+   and never makes a page slower.
+2. **One source of truth, kept cheap to read.** PostgreSQL holds every fact.
+   Redis and the search index hold copies that can be rebuilt. Most of the
+   performance work is therefore database work: partitioned snapshot tables,
+   bounded retention and query plans checked against production data.
+3. **Measure in production and believe the measurement.** Two findings in
+   this paper came from the system's own numbers and not from its design. The
+   edge cache answers fewer than 1% of page requests, and a change that fixed
+   stale match pages tripled the median response time until the queries behind
+   it were made cheap. Both are reported in §10.
 
-The first is cost. SokaLens is self-funded and built by one developer working
-with AI coding agents. Its football data comes from a provider that meters
-every request. Most of its readers are on phones in Kenya, Nigeria, Ghana,
-Uganda, South Africa and Tanzania, often on slow mobile networks. The system
-has to cover more than a thousand competitions for roughly the cost of one
-server, and still load quickly on a weak connection.
+A fourth requirement constrains all three. SokaLens publishes a track record,
+so a prediction is stored with the data and model that produced it, locked at
+kick-off and graded automatically, and a correction from the provider stays
+visible. Several performance shortcuts are ruled out by that: a prediction
+cannot be overwritten in place, and a cached page must not show a finished
+match as upcoming.
 
-The second is the pace of change. The product changes daily, and much of its
-code is written by agents that do not remember yesterday's mistake. A rule
-that lives in someone's memory does not survive that. The rules therefore live
-in the repository as tests, gates and written decisions, and the delivery
-pipeline applies them to every pull request.
-
-Honesty, cost and safe change pull in the same direction. They favour few
-moving parts, a single source of truth, nothing external on the path of a page
-load, and checks that fail loudly so that nobody has to notice a problem by
-eye. The rest of this paper shows how those preferences became a working
-system.
-
-**How to read it.** Each section says what was built and then why it was built
-that way. Sections 1 and 2 set out the constraints and the principles.
-Sections 3 to 5 give the system's shape and its data. Sections 6 to 8 follow
-football data in and predictions out, before and during a match. Sections 9
-and 10 cover what readers see and what they pay for. Sections 11 to 14 cover
-how the system is deployed, watched, secured and tested. The paper ends with
-the known risks, the work ahead and what building the system has taught. Where
-a design document and the code disagree, the paper follows the code.
+**How to read it.** Each section says what was built and why. Sections 1 and 2
+set out the constraints and the principles. Sections 3 to 5 give the system's
+shape, its technology and its data. Sections 6 to 8 follow football data in
+and predictions out, before and during a match. Section 9 covers the front
+end, and section 10 reports how the system performs in production. Sections 11
+to 15 cover accounts, deployment, operations, security and quality gates. The
+paper ends with the known risks, the work ahead and what building the system
+has taught. Where a design document and the code disagree, the paper follows
+the code.
 
 **Not covered:** commercial terms and mobile screen design. The full model
 specification is in
@@ -111,7 +108,7 @@ data, trust or search ranking that cannot be bought back.
    schema (ADR 0001), which is what makes a rollback safe. A migration that
    changes existing data takes a verified recovery point first.
 4. **QA first, then a staged promotion.** Every change runs on QA before
-   production, and production promotes the backend before the frontend (§11).
+   production, and production promotes the backend before the frontend (§12).
 5. **Edge features only when they pay.** Cloudflare does DNS, TLS and bot
    checks. Anything beyond that, such as HTML caching, email routing or an
    outside health check, was adopted only after measurement justified it.
@@ -155,8 +152,26 @@ requests read. This split is the central idea of the design: the request path
 depends only on the local database, so a provider outage or a failed model run
 degrades freshness rather than availability.
 
-The diagram leaves out backups and the QA stack on the same host (§11), and
-email, error reporting, the Telegram bot and the outside health check (§12).
+The diagram leaves out backups and the QA stack on the same host (§12), and
+email, error reporting, the Telegram bot and the outside health check (§13).
+
+**The technology in one table**
+
+| Layer | Technology | Why this one |
+| --- | --- | --- |
+| Edge | Cloudflare | DNS, TLS, bot checks and caching without running any of it |
+| Reverse proxy | Caddy, on the host | Automatic TLS at the origin and per-route cache headers in one small file |
+| Public web and admin | Next.js 16, React 19, TypeScript | Server-rendered HTML for crawlers and slow phones, with little client JavaScript |
+| API | Go 1.27, `pgx/v5` | Predictable latency and memory in one static binary |
+| Worker | Go 1.27 | Bounded pools and leased queues for ingestion, model runs and settlement |
+| Inference | Python 3, LightGBM models exported to JSON | The modelling ecosystem, kept off the request path |
+| System of record | PostgreSQL 18 | Transactions across everything a prediction touches, plus partitioning and JSONB |
+| Cache, queues, locks | Redis 8 | Disposable speed; nothing in it is a fact |
+| Search | Typesense | Typo-tolerant search over teams, leagues and fixtures, rebuilt from PostgreSQL |
+| Live transport | Server-sent events over HTTP | One-way data that passes proxies and resumes from a cursor |
+| Telemetry | Prometheus, Loki, Grafana, Sentry | Metrics, logs, dashboards and errors on the same host |
+| Runtime | Docker Compose | One host needs health checks and a deploy script, not an orchestrator |
+| CI and deploy | GitHub Actions on a self-hosted runner | The same Taskfile commands locally and in CI, inside the free allowance |
 
 ## 4. Components
 
@@ -172,7 +187,7 @@ system or supports releases.
 | Model lab | `services/model-lab` | Python | Offline training and backtesting on a historical match corpus. | No |
 | Public web | `apps/web` | Next.js 16, React 19, TypeScript | Server-rendered public site in seven locales, SEO metadata and structured data. | Yes |
 | Admin | `apps/admin` | Next.js 16 | Content, predictions, providers, users and read-only operations views. | Staff only |
-| Ops controller | `services/ops-controller`, `packages/ai-contract` | Go 1.27 | Observe-only incident detection, signed alert intake, Telegram bot and digests, AI-advised diagnosis (§12). | No |
+| Ops controller | `services/ops-controller`, `packages/ai-contract` | Go 1.27 | Observe-only incident detection, signed alert intake, Telegram bot and digests, AI-advised diagnosis (§13). | No |
 | Sentinel | `infra/sentinel` | Cloudflare Worker | Checks the public site and API health from outside the server. | No |
 | Release manifest | `tools/release-manifest` | Go | Builds an immutable release record: Git SHA, image digests, migration version and last-known-good release. Built and tested in CI, not yet wired into the deploy. | No |
 | Mobile | `apps/mobile` | Flutter | Planned; the folder is reserved. | — |
@@ -216,7 +231,7 @@ Typesense hold copies that can be thrown away and rebuilt.
 
 | Store | Role | Holds | If lost |
 | --- | --- | --- | --- |
-| PostgreSQL 18 | System of record (more than 90 migrations, about 160 tables) | Fixtures, teams and leagues; odds, live-state and statistics snapshots; engine predictions and settlements; in-play series; users and entitlements; the provider request ledger; incidents and budgets | Restore from the newest verified recovery point (§11) |
+| PostgreSQL 18 | System of record (more than 90 migrations, about 160 tables) | Fixtures, teams and leagues; odds, live-state and statistics snapshots; engine predictions and settlements; in-play series; users and entitlements; the provider request ledger; incidents and budgets | Restore from the newest verified recovery point (§12) |
 | Redis 8 | Cache, queues, locks | Hot read caches, job queues, distributed locks, rate-limit counters | Nothing beyond a cold cache |
 | Typesense | Search index | Teams, leagues and fixtures | Rebuilt from PostgreSQL with `syncsearchindex`; search falls back to PostgreSQL meanwhile |
 
@@ -277,16 +292,10 @@ space, while deleting the wrong one costs part of the record.
 
 **Queries are measured on production-sized data.** With hundreds of thousands
 of prediction rows, the query planner's choice matters more than the hardware.
-A team page once matched team aliases inside an `OR`, a shape PostgreSQL
-cannot serve from the home-team and away-team indexes, so it tested about
-90,000 fixtures to find a team's three matches. Resolving the alias ids first
-and filtering with plain lists took that query from 310 ms to 2 ms. The
-results page had the same kind of fault: it walked the large prediction table
-to find a small settled set, and it now starts from the settlement rows. Each
-such fix is measured with `EXPLAIN ANALYZE` against production data and
-checked to return the same rows as the query it replaces. The deploy's backend
-check also fails if the job-queue query falls back to scanning the whole table
-on a production-sized history.
+Each slow query is measured with `EXPLAIN ANALYZE` against production data,
+and its replacement is checked to return the same rows. §10 gives the
+measured results. The deploy's backend check also fails if the job-queue query
+falls back to scanning the whole table on a production-sized history.
 
 **Migrations are proven, not trusted.** CI applies every migration, then seeds
 and verifies the result against a PostgreSQL 18 service container.
@@ -600,6 +609,8 @@ whose render is the same for every anonymous visitor, and
 Cloudflare cache rule makes that HTML eligible, `max-age=0` keeps browsers
 revalidating, and CI purges cached HTML after each deploy. The stale windows
 are deliberately short, so a corrected prediction is never served for long.
+In production the edge answers very few page requests, for reasons that §10
+measures.
 
 **Freshness has a ceiling at every layer.** A cache that serves a stale copy
 while refreshing it in the background has no upper bound on how old that copy
@@ -608,8 +619,8 @@ later, to the first visitor after full time. The web app's API client therefore
 bounds staleness for every read that carries match state. A cached response
 within the same window the edge allows is served as usual. An older one is
 replaced by an uncached read, judged by the API's `Date` header, and the cached
-copy is used only if that read fails. Hot pages stay fast, and no reader sees a
-finished match described as upcoming.
+copy is used only if that read fails. No reader sees a finished match described
+as upcoming. The bound has a cost in response time, which §10 reports.
 
 **Components and images.** Shared components such as `PredictionRow` and
 `TeamCrest` render every list, so a fix lands everywhere at once. Team crests
@@ -651,7 +662,117 @@ that disagreed with the pages. So the fixes are structural too:
 contentful paint within 2.5 seconds on throttled 4G, and no horizontal scroll
 at 320 px.
 
-## 10. Accounts, tiers and entitlements
+## 10. Performance in production
+
+Performance work on SokaLens follows one rule: measure on the live system, and
+treat a number that disagrees with the design as a finding. The figures in
+this section come from two places. Traffic and response times are the CDN's
+own analytics over a recent 30-day window, where "origin response time" is how
+long the server took to answer as measured at the edge; the detailed
+breakdowns are sampled estimates. Query times are `EXPLAIN ANALYZE` results on
+production data.
+
+**The load**
+
+| Measure | Value |
+| --- | --- |
+| Requests served in 30 days | 3.78 million, about 126,000 a day |
+| Busiest day | 489,000 requests |
+| Busiest hour | 52,000 requests, about 15 a second |
+| Busiest minute | 3,100 requests, about 52 a second |
+| Data served | 70 GB |
+| Countries reached | 198 |
+| Server errors (5xx) | 0.14% of responses, against a target of under 0.5% |
+
+**The workload is crawl-shaped.** About two thirds of those requests came from
+verified automated clients: AI search agents (32%), SEO tools (11%), AI
+crawlers (11%), link previewers (6%) and search-engine crawlers (5%). The
+remaining third still includes unverified automation: the 30-day peak has the
+signature of a distributed scraper driving real browsers, not of a match day. This matters for
+performance more than the volume does. A crawler walks the whole catalogue and
+requests each URL once, so the system is asked for its rarest pages as often
+as its most popular ones, and it has to answer every one of them from cold.
+
+**Origin response time**
+
+| Requests | Median | 95th percentile | 99th percentile |
+| --- | --- | --- | --- |
+| All requests, 30 days | 252 ms | 1.08 s | 2.63 s |
+| HTML pages, 30 days | 269 ms | 1.20 s | 2.90 s |
+| JSON routes through the web app, most recent week | 441 ms | 928 ms | 1.51 s |
+
+On an ordinary day the median HTML response is between 210 and 320 ms and the
+95th percentile is between 0.5 and 1.0 s. Static JavaScript and CSS are served
+from the edge or answered in under 100 ms at the 95th percentile.
+
+**The edge cache answers almost nothing, and that is a property of the
+workload.** §9 describes short edge caching for anonymous HTML. Measured over
+the most recent week, the edge answered 0.85% of HTML requests from cache; 72%
+were misses and 22% were copies that had already expired. The cause is
+arithmetic. The catalogue has tens of thousands of pages in seven languages,
+the cache lifetime is five minutes, and most pages are requested less often
+than that. Edge caching protects the few hot pages on a match day, and the
+origin serves everything else. That finding redirected the effort: the time
+went into making the origin answer quickly, because the origin is what nearly
+every reader and crawler actually experiences.
+
+**Freshness has a measured price.** §9 also describes a bound on how old a
+cached match read may be, added because finished matches were being shown as
+upcoming. Before the bound, an old cached read was served immediately and
+refreshed in the background. After it, a read older than the allowed window
+waits for a fresh one. On a crawl-shaped workload almost every cached read is
+older than the window, so almost every render began to wait.
+
+| HTML origin response | Median | 95th percentile |
+| --- | --- | --- |
+| Before the bound | 210 to 320 ms | 0.5 to 1.0 s |
+| The six days after it shipped | 570 to 810 ms | 1.4 to 3.3 s |
+| After the query fixes below | 270 to 300 ms | 0.7 to 1.4 s |
+
+No other release reached production in those six days, so the bound is the
+most likely cause. The remedy was to keep the bound and make the fresh read
+cheap, which is the query work described next, together with giving the
+database the memory settings it was meant to have. The cost had moved from the
+background to the foreground, and it had been invisible while it was in the
+background.
+
+**Query plans**
+
+| Query | What was wrong | Before | After |
+| --- | --- | --- | --- |
+| Team page, recent matches | Team aliases were matched inside an `OR`, which PostgreSQL cannot serve from the home-team and away-team indexes, so it tested about 90,000 fixtures to find three | 310 ms, 159,429 buffers | 2 ms, 41 buffers |
+| Results page, list for a day | Every prediction version of the day's fixtures was joined and then filtered: 387,000 rows read from an 11 GB table to keep 11,600 | 19.7 s cold, 7.4 s warm | 0.65 to 1.0 s on the busiest day, 0.2 s on an ordinary one |
+
+The team-page query was also the statement PostgreSQL cancelled most often,
+and its CPU cost was pushing unrelated match-page queries past their
+deadline. Both replacements were checked to return the same rows as the
+queries they replaced, and neither needed a schema change.
+
+**Limits that keep one slow thing from becoming many**
+
+- The API cancels a read after 2,750 ms and an authentication request after
+  8 s. A slow query fails one request; it does not queue behind itself.
+- By default the API holds at most 20 database connections and the worker 12,
+  so a burst cannot starve PostgreSQL.
+- Worker jobs are leased and run in fixed pools, sliced by kick-off time, so
+  model runs take a bounded share of the database.
+- The live poll costs one provider request a minute however many matches are
+  in play, and in-play streams close after 30 minutes with an explicit
+  reconnect.
+
+**Perceived speed.** Server time is not the only thing a reader feels. On the
+date strip, the tapped day is highlighted in about 22 ms while the new day's
+list takes about a second to arrive, and the scroll position is kept. The
+response to the tap is immediate, so the wait is seen as loading and not as a
+frozen page.
+
+**What is still slow.** The 95th-percentile page response is above one second.
+JSON routes through the web app have a median of 441 ms, which is above the
+API's own p95 target once the extra hop and the large in-play payload are
+included. The busiest days' feeds still need up to 16 sequential API calls.
+These are the first items in the future work.
+
+## 11. Accounts, tiers and entitlements
 
 Revenue comes from a paid tier, built so prices can change without a code
 change.
@@ -686,7 +807,7 @@ everything to the owner first, and live posting is refused outside production.
 Where a channel offers no API for a format, the worker prepares the material
 and hands it to a person; it does not automate around the channel's rules.
 
-## 11. Infrastructure, deployment and CI/CD
+## 12. Infrastructure, deployment and CI/CD
 
 Production and QA share one VPS but are kept apart by separate Docker daemons,
 ports and credentials. Code reaches production only through pull requests and
@@ -801,7 +922,7 @@ vulnerability gate stayed red in between. Moving to a new minor version
 remains a deliberate change that CI checks across the workflow and the
 Dockerfiles. Tools that CI downloads and runs are treated the opposite way:
 the secret scanner is pinned by SHA-256, and no unverified copy is ever
-executed (§13).
+executed (§14).
 
 **Runners.** CI and deploy jobs run on a self-hosted runner, which keeps the
 project inside GitHub's free Actions allowance; on hosted runners the same
@@ -817,7 +938,7 @@ pressures will be in-play stream connections (§8) and PostgreSQL memory.
 Because the API is stateless and all state is in PostgreSQL, the next steps are
 a separate database host, then more API replicas behind Caddy.
 
-## 12. Observability and operations automation
+## 13. Observability and operations automation
 
 Telemetry flows into one operations controller that deduplicates, correlates
 and reports it. The controller only observes; AI may advise but never act; and
@@ -877,7 +998,7 @@ failures, about 15 minutes. It has its own bot token, an `OUT-OF-BAND` prefix
 and email as well as Telegram, and it deploys separately, so a broken deploy
 cannot take down the thing that reports broken deploys.
 
-## 13. Security
+## 14. Security
 
 Security rests on server-side enforcement, secrets that never enter the
 repository, reviewed changes and a permanent battery of invariant tests that
@@ -896,7 +1017,7 @@ every change must pass.
 | Change control | A pull request for every merge into `main` or `qa`; production deploys only from a green `main`; fork pull requests never run on the self-hosted runner |
 | Data at rest | Any off-site copy is encrypted on the host before upload, and an unencrypted upload is refused; dumps and test output are ignored by Git |
 | Privacy | Double opt-in and one-click unsubscribe, in line with Kenya's Data Protection Act 2019 |
-| AI | Advisory-only contract, pre-redacted evidence, one fixed endpoint, schema-validated output (§12) |
+| AI | Advisory-only contract, pre-redacted evidence, one fixed endpoint, schema-validated output (§13) |
 
 **The invariant battery.** `task security-invariants:test` runs authentication,
 authorisation, entitlement and billing assertions on every pull request that
@@ -924,14 +1045,14 @@ containing a single snapshot commit of the production branch, under AGPL-3.0.
 The private history, which holds operational detail, is never pushed there, and
 the public copy has Actions disabled, so its deploy workflow can never run.
 
-## 14. Quality attributes and gates
+## 15. Quality attributes and gates
 
 Quality is enforced by numbers and by invariant jobs in CI, so a change cannot
 ship a regression that only a careful human would have noticed.
 
 | Attribute | Target or mechanism |
 | --- | --- |
-| Latency | Read-heavy public API p95 under 300–500 ms; match and prediction API p95 under 500 ms; authentication p95 under 700 ms; a 3 s hard ceiling on any request. Checked with k6 load tests (`task load:api:slo`). |
+| Latency | Read-heavy public API p95 under 300–500 ms; match and prediction API p95 under 500 ms; authentication p95 under 700 ms; a 3 s hard ceiling on any request. Checked with k6 load tests (`task load:api:slo`). Figures measured in production are in §10. |
 | Reliability | Normal-load error rate under 0.5%; client cancellations and deliberate load-shedding reported separately |
 | Front end | Layout shift under 0.1; mobile largest contentful paint within 2.5 s on throttled 4G; no horizontal scroll at 320 px |
 | Accessibility | 4.5:1 text and 3:1 interface contrast in both themes; `aria-current`, `aria-pressed`, live regions and labelled charts |
@@ -953,7 +1074,7 @@ trusted.
 have regressed or never fully landed. A named, failing assertion is the only
 reviewer that checks every pull request without exception.
 
-## 15. Risks
+## 16. Risks
 
 The architecture is sound for its stage. The largest risks are not in the code
 paths: one host carries everything, search engines may treat a large
@@ -965,12 +1086,12 @@ programmatic catalogue harshly, and the published record has to stay credible.
 | Scaled-content classification by search engines | Thousands of programmatic fixture pages fit the pattern that search policy targets | Fixture archiving, one indexability function, permanent team pages, page-specific computed numbers and no shared filler text |
 | One blended accuracy figure | It mixes markets with different base rates and undermines trust | Per-market edge analysis |
 | In-play stream load at peak | Connections, not requests, become the limit | Polling fallback and bounded stream lifetime |
-| Gambling adjacency | App stores and payment providers review this category closely | "Not a bookmaker" positioning and 18+ treatment on every page; analysis language only |
+undefined| Gambling adjacency | App stores and payment providers review this category closely | "Not a bookmaker" positioning and 18+ treatment on every page; analysis language only |
 | Fast change assisted by AI agents | Many changes and little time to review each one | A pull request for every change, invariant gates, QA-first staged deploys |
 | Models promoted before live evidence | The holdout has no cup or continental ties, and Models B and C went live without settled live forecasts | Per-market fallback to the champion, a switch that turns them off, and shadow grading that keeps running |
 | Backups on the same host | A recovery point on the host does not survive losing the host | Encrypted off-site upload is built; it needs storage and a key configured, and an alert if it stops |
 
-## 16. Future work
+## 17. Future work
 
 In dependency order:
 
@@ -980,8 +1101,9 @@ In dependency order:
 3. Budget the in-play statistics poll, so corners, shots and fouls markets
    publish.
 4. Per-market accuracy and the edge analysis against bookmaker prices.
-5. Fewer sequential API calls for the busiest days' feeds, and a truthful
-   sitemap `lastmod` from real content-change times.
+5. Bring the 95th-percentile page response under one second, starting with
+   fewer sequential API calls for the busiest days' feeds, and publish a
+   truthful sitemap `lastmod` from real content-change times.
 6. Head-to-head pages and richer team pages.
 7. Move the ops controller from `observe` to `assist`.
 8. The Flutter app, Android first, on the same APIs and design tokens.
@@ -991,48 +1113,42 @@ In dependency order:
 ## Conclusion
 
 By the usual measures SokaLens is a small system: one server, two Go services
-and one database. What it has that small systems often lack is a set of
-commitments it cannot quietly break. A prediction cannot be edited after it is
-published. A match cannot end with a market left open. A request cannot be
-sent to the provider past the day's ceiling. A page and its sitemap entry
-cannot disagree about whether the page should be indexed. A release cannot
-reach production without passing QA and its gates. None of these depends on
-anyone remembering, because each one is a constraint in the schema, a check in
-the worker or a job in CI.
+and one database. On that server it answers millions of requests a month at a
+median of about a quarter of a second, runs three prediction models over tens
+of thousands of fixtures, streams live probabilities during matches, and
+ships every change through gates that no one has to remember to run.
 
 Three lessons from building it apply well beyond football.
 
 **The constraints did most of the design.** One server ruled out an
 orchestrator, a fleet of databases and a service per feature, and the system
-is easier to reason about as a result. A metered provider forced ingestion off
-the request path, and that same separation is what keeps a provider outage
-from taking a page down. A small budget did not make the engineering worse. It
-removed the options that would have added parts without adding value.
+is faster and easier to reason about as a result: no network hop between
+modules, one connection pool, one place where data lives. A metered provider
+forced ingestion off the request path, and that same separation is what keeps
+a provider outage from slowing a page down.
+
+**Production measurements beat design intentions.** The edge cache was
+designed as a performance feature and turned out to answer under 1% of page
+requests, because the workload is a crawl across a long tail and not a crowd
+on a few pages. A fix for stale pages was correct and still tripled the
+median response time, because it moved work from the background into the
+request. Neither showed up in a review or a test. Both showed up in the
+response-time percentiles within a day. The numbers are the part of the
+system that cannot be argued with, so they are collected first and believed
+first.
 
 **Almost every rule was first an incident.** The daily backfill cap exists
 because a restart once spent about ten times the plan in a day. One id per
 team exists because a guess once split a team's history in two. The bound on
 cached match state exists because finished matches were being shown as
-upcoming. The search invariants exist because fixes that had been marked done
-had quietly regressed. In each case the patch was the smaller part of the
-repair. The part that lasted was the check that makes the same failure either
-impossible or loud, and the habit behind it is to ask after every failure what
-would have caught it without a person.
-
-**Honesty is an engineering property.** It would have been easy to publish
-only the confident picks, to let old predictions drift toward the result, or
-to report accuracy only on the markets that flatter the models. Preventing
-that takes versioned rows, point-in-time inputs, automatic settlement and a
-hit rate with a fixed formula. This paper reports that the bookmaker's closing
-line still scores better than the best model on the market where the two can
-be compared, and the platform claims calibrated analysis and nothing more. A
-product that says so about its own models has earned some trust in the rest of
-what it publishes.
+upcoming. In each case the patch was the smaller part of the repair. The part
+that lasted was the check that makes the same failure either impossible or
+loud.
 
 The models will change, one server will eventually become two, and the mobile
-app is still to come. The property this design protects should outlast all of
-that: every number SokaLens publishes can be traced to the data and the model
-that produced it, and checked by someone who doubts it.
+app is still to come. What should carry over is the method: put nothing
+external in front of the reader, keep one source of truth and make it cheap to
+read, and let the measurements from production decide what to build next.
 
 ## Appendix A: Key decisions
 
@@ -1062,7 +1178,7 @@ The full records are in
 | Social posts are generated from published predictions and stored settlements, ledger first | Marketing shows the same record as the site, losses included, and a retry cannot post twice |
 | The Go toolchain floats on the patch release; tools CI downloads are pinned by checksum | Security fixes arrive without a manual bump, and only a verified binary ever runs |
 | Each destructive retention step needs its own flag, a dry run and a canary | Shipping a release should never delete data by itself |
-| Prior-season statistics are the universal cold-start fallback | Predictions stay available at the start of a season |
+undefined| Prior-season statistics are the universal cold-start fallback | Predictions stay available at the start of a season |
 
 ## Appendix B: Glossary
 
@@ -1085,4 +1201,6 @@ The full records are in
 | Sentinel | The outside Cloudflare Worker that reports when the site is down |
 | hreflang | Markup telling search engines which URL serves which language |
 | CLS, LCP | Core Web Vitals: cumulative layout shift and largest contentful paint |
+| p50, p95, p99 | The response time that 50%, 95% or 99% of requests were faster than; p50 is the median |
+| Origin response time | How long the server took to answer a request, measured at the CDN's edge |
 | SSE | Server-sent events: one-way streaming from server to browser |

@@ -405,6 +405,60 @@ func TestSourceListsEverySettledMarketForLocalMatchDay(t *testing.T) {
 	}
 }
 
+// The results page reads a settled prediction from its settlement row and the
+// evaluation ledger, and only goes to engine_predictions for the public id of
+// the rows it shows. This pins what that must not change: when a prediction
+// was generated still decides whether it counts, a result with no ledger row
+// still gets its timestamp from the prediction, and evidence for a prediction
+// retention has deleted is not listed.
+func TestSourceResultsReadSettlementRowsWithoutLosingTheirRules(t *testing.T) {
+	db := openEnginePredictionTestDB(t)
+	for _, stmt := range []string{
+		"INSERT INTO leagues (id, name) VALUES (1, 'Premier League');",
+		"INSERT INTO teams (id, name) VALUES (10, 'Arsenal'), (11, 'Chelsea');",
+		"INSERT INTO fixtures (id, league_id, home_team_id, away_team_id, kickoff_at, status) VALUES (100, 1, 10, 11, '2026-05-14T18:00:00Z', 'finished');",
+		"INSERT INTO engine_predictions (id, public_id, fixture_id, market, prediction, probability, confidence, confidence_tier, is_best_bet, lifecycle_stage, data_completeness, features_used, explanation, generated_at, superseded_at, gate_tier, horizon_eligible, embargo_active, model_version) VALUES " +
+			"('uuid-ledger', 1, 100, '1x2', 'home', 0.5, 0.61, 'medium', 0, 'PRE_MATCH', 0.8, '{}', '', '2026-05-14T10:00:00Z', NULL, 'FULL', 1, 0, 'python-engine-v1')," +
+			"('uuid-no-ledger', 2, 100, 'double_chance', 'home_draw', 0.7, 0.72, 'high', 0, 'PRE_MATCH', 0.8, '{}', '', '2026-05-14T11:00:00Z', NULL, 'FULL', 1, 0, 'python-engine-v1')," +
+			"('uuid-in-play', 3, 100, 'total_goals', 'over_2.5', 0.6, 0.66, 'medium', 0, 'IN_PLAY_1H', 0.8, '{}', '', '2026-05-14T18:20:00Z', NULL, 'FULL', 1, 0, 'python-engine-v1');",
+		"INSERT INTO prediction_results (prediction_id, fixture_id, market, predicted, actual, is_correct, settlement_status, probability, confidence, confidence_tier, lifecycle_stage_at_settlement, league_id, settled_at) VALUES " +
+			"('uuid-ledger', 100, '1x2', 'home', 'home', 1, 'settled', 0.5, 0.61, 'medium', 'PRE_MATCH', 1, '2026-05-14T20:00:00Z')," +
+			"('uuid-no-ledger', 100, 'double_chance', 'home_draw', 'away', 0, 'settled', 0.7, 0.72, 'high', 'PRE_MATCH', 1, '2026-05-14T20:00:00Z')," +
+			"('uuid-in-play', 100, 'total_goals', 'over_2.5', 'over_2.5', 1, 'settled', 0.6, 0.66, 'medium', 'IN_PLAY_1H', 1, '2026-05-14T20:00:00Z');",
+		// Only the first has a ledger row. The in-play one has none either, so
+		// its after-kick-off timestamp has to come from the prediction.
+		"INSERT INTO model_evaluation_facts (prediction_id, prediction_timestamp) VALUES ('uuid-ledger', '2026-05-14T10:00:00Z');",
+		// Evidence whose prediction no longer exists.
+		"INSERT INTO effective_model_evaluation_facts (prediction_id, fixture_id, market, final_outcome, settlement_classification) VALUES ('uuid-deleted', 100, 'btts_total_goals', 'yes_over_0.5', 'correct');",
+	} {
+		if _, err := db.ExecContext(context.Background(), stmt); err != nil {
+			t.Fatal(err)
+		}
+	}
+	source := NewSource(db)
+	source.now = func() time.Time { return time.Date(2026, 5, 15, 6, 0, 0, 0, time.UTC) }
+	filter := httpserver.PredictionFilter{Date: "2026-05-14", Timezone: "Africa/Nairobi", Limit: 100}
+
+	results, err := source.ListPredictionResults(context.Background(), filter)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 2 {
+		t.Fatalf("results = %+v, want the two pre-kick-off results only", results)
+	}
+	// Ordered by market within the fixture: 1x2, then double_chance.
+	if results[0].PredictionID != 1 || results[0].MarketKey != "1x2" || results[0].Selection != "home" || results[0].Outcome != "won" || results[0].Confidence != 61 {
+		t.Fatalf("ledger-timestamped result = %+v", results[0])
+	}
+	if results[1].PredictionID != 2 || results[1].MarketKey != "double_chance" || results[1].Outcome != "lost" || results[1].Actual != "away" {
+		t.Fatalf("result without a ledger row = %+v", results[1])
+	}
+	count, err := source.CountPredictionResults(context.Background(), filter)
+	if err != nil || count != 2 {
+		t.Fatalf("count = %d, err=%v, want 2", count, err)
+	}
+}
+
 func TestSourceReadsCorrectedBTTSWhenRawResultWasPruned(t *testing.T) {
 	db := openEnginePredictionTestDB(t)
 	for _, stmt := range []string{
@@ -413,7 +467,7 @@ func TestSourceReadsCorrectedBTTSWhenRawResultWasPruned(t *testing.T) {
 		"INSERT INTO fixtures (id, league_id, home_team_id, away_team_id, kickoff_at, status) VALUES (100, 1, 10, 11, '2026-05-14T18:00:00Z', 'finished');",
 		"INSERT INTO engine_predictions (id, public_id, fixture_id, market, prediction, probability, confidence, confidence_tier, is_best_bet, lifecycle_stage, data_completeness, features_used, explanation, generated_at, superseded_at, gate_tier, horizon_eligible, embargo_active, model_version) VALUES " +
 			"('uuid-btts', 77, 100, 'btts_total_goals', 'yes_over_0.5', 0.62, 0.68, 'medium', 0, 'PRE_MATCH', 0.82, '{}', '', '2026-05-14T10:00:00Z', NULL, 'FULL', 1, 0, 'python-engine-v1');",
-		"INSERT INTO effective_model_evaluation_facts (prediction_id, final_outcome, settlement_classification) VALUES ('uuid-btts', 'yes_over_0.5', 'correct');",
+		"INSERT INTO effective_model_evaluation_facts (prediction_id, fixture_id, market, final_outcome, settlement_classification) VALUES ('uuid-btts', 100, 'btts_total_goals', 'yes_over_0.5', 'correct');",
 	} {
 		if _, err := db.ExecContext(context.Background(), stmt); err != nil {
 			t.Fatal(err)
@@ -624,7 +678,7 @@ func openEnginePredictionTestDB(t *testing.T) *sql.DB {
 		"CREATE TABLE prediction_accuracy_daily (aggregate_date TEXT NOT NULL, market TEXT NOT NULL, league_id INTEGER NOT NULL, confidence_tier TEXT NOT NULL, model_version TEXT NOT NULL, total_predictions INTEGER NOT NULL, correct INTEGER NOT NULL, incorrect INTEGER NOT NULL, voided INTEGER NOT NULL, pending INTEGER NOT NULL, first_settled_at TEXT NOT NULL, last_settled_at TEXT NOT NULL, aggregated_at TEXT NOT NULL, PRIMARY KEY (aggregate_date, market, league_id, confidence_tier, model_version));",
 		"CREATE TABLE prediction_results (prediction_id TEXT PRIMARY KEY, fixture_id INTEGER NOT NULL, market TEXT NOT NULL, predicted TEXT NOT NULL, actual TEXT, is_correct INTEGER, settlement_status TEXT NOT NULL, probability REAL NOT NULL, confidence REAL NOT NULL, confidence_tier TEXT NOT NULL, lifecycle_stage_at_settlement TEXT NOT NULL, league_id INTEGER NOT NULL, settled_at TEXT NOT NULL);",
 		"CREATE TABLE model_evaluation_facts (prediction_id TEXT PRIMARY KEY, prediction_timestamp TEXT NOT NULL);",
-		"CREATE TABLE effective_model_evaluation_facts (prediction_id TEXT PRIMARY KEY, final_outcome TEXT NOT NULL, settlement_classification TEXT NOT NULL);",
+		"CREATE TABLE effective_model_evaluation_facts (prediction_id TEXT PRIMARY KEY, fixture_id INTEGER NOT NULL, market TEXT NOT NULL, final_outcome TEXT NOT NULL, settlement_classification TEXT NOT NULL);",
 		"CREATE TABLE api_predictions (fixture_id INTEGER PRIMARY KEY, predicted_winner TEXT, win_or_draw INTEGER, under_over TEXT, percent_home REAL, percent_draw REAL, percent_away REAL, advice TEXT, captured_at TEXT NOT NULL);",
 		"CREATE TABLE odds (id INTEGER PRIMARY KEY, fixture_id INTEGER NOT NULL, bookmaker TEXT NOT NULL DEFAULT '', market TEXT NOT NULL, outcome TEXT NOT NULL, value REAL NOT NULL, fetched_at TEXT NOT NULL);",
 	} {
