@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -16,8 +16,9 @@ const ARCHIVE_NAME = `gitleaks_${VERSION}_linux_x64.tar.gz`;
  * Served over file:// so the tests never touch the network, and so "the CDN is
  * down" is simply a URL that does not exist.
  */
-function fixture() {
+function fixture(t) {
   const dir = mkdtempSync(join(tmpdir(), "gitleaks-install-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
   const src = join(dir, "src");
   mkdirSync(src);
   writeFileSync(join(src, "gitleaks"), "#!/usr/bin/env bash\necho stub-gitleaks\n");
@@ -59,8 +60,8 @@ function run(f, { url = f.url, sha256 = f.sha256, attempts = "3" } = {}) {
   return { status, output, failedAttempts, installed: existsSync(join(f.bin, "gitleaks")) };
 }
 
-test("a verified download is installed and cached for the next run", () => {
-  const f = fixture();
+test("a verified download is installed and cached for the next run", t => {
+  const f = fixture(t);
   const { status, output, installed } = run(f);
   assert.equal(status, 0, output);
   assert.ok(installed);
@@ -68,9 +69,9 @@ test("a verified download is installed and cached for the next run", () => {
   assert.ok(existsSync(f.cached), "the verified archive should be kept in the tool cache");
 });
 
-test("a cached archive is used without touching the network", () => {
+test("a cached archive is used without touching the network", t => {
   // The whole point: a CDN outage after the first download is irrelevant.
-  const f = fixture();
+  const f = fixture(t);
   assert.equal(run(f).status, 0);
   const { status, output, installed } = run(f, { url: f.missingUrl, attempts: "1" });
   assert.equal(status, 0, output);
@@ -79,8 +80,8 @@ test("a cached archive is used without touching the network", () => {
   assert.doesNotMatch(output, /attempt/);
 });
 
-test("a cached archive that fails its checksum is discarded and fetched again", () => {
-  const f = fixture();
+test("a cached archive that fails its checksum is discarded and fetched again", t => {
+  const f = fixture(t);
   mkdirSync(join(f.cacheRoot, "gitleaks", VERSION), { recursive: true });
   writeFileSync(f.cached, "half a file");
   const { status, output, installed } = run(f);
@@ -94,8 +95,8 @@ test("a cached archive that fails its checksum is discarded and fetched again", 
   );
 });
 
-test("an archive that does not match the pin is never installed or cached", () => {
-  const f = fixture();
+test("an archive that does not match the pin is never installed or cached", t => {
+  const f = fixture(t);
   const { status, output, installed, failedAttempts } = run(f, { sha256: "0".repeat(64) });
   assert.equal(status, 1);
   assert.equal(installed, false, "an unverified binary must never land on PATH");
@@ -105,8 +106,8 @@ test("an archive that does not match the pin is never installed or cached", () =
   assert.match(output, /did NOT run, so this is not a pass/);
 });
 
-test("an unreachable release fails closed after the bounded retries", () => {
-  const f = fixture();
+test("an unreachable release fails closed after the bounded retries", t => {
+  const f = fixture(t);
   const { status, output, installed, failedAttempts } = run(f, { url: f.missingUrl });
   assert.equal(status, 1);
   assert.equal(installed, false);
@@ -114,8 +115,8 @@ test("an unreachable release fails closed after the bounded retries", () => {
   assert.match(output, /did NOT run, so this is not a pass/);
 });
 
-test("the archive must be pinned", () => {
-  const f = fixture();
+test("the archive must be pinned", t => {
+  const f = fixture(t);
   const { status, output } = run(f, { sha256: "" });
   assert.equal(status, 1);
   assert.match(output, /GITLEAKS_SHA256 is required/);

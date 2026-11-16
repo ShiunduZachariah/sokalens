@@ -98,3 +98,33 @@ Use histogram_quantile(0.95, sum by (le, route)
 
 Operational follow-up: schedule daily encrypted off-site recovery points with
 restore checks. An idle container named backup is not backup coverage.
+
+
+## Results query index
+
+Migration 000096 declares a partial covering index for the evidence-only
+BTTS/Total Goals results branch. It retains the existing raw-row identity
+checks and result semantics while avoiding random reads of the large heap.
+QA and production CI run ensure-results-index.sh before dbtool: it builds the
+exact declared index CONCURRENTLY, verifies its definition/readiness, and
+restarts only its own matching invalid build. The transactional migration then
+records an already-built index without a blocking table scan. Valid builds are
+reused; conflicting definitions fail closed. Existing application rollback
+remains compatible with this additive index. Deployment smoke exercises the
+previous settled day and rejects its rendered unavailable state even with
+HTTP 200.
+
+
+### Results pagination and the evaluation ledger
+
+The results source returns populated pages and their complete filtered totals in
+one SQL statement. Ranking is performed once; `COUNT(*) OVER ()` is evaluated
+before pagination. An empty page falls back to the count query so an out-of-range
+page still reports the day's total. Optional legacy sources retain their two-read
+contract, and the cache wrapper forwards combined reads without retaining results.
+
+Ledger timestamps use the prediction primary key rather than a day query joining
+the entire historical ledger. The settled CTE is materialized to evaluate each
+timestamp once. This preserves the prediction timestamp fallback, pre-kickoff
+eligibility, latest-version tie breaks, corrected evidence and identity checks.
+The public results JSON and request timeout are unchanged.

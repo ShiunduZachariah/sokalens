@@ -52,6 +52,9 @@ check_page() {
   if [ "$bytes" -lt "$MIN_BYTES" ]; then
     fail "$path -- 200 with correct title but only ${bytes}B (< ${MIN_BYTES}B)"; return
   fi
+  if [[ "$path" == /results* ]] && grep -qE '<h3[^>]*>This day[^<]*results could not be loaded</h3>' <<<"$body"; then
+    fail "$path -- settled-results request failed inside an HTTP 200 page"; return
+  fi
   pass "$path (${bytes}B, '$title')"
 }
 
@@ -102,12 +105,14 @@ check_page "/"                   "SokaLens"
 check_page "/predictions/today"  "Today"
 check_page "/acca-predictions"   "Acca predictions"
 check_page "/in-play"            "In-play"
+check_page "/results?day=yesterday" "prediction results"
 
 echo "--- api ---"
 check_api "/v1/matches/today?limit=50"     "matches"
 check_api "/v1/predictions/today?limit=20" "predictions"
 check_api "/v1/accas?limit=10"             "items"
 check_api "/v1/predictions/hit-rate"      "settled"
+check_api "/v1/predictions/results?day=yesterday&limit=20" "results"
 
 echo
 if [ "$FAILURES" -ne 0 ]; then

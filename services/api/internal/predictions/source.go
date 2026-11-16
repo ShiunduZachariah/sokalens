@@ -746,7 +746,10 @@ WITH raw_metadata AS MATERIALIZED (
     pr.market,
     pr.settlement_status,
     pr.is_correct,
-    COALESCE(facts.prediction_timestamp, (
+    COALESCE((
+      SELECT facts.prediction_timestamp FROM model_evaluation_facts facts
+      WHERE facts.prediction_id = pr.prediction_id
+    ), (
       SELECT ep.generated_at FROM engine_predictions AS ep WHERE ep.id = pr.prediction_id
     )) AS generated_at,
     f.kickoff_at
@@ -852,19 +855,25 @@ ORDER BY market ASC`)
 // only lists predictions that still exist, so that branch joins the prediction
 // and checks its fixture and market again there.
 //
+// Resolve ledger timestamps by the prediction primary key, once per settlement.
+// A flattened left join made PostgreSQL scan all historical facts for one day;
+// materialization also prevents repeated timestamp lookups during ranking.
 // $1 and $2 are the day window, $3 the market filter or the empty string.
 const settledResultsCTE = `window_fixtures AS (
   SELECT f.id, f.kickoff_at, f.status, f.home_team_id, f.away_team_id, f.league_id
   FROM fixtures f
   WHERE f.kickoff_at >= $1 AND f.kickoff_at < $2
-), settled AS (
+), settled AS MATERIALIZED (
   SELECT
     pr.prediction_id,
     pr.fixture_id,
     pr.market,
     pr.predicted AS prediction,
     pr.confidence,
-    COALESCE(facts.prediction_timestamp, (
+    COALESCE((
+      SELECT facts.prediction_timestamp FROM model_evaluation_facts facts
+      WHERE facts.prediction_id = pr.prediction_id
+    ), (
       SELECT ep.generated_at FROM engine_predictions ep WHERE ep.id = pr.prediction_id
     )) AS generated_at,
     COALESCE(pr.actual, '') AS actual,
@@ -876,7 +885,6 @@ const settledResultsCTE = `window_fixtures AS (
     END AS outcome
   FROM window_fixtures f
   JOIN prediction_results pr ON pr.fixture_id = f.id
-  LEFT JOIN model_evaluation_facts facts ON facts.prediction_id = pr.prediction_id
   WHERE ($3 = '' OR pr.market = $3)
 
   UNION ALL
@@ -929,6 +937,13 @@ const settledResultsCTE = `window_fixtures AS (
 )`
 
 func (s Source) ListPredictionResults(ctx context.Context, filter httpserver.PredictionFilter) ([]httpserver.PredictionResultSummary, error) {
+	rows, _, err := s.ListPredictionResultsPage(ctx, filter)
+	return rows, err
+}
+
+// ListPredictionResultsPage ranks the day once and returns its total from the
+// same statement. A populated page does not repeat the busy-day ranking query.
+func (s Source) ListPredictionResultsPage(ctx context.Context, filter httpserver.PredictionFilter) ([]httpserver.PredictionResultSummary, int, error) {
 	dayStart, dayEnd := s.predictionWindow(filter)
 	limit := filter.Limit
 	if limit <= 0 || limit > 100 {
@@ -943,7 +958,7 @@ WITH `+settledResultsCTE+`, page AS (
   -- Rank and cut to one page before reading teams, leagues and public ids: a
   -- busy day has 11,000 settled rows and the page shows 100 of them.
   SELECT prediction_id, fixture_id, home_team_id, away_team_id, league_id, kickoff_at,
-         status, market, prediction, actual, outcome, confidence
+         status, market, prediction, actual, outcome, confidence, COUNT(*) OVER () AS result_total
   FROM ranked
   WHERE result_rank = 1
   ORDER BY kickoff_at DESC, fixture_id, market
@@ -968,17 +983,19 @@ SELECT
   page.prediction,
   page.actual,
   page.outcome,
-  COALESCE(page.confidence, 0) * 100 AS confidence
+  COALESCE(page.confidence, 0) * 100 AS confidence,
+  page.result_total
 FROM page
 LEFT JOIN teams home ON home.id = page.home_team_id
 LEFT JOIN teams away ON away.id = page.away_team_id
 LEFT JOIN leagues l ON l.id = page.league_id
 ORDER BY page.kickoff_at DESC, page.fixture_id, page.market`, dayStart.UTC().Format(time.RFC3339), dayEnd.UTC().Format(time.RFC3339), filter.MarketKey, limit, (page-1)*limit)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 	results := []httpserver.PredictionResultSummary{}
+	var total int
 	for rows.Next() {
 		var result httpserver.PredictionResultSummary
 		var kickoffAt any
@@ -987,18 +1004,32 @@ ORDER BY page.kickoff_at DESC, page.fixture_id, page.market`, dayStart.UTC().For
 			&result.HomeTeam, &result.AwayTeam, &result.HomeTeamLogo, &result.AwayTeamLogo,
 			&result.LeagueName,
 			&result.Country, &kickoffAt, &result.MatchStatus, &result.MarketKey,
-			&result.Selection, &result.Actual, &result.Outcome, &result.Confidence,
+			&result.Selection, &result.Actual, &result.Outcome, &result.Confidence, &total,
 		); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		parsed, err := parsePredictionTimestamp(kickoffAt)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		result.KickoffAt = parsed
 		results = append(results, result)
 	}
-	return results, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+	if err := rows.Close(); err != nil {
+		return nil, 0, err
+	}
+	// A window total has no carrier when the page is empty. Preserve the total
+	// for out-of-range pages and empty days using the existing count contract.
+	if len(results) == 0 {
+		total, err = s.CountPredictionResults(ctx, filter)
+		if err != nil {
+			return nil, 0, err
+		}
+	}
+	return results, total, nil
 }
 
 func (s Source) CountPredictionResults(ctx context.Context, filter httpserver.PredictionFilter) (int, error) {

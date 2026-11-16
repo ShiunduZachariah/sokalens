@@ -17,7 +17,7 @@ actual_buffers="$(sql <<< "SELECT pg_size_bytes(current_setting('shared_buffers'
 [[ "$(sql <<< "SELECT count(*) FROM pg_extension WHERE extname='pg_stat_statements'")" == 1 ]]
 # This view fails if the extension exists but was never preloaded.
 sql <<< "SELECT count(*) FROM pg_stat_statements" >/dev/null
-[[ "$(sql <<< "SELECT count(*) FROM pg_index WHERE indexrelid IN ('idx_jobs_queued_depth'::regclass,'idx_fixtures_unresolved_retention'::regclass) AND indisvalid")" == 2 ]]
+[[ "$(sql <<< "SELECT count(*) FROM pg_index WHERE indexrelid IN ('idx_jobs_queued_depth'::regclass,'idx_fixtures_unresolved_retention'::regclass,'idx_engine_predictions_results_btts_cover'::regclass) AND indisvalid")" == 3 ]]
 # Tiny QA tables may legitimately prefer sequential scans. A production-size
 # job history must use the partial queue index rather than scan completed jobs.
 job_rows="$(sql <<< "SELECT reltuples::bigint FROM pg_class WHERE oid='jobs'::regclass")"

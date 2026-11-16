@@ -210,3 +210,20 @@ Running `ci-deploy.sh` from a laptop works and costs nothing, but it forfeits
 what this setup preserves: there is no run record, no gate matrix, and the
 tarball is built from a working tree that may not match `origin/main`.
 Uncommitted files ship silently. Keep that strictly for emergencies.
+
+
+## Secret scan checkout failures
+
+A GitHub “Repository not found” response during checkout is an access or
+transport failure; the scanner has not run. The secret-scan job retries the
+entire official checkout at most three times, pins the triggering commit,
+fetches full history, and leaves no checkout credentials in Git configuration.
+The last checkout attempt is fatal. Before installing or running the scanner,
+verify-scan-checkout.sh checks the exact commit, rejects shallow history and
+persisted authorization headers, and validates Git object connectivity.
+
+Persistent access failures remain red: check repository access and the job's
+contents: read permission. Never replace this gate with a partial-history scan,
+a privileged long-lived token, or an ignored scanner exit status. Installer
+checksum verification, redacted full-history scanning and the required CI gate
+remain independent requirements.

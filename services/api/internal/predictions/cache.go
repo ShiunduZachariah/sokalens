@@ -241,3 +241,19 @@ func (s *CachedSource) CountPredictionResults(ctx context.Context, filter httpse
 	}
 	return source.CountPredictionResults(ctx, filter)
 }
+
+// Forward the combined read without introducing a results cache or stale data.
+func (s *CachedSource) ListPredictionResultsPage(ctx context.Context, filter httpserver.PredictionFilter) ([]httpserver.PredictionResultSummary, int, error) {
+	if s == nil {
+		return nil, 0, errors.New("prediction results source unavailable")
+	}
+	if origin, ok := s.origin.(httpserver.PredictionResultsPageSource); ok {
+		return origin.ListPredictionResultsPage(ctx, filter)
+	}
+	rows, err := s.ListPredictionResults(ctx, filter)
+	if err != nil {
+		return nil, 0, err
+	}
+	total, err := s.CountPredictionResults(ctx, filter)
+	return rows, total, err
+}

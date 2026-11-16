@@ -281,3 +281,32 @@ func TestOneCallerGivingUpDoesNotFailTheOthers(t *testing.T) {
 	}
 	_ = winnerErr // the caller that gave up may legitimately see either outcome
 }
+
+type combinedResultsOrigin struct {
+	*resultsSource
+	calls int
+}
+
+func (s *combinedResultsOrigin) ListPredictionResultsPage(context.Context, httpserver.PredictionFilter) ([]httpserver.PredictionResultSummary, int, error) {
+	s.calls++
+	return []httpserver.PredictionResultSummary{{PredictionID: int64(s.calls), Outcome: "won"}}, 42, nil
+}
+func (s *combinedResultsOrigin) ListPredictionResults(context.Context, httpserver.PredictionFilter) ([]httpserver.PredictionResultSummary, error) {
+	panic("legacy results called")
+}
+func (s *combinedResultsOrigin) CountPredictionResults(context.Context, httpserver.PredictionFilter) (int, error) {
+	panic("legacy count called")
+}
+func TestCachedSourceForwardsCombinedResultsWithoutRetainingThem(t *testing.T) {
+	origin := &combinedResultsOrigin{resultsSource: &resultsSource{countingSource: &countingSource{}}}
+	cached := predictions.NewCachedSource(origin, newMemoryCache(), "test", time.Minute)
+	for i := 1; i <= 2; i++ {
+		rows, total, err := cached.ListPredictionResultsPage(context.Background(), httpserver.PredictionFilter{})
+		if err != nil || total != 42 || len(rows) != 1 || rows[0].PredictionID != int64(i) {
+			t.Fatalf("rows=%+v total=%d err=%v", rows, total, err)
+		}
+	}
+	if origin.calls != 2 {
+		t.Fatalf("origin calls=%d", origin.calls)
+	}
+}

@@ -564,6 +564,7 @@ SWAPPED=1
 chmod 600 "$DEPLOY_DIR/.env.prod"
 
 cd "$DEPLOY_DIR"
+bash infra/deploy/ensure-results-index.sh sports-prediction-platform
 export DATABASE_URL
 DATABASE_URL="$(grep '^DATABASE_URL=' .env.prod | head -1 | cut -d= -f2- | sed 's|@postgres:5432|@127.0.0.1:5433|')"
 /home/deploy/dbtool-linux -mode up -migrations infra/db/migrations -timeout 120s

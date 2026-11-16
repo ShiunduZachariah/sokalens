@@ -78,6 +78,12 @@ type PredictionResultsSource interface {
 	CountPredictionResults(context.Context, PredictionFilter) (int, error)
 }
 
+// PredictionResultsPageSource returns a page and its total from one read.
+// Sources that only implement PredictionResultsSource retain the legacy path.
+type PredictionResultsPageSource interface {
+	ListPredictionResultsPage(context.Context, PredictionFilter) ([]PredictionResultSummary, int, error)
+}
+
 // ProviderPredictionSource exposes API-Football native predictions as a
 // separately-marked fallback for fixtures without our own prediction.
 type ProviderPredictionSource interface {
@@ -2021,15 +2027,18 @@ func predictionResultsHTTPHandler(auth AdminAuthenticator, predictions Predictio
 			writeJSON(w, http.StatusBadRequest, apiError("invalid_prediction_filter", "Prediction filter is invalid."))
 			return
 		}
-		rows, err := source.ListPredictionResults(r.Context(), filter)
+		var rows []PredictionResultSummary
+		var total int
+		if paged, ok := predictions.(PredictionResultsPageSource); ok {
+			rows, total, err = paged.ListPredictionResultsPage(r.Context(), filter)
+		} else {
+			rows, err = source.ListPredictionResults(r.Context(), filter)
+			if err == nil {
+				total, err = source.CountPredictionResults(r.Context(), filter)
+			}
+		}
 		if err != nil {
 			slog.Error("prediction results unavailable", "error", err)
-			writeJSON(w, http.StatusServiceUnavailable, apiError("prediction_results_unavailable", "Prediction results are temporarily unavailable."))
-			return
-		}
-		total, err := source.CountPredictionResults(r.Context(), filter)
-		if err != nil {
-			slog.Error("prediction results count unavailable", "error", err)
 			writeJSON(w, http.StatusServiceUnavailable, apiError("prediction_results_unavailable", "Prediction results are temporarily unavailable."))
 			return
 		}

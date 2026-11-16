@@ -457,6 +457,28 @@ func TestSourceResultsReadSettlementRowsWithoutLosingTheirRules(t *testing.T) {
 	if err != nil || count != 2 {
 		t.Fatalf("count = %d, err=%v, want 2", count, err)
 	}
+	// The combined read reports the entire filtered day, including pages with
+	// no carrier row for COUNT OVER. Totals must not shrink to the page length.
+	for _, tc := range []struct {
+		page, limit, wantRows, wantTotal int
+		market                           string
+	}{
+		{1, 1, 1, 2, ""}, {2, 1, 1, 2, ""}, {3, 1, 0, 2, ""},
+		{1, 1, 1, 1, "double_chance"}, {1, 1, 0, 0, "corners"},
+	} {
+		f := filter
+		f.Page = tc.page
+		f.Limit = tc.limit
+		f.MarketKey = tc.market
+		rows, total, err := source.ListPredictionResultsPage(context.Background(), f)
+		if err != nil || len(rows) != tc.wantRows || total != tc.wantTotal {
+			t.Fatalf("page=%d market=%q rows=%d total=%d err=%v", tc.page, tc.market, len(rows), total, err)
+		}
+		if tc.market == "" && len(rows) > 0 && rows[0].PredictionID != int64(tc.page) {
+			t.Fatalf("page=%d prediction=%d", tc.page, rows[0].PredictionID)
+		}
+	}
+
 }
 
 func TestSourceReadsCorrectedBTTSWhenRawResultWasPruned(t *testing.T) {

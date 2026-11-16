@@ -1361,3 +1361,56 @@ func TestRequestLogIncludesResponseStatus(t *testing.T) {
 func intPtr(value int) *int {
 	return &value
 }
+
+// A source with a combined read must never fall back to the two legacy reads,
+// including when its single read fails.
+type combinedResultsSource struct {
+	fakePredictionSource
+	filter PredictionFilter
+	calls  int
+	fail   error
+}
+
+func (s *combinedResultsSource) ListPredictionResults(context.Context, PredictionFilter) ([]PredictionResultSummary, error) {
+	panic("unexpected legacy results read")
+}
+func (s *combinedResultsSource) CountPredictionResults(context.Context, PredictionFilter) (int, error) {
+	panic("unexpected legacy count read")
+}
+func (s *combinedResultsSource) ListPredictionResultsPage(_ context.Context, f PredictionFilter) ([]PredictionResultSummary, int, error) {
+	s.calls++
+	s.filter = f
+	return []PredictionResultSummary{{PredictionID: 55, MatchID: 42, Outcome: "won"}}, 99, s.fail
+}
+func TestPredictionResultsUsesCombinedReadAndFailsClosed(t *testing.T) {
+	source := &combinedResultsSource{}
+	handler := predictionResultsHandler(source)
+	for _, fail := range []bool{false, true} {
+		if fail {
+			source.fail = errors.New("database unavailable")
+		}
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/v1/predictions/results?date=2026-11-15&timezone=Africa%2FNairobi&page=2&limit=5&market=1x2", nil))
+		if fail {
+			if w.Code != http.StatusServiceUnavailable {
+				t.Fatalf("failed read status=%d", w.Code)
+			}
+		} else {
+			var body struct {
+				Total, Page, Limit int
+				Results            []struct {
+					PredictionID int64 `json:"prediction_id"`
+				}
+			}
+			if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+				t.Fatal(err)
+			}
+			if w.Code != 200 || body.Total != 99 || body.Page != 2 || body.Limit != 5 || len(body.Results) != 1 {
+				t.Fatalf("response=%s", w.Body.String())
+			}
+		}
+	}
+	if source.calls != 2 || source.filter.Page != 2 || source.filter.Limit != 5 || source.filter.MarketKey != "1x2" || source.filter.Timezone != "Africa/Nairobi" {
+		t.Fatalf("calls=%d filter=%+v", source.calls, source.filter)
+	}
+}

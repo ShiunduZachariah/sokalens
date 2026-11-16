@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS idx_engine_predictions_results_btts_cover;

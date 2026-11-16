@@ -534,6 +534,7 @@ jobs:
         # The retry wrappers decide whether a security gate failed on a finding
         # or on a non-answer. Their tests have to run, or that line can drift.
         run: |
+          bash -n scripts/ci/verify-scan-checkout.sh
           bash -n scripts/ci/install-gitleaks.sh
           bash -n scripts/ci/npm-audit-with-retry.sh
           node --test scripts/ci/*.test.mjs
@@ -620,10 +621,45 @@ jobs:
     runs-on: ${{ needs.detect.outputs.runner }}
     timeout-minutes: 15
     needs: detect
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      # Checkout retries are transport recovery only. The final attempt is
+      # fatal, and no scanner runs before complete-history verification.
+      - name: Checkout full history
+        id: scan_checkout_1
+        continue-on-error: true
+        uses: actions/checkout@v4
         with:
+          ref: ${{ github.sha }}
           fetch-depth: 0
+          persist-credentials: false
+      - name: Wait before retrying checkout
+        if: steps.scan_checkout_1.outcome == 'failure'
+        run: sleep 15
+      - name: Retry full-history checkout
+        id: scan_checkout_2
+        if: steps.scan_checkout_1.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Wait before the final checkout attempt
+        if: steps.scan_checkout_1.outcome == 'failure' && steps.scan_checkout_2.outcome == 'failure'
+        run: sleep 45
+      - name: Final full-history checkout attempt
+        if: steps.scan_checkout_1.outcome == 'failure' && steps.scan_checkout_2.outcome == 'failure'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify immutable checkout and complete history
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: bash scripts/ci/verify-scan-checkout.sh "$EXPECTED_SHA"
       - name: Install gitleaks
         env:
           # Bump both together. The SHA-256 is the linux_x64 line of the

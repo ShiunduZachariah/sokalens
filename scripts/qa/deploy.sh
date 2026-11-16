@@ -85,6 +85,9 @@ for _ in $(seq 1 60); do
   sleep 2
 done
 
+log "prebuilding the results index without blocking writers"
+bash infra/deploy/ensure-results-index.sh "$PROJECT"
+
 log "applying migrations"
 (
   set -a

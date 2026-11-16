@@ -45,7 +45,7 @@ MIGRATIONS = ROOT / "infra" / "db" / "migrations"
 # 000092 stores all-market shadow forecasts against the same registry.
 # 000093 moves the champion to python-engine-v3 in that registry.
 # 000094 is the marketing ledger; 000095 adds bounded backend maintenance.
-NEW_VERSIONS = ("000033", "000034", "000035", "000036", "000037", "000038", "000039", "000040", "000041", "000042", "000043", "000044", "000045", "000056", "000057", "000058", "000059", "000060", "000061", "000064", "000065", "000066", "000067", "000068", "000069", "000070", "000071", "000072", "000073", "000076", "000077", "000078", "000079", "000080", "000081", "000082", "000085", "000086", "000087", "000090", "000091", "000092", "000093", "000094", "000095")
+NEW_VERSIONS = ("000033", "000034", "000035", "000036", "000037", "000038", "000039", "000040", "000041", "000042", "000043", "000044", "000045", "000056", "000057", "000058", "000059", "000060", "000061", "000064", "000065", "000066", "000067", "000068", "000069", "000070", "000071", "000072", "000073", "000076", "000077", "000078", "000079", "000080", "000081", "000082", "000085", "000086", "000087", "000090", "000091", "000092", "000093", "000094", "000095", "000096")
 
 
 def run(*args: str, env: dict[str, str] | None = None, capture: bool = False) -> str:
@@ -236,6 +236,19 @@ FROM engine_predictions prediction
 JOIN fixtures ON fixtures.id = prediction.fixture_id
 WHERE prediction.id = '{unavailable_v1_prediction_id}'::uuid
 """)
+            # Exercise the online prebuild used by CI before the transactional
+            # migration sees CREATE INDEX IF NOT EXISTS. This container is
+            # disposable; no production or QA database URL can be supplied.
+            index_ddl = (MIGRATIONS / "000096_results_btts_cover.up.sql").read_text()
+            index_ddl = "\n".join(line for line in index_ddl.splitlines() if not line.lstrip().startswith("--"))
+            psql(container, index_ddl.replace("CREATE INDEX IF NOT EXISTS", "CREATE INDEX CONCURRENTLY IF NOT EXISTS"))
+            index_state_sql = (ROOT / "infra/deploy/ensure-results-index.sh").read_text().split("sql <<'SQL'\n", 1)[1].split("\nSQL\n", 1)[0]
+            if psql(container, index_state_sql) != "valid":
+                raise AssertionError("online results index definition/readiness differs")
+            psql(container, "VACUUM engine_predictions")
+            index_plan = psql(container, "SET enable_seqscan=off; EXPLAIN (FORMAT JSON) SELECT id,fixture_id,market,generated_at,prediction,confidence FROM engine_predictions WHERE market='btts_total_goals'")
+            if "Index Only Scan" not in index_plan or "idx_engine_predictions_results_btts_cover" not in index_plan:
+                raise AssertionError("results metadata is not covered by the declared index")
             before_hash = psql(container, legacy_hash_sql(prediction_id))
 
             dbtool(database_url, "up", expansion)
@@ -837,6 +850,8 @@ WHERE component='ops-controller' AND environment='test'
             psql(container, "DELETE FROM ops_component_version_transitions WHERE component='ops-controller' AND environment='test'", expect_failure=True)
 
             dbtool(database_url, "down", expansion)
+            if psql(container, index_state_sql) != "missing":
+                raise AssertionError("results covering index remained after rollback")
             rollback_hash = psql(container, legacy_hash_sql(prediction_id))
             if before_hash != rollback_hash:
                 raise AssertionError("legacy engine_predictions payload changed during rollback")
@@ -885,6 +900,8 @@ WHERE version LIKE '000033_%'
                 raise AssertionError("effective model evidence view was not restored")
             if psql(container, "SELECT to_regclass('public.fixture_identity_aliases') IS NOT NULL") != "t":
                 raise AssertionError("fixture identity alias table was not restored")
+            if psql(container, index_state_sql) != "valid":
+                raise AssertionError("results index was not restored by migration up")
             final_hash = psql(container, legacy_hash_sql(prediction_id))
             if before_hash != final_hash:
                 raise AssertionError("legacy engine_predictions payload changed after up/down/up")
